@@ -1,0 +1,38 @@
+libfolding (1.1) cosmic; urgency=medium
+
+  [ asr ]
+  * new tests
+  * towards git+launchpad
+  * towards git+launchpad
+  * towards git+launchpad
+  * towards git+launchpad
+  * include launchpad
+  * update debian folder
+
+  [ Alban Siffer ]
+  * add publi
+  * change dependency libarmadillo8 -> libarmadillo9
+  * add snap
+  * add snap libarmadillo9 -> libarmadillo
+  * only libarmadillo-dev in requested packages
+  * snap badge
+  * before release tag
+
+  [ asr ]
+  * UNRELEASED
+
+ -- asr <asr@PORT-120>  Fri, 15 Feb 2019 11:19:02 +0100
+
+libfolding (1.1) unstable; urgency=medium
+
+  * Team upload.
+  * There were problems with the variance computation. 
+  * The use of intel tbb is not relevant (libarmadillo is good too)
+
+ -- Alban Siffer <alban.siffer@irisa.fr>  Thu, 12 Jul 2018 13:28:03 +0200
+
+libfolding (1.0) unstable; urgency=medium
+
+  * Initial release (Closes: #nnnn)  <nnnn is the bug number of your ITP>
+
+ -- Alban Siffer <alban.siffer@irisa.fr>  Wed, 06 Jun 2018 15:51:50 +0200
