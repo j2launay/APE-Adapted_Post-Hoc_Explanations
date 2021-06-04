@@ -11,9 +11,10 @@ from storeExperimentalInformations import store_experimental_informations, prepa
 import baseGraph
 import ape_tabular
 import warnings
-
 import pickle
 import pyfolding as pf
+from keras.models import Sequential
+from keras.layers import Dense
 
 if __name__ == "__main__":
     # Filter the warning from matplotlib
@@ -21,17 +22,17 @@ if __name__ == "__main__":
     # Datasets used for the experiments
     dataset_names = ["generate_blob", "generate_moons", "generate_blobs", "artificial", "titanic", "adult", "blood", "diabete", "iris"]
     # array of the models used for the experiments
-    models = [RandomForestClassifier(n_estimators=20), LogisticRegression(),
+    models = [Sequential(),
+                RandomForestClassifier(n_estimators=20), LogisticRegression(),
                 GradientBoostingClassifier(n_estimators=20, learning_rate=1.0),
                 tree.DecisionTreeClassifier(), 
-                #RandomForestClassifier(n_estimators=20),#OneVsRestClassifier(svm.SVC(kernel='linear', probability=True)),
-                #svm.SVC(kernel='linear', probability=True),
                 RidgeClassifier(), 
-                VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB())], voting="soft"),
+                VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('rc', RidgeClassifier())], voting="hard"),
                 MLPClassifier(random_state=1), 
                 LogisticRegression()]
+
     # Number of instances explained by each model on each dataset
-    max_instance_to_explain = 3
+    max_instance_to_explain = 50
     # Print explanation result
     illustrative_example = False
     """ All the variable necessaries for generating the graph results """
@@ -55,8 +56,25 @@ if __name__ == "__main__":
             # Split the dataset inside train and test set (50% each set)
             dataset, black_box, x_train, x_test, y_train, y_test = preparing_dataset(x, y, dataset_name, model)
             print("###", model_name, "training on", dataset_name, "dataset.")
-            black_box = black_box.fit(x_train, y_train)
-            print('### Accuracy:', sum(black_box.predict(x_test) == y_test)/len(y_test))
+            if 'Sequential' in model_name:
+                print("len", len(x_train[0]))
+                black_box.add(Dense(12, input_dim=len(x_train[0]), activation='relu'))
+                black_box.add(Dense(8, activation='relu'))
+                black_box.add(Dense(1, activation='sigmoid'))
+                black_box.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+                black_box.fit(x_train, y_train, epochs=50, batch_size=10)
+                def predict(x):
+                    if x.shape[0] > 1:
+                        return np.asarray([prediction[0] for prediction in black_box.predict_classes(x)])
+                    return black_box.predict_classes(x)[0]
+                def score(x, y):
+                    return sum(predict(x) == y)/len(y)
+            else:
+                black_box = black_box.fit(x_train, y_train)
+                predict = black_box.predict
+                score = black_box.score
+            #print('### Accuracy:', sum(black_box.predict(x_test) == y_test)/len(y_test))
+            print('### Accuracy:', sum(predict(x_test) == y_test)/len(y_test))
             cnt = 0
             for instance_to_explain in x_test:
                 if cnt == max_instance_to_explain:
@@ -64,7 +82,7 @@ if __name__ == "__main__":
                 print("### Instance number:", cnt + 1, "over", max_instance_to_explain)
                 print("### Models ", nb_model + 1, "over", len(models))
                 print("instance to explain:", instance_to_explain)
-                explainer = ape_tabular.ApeTabularExplainer(x_train, class_names, black_box.predict, black_box.predict_proba, 
+                explainer = ape_tabular.ApeTabularExplainer(x_train, class_names, predict, 
                                                             continuous_features=continuous_features, 
                                                             categorical_features=categorical_features, categorical_values=categorical_values, 
                                                             feature_names=dataset.feature_names, categorical_names=categorical_names,
@@ -81,17 +99,17 @@ if __name__ == "__main__":
                 color = ['black', 'red', 'green', 'blue', 'cyan', 'yellow']
                 
                 graph_coverage = baseGraph.BaseGraph(title="Results of coverage for Local Surrogate", y_label="Coverage", 
-                                        model=model_name, accuracy=black_box.score(x_test, y_test), 
+                                        model=model_name, accuracy=score(x_test, y_test), 
                                         dataset=dataset_name, threshold=threshold_interpretability)
                 graph_coverage.show_coverage(model=interpretability_name, mean_coverage=experimental_informations.final_coverage, color=color[:len(interpretability_name)], title="coverage multiple ls")
                 
                 graph_roc = baseGraph.BaseGraph(title="Results of accuracy score for Local Surrogate", y_label="Precision", 
-                                        model=model_name, accuracy=black_box.score(x_test, y_test), 
+                                        model=model_name, accuracy=score(x_test, y_test), 
                                         dataset=dataset_name, threshold=threshold_interpretability)
                 graph_roc.show_coverage(model=interpretability_name, mean_coverage=experimental_informations.final_precision, color=color[:len(interpretability_name)], title="Precision multiple ls")
                 
                 graph_f1 = baseGraph.BaseGraph(title="Results of F1 score for Local Surrogate", y_label="F1 score", 
-                                        model=model_name, accuracy=black_box.score(x_test, y_test), 
+                                        model=model_name, accuracy=score(x_test, y_test), 
                                         dataset=dataset_name, threshold=threshold_interpretability)
                 graph_f1.show_coverage(model=interpretability_name, mean_coverage=experimental_informations.final_f1, color=color[:len(interpretability_name)], title="f1  multiple ls")
                 
@@ -102,26 +120,26 @@ if __name__ == "__main__":
             plt.pause(1)
             plt.close('all')
             graph_models_coverage = baseGraph.BaseGraph(title="Results of coverage for Local Surrogate on multiple models", y_label="Coverage", 
-                                        model=model_name, accuracy=black_box.score(x_test, y_test), 
+                                        model=model_name, accuracy=score(x_test, y_test), 
                                         dataset=dataset_name, threshold=threshold_interpretability)
             graph_models_coverage.show_multiple_models(models_name=models_name, interpretability_name=interpretability_name, mean=experimental_informations.final_coverages, color=color, 
                                         title="multiple ls multiple coverage", bars=bars, y_pos=y_pos)
 
             graph_models_precision = baseGraph.BaseGraph(title="Results of precision for Local Surrogate on multiple models", y_label="Precision", 
-                                        model=model_name, accuracy=black_box.score(x_test, y_test), 
+                                        model=model_name, accuracy=score(x_test, y_test), 
                                         dataset=dataset_name, threshold=threshold_interpretability)
             graph_models_precision.show_multiple_models(models_name=models_name, interpretability_name=interpretability_name, mean=experimental_informations.final_precisions, color=color, 
                                         title="multiple ls multiple precision", bars=bars, y_pos=y_pos)
             
             graph_models_f1 = baseGraph.BaseGraph(title="Results of F1 score for Local Surrogate on multiple models", y_label="F1", 
-                                        model=model_name, accuracy=black_box.score(x_test, y_test), 
+                                        model=model_name, accuracy=score(x_test, y_test), 
                                         dataset=dataset_name, threshold=threshold_interpretability)
             graph_models_f1.show_multiple_models(models_name=models_name, interpretability_name=interpretability_name, mean=experimental_informations.final_f1s, color=color, 
                                         title="multiple ls multiple F1 score", bars=bars, y_pos=y_pos)
 
             y_pos = range(len(interpretability_name))
             graph_models_multimodal = baseGraph.BaseGraph(title="Proportion of times APE returns a multimodal explanation over multiple models", y_label="Multimodal",
-                                        model=model_name, accuracy=black_box.score(x_test, y_test),
+                                        model=model_name, accuracy=score(x_test, y_test),
                                         dataset=dataset_name, threshold=threshold_interpretability)
             graph_models_multimodal.show_proportion_multimodal(model=models_name, 
                                         proportions_multimodal=experimental_informations.final_multimodals, 

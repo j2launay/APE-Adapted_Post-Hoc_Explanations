@@ -29,7 +29,7 @@ if __name__ == "__main__":
     # Filter the warning from matplotlib
     warnings.filterwarnings("ignore")
     # Dataset used for the experiments
-    dataset_names = ["generate_blobs", "titanic", "adult"]
+    dataset_names = ["generate_blobs", "diabete", "adult"]
     # Black box models for which we generate explanation
     models = [tree.DecisionTreeClassifier(max_depth=4), tree.DecisionTreeClassifier(), LogisticRegression()]
 
@@ -42,7 +42,7 @@ if __name__ == "__main__":
     # If set to True print detailed information
     verbose = True
     # Precision threshold for explanation models and linear separability test 
-    threshold_interpretability = 0.95
+    threshold_interpretability = 0.8
     models_name = []
     # Name of the explanation method printed on the graphs
     interpretability_name = ['lime', 'Local Surrogate', 'random']
