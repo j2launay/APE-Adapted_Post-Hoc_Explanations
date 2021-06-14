@@ -4,7 +4,6 @@
 from .utils.gs_utils import generate_inside_ball, get_distances, generate_categoric_inside_ball
 from itertools import combinations
 import numpy as np
-import spacy
 from sklearn.metrics.pairwise import pairwise_distances
 from sklearn.utils import check_random_state
 
