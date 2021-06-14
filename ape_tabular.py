@@ -453,17 +453,16 @@ class ApeTabularExplainer(object):
             # Extend the size of the sphere as Laugel et al. in Growing Sphere
             radius += (dicrease_radius - 1) * radius/5.0
             position_instances_in_sphere, nb_training_instance_in_sphere = self.instances_from_dataset_inside_sphere(self.closest_counterfactual, radius)
-            instances_in_sphere, labels_in_sphere, percentage_distribution, _ = self.generate_instances_inside_sphere(growing_sphere,
-                                                                                                                radius, self.closest_counterfactual, 
+            instances_in_sphere, labels_in_sphere, percentage_distribution, _ = self.generate_instances_inside_sphere(radius, self.closest_counterfactual, 
                                                                                                                 farthest_distance, self.nb_min_instance_per_class_in_sphere,
                                                                                                                 position_instances_in_sphere, nb_training_instance_in_sphere)
             
             # Train a new Local Surrogate explanation model on a larger hyper field (with instances inside this hyper field)
             ls_raw_data = self.lime_explainer.explain_instance_training_dataset(self.closest_counterfactual, self.black_box_predict, 
                                                                     num_features=nb_features_employed, model_regressor = LogisticRegression(), 
-                                                                    instances_in_sphere=instances_in_sphere, labels_in_sphere=labels_in_sphere)
+                                                                    instances_in_sphere=instances_in_sphere)
             prediction_inside_sphere = self.modify_instance_for_linear_model(ls_raw_data, instances_in_sphere)
-            precision_ls_raw_data = compute_linear_regression_precision(prediction_inside_sphere, labels_in_sphere)
+            precision_ls_raw_data = self.compute_linear_regression_precision(prediction_inside_sphere, labels_in_sphere)
         if final_precision > precision_ls_raw_data:
             precision_ls_raw_data = final_precision
             radius = last_radius
@@ -488,7 +487,7 @@ class ApeTabularExplainer(object):
               first_radius: Radius of the initial field for growing field
               nb_features_employed: Indicate how many features will be used as explanation for the linear explanation (used also for experiments)
               dicrease_radius: Ratio of dicreasing the radius of the growing field
-              all_explanation_model: generate explanation with multiple explanation models (for experiments)
+              all_explanations_model: generate explanation with multiple explanation models (for experiments)
               user_experiments: return features employed by linear and rule based explanation (for experiments)
               lime_vs_local_surrogate: Return features employed by Lime and LS (for experiments)
               local_surrogate_experiment: Compute multiple local surrogate explanations and return precision, coverage and F1 (for experiments)
@@ -606,7 +605,11 @@ class ApeTabularExplainer(object):
             return ape_illustrative_results(self, instance, counterfactual_instances_in_sphere)
 
         elif stability:
-            return 1 if self.multimodal_results else 0
+            features_employed_in_linear, features_employed_by_ape, features_employed_in_rule = simulate_user_experiments(self, 
+                                            instance, nb_features_employed, farthest_distance, self.closest_counterfactual, 
+                                            growing_sphere, position_instances_in_sphere, nb_training_instance_in_sphere)
+            multimodal = 1 if self.multimodal_results else 0
+            return multimodal, features_employed_by_ape
 
         if self.multimodal_results:
             # In case of multimodal data, we generate a rule based explanation and compute precision and coverage of this explanation model

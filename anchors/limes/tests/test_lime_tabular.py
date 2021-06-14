@@ -9,7 +9,7 @@ from sklearn.datasets import load_iris, make_classification
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import Lasso
 from sklearn.linear_model import LinearRegression
-from lime.discretize import QuartileDiscretizer, DecileDiscretizer, EntropyDiscretizer
+from ..discretize import QuartileDiscretizer, DecileDiscretizer, EntropyDiscretizer
 
 try:
     from sklearn.model_selection import train_test_split

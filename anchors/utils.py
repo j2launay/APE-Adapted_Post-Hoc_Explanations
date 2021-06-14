@@ -3,8 +3,8 @@
 import copy
 import sklearn
 import numpy as np
-import lime
-import lime.lime_tabular
+from . import limes
+from .limes import lime_tabular
 # import string
 import os
 os.environ['SPACY_WARNING_IGNORE'] = 'W008'

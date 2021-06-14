@@ -8,7 +8,7 @@ from sklearn.metrics import f1_score
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.pipeline import make_pipeline
 
-from lime.lime_text import LimeTextExplainer
+from ..lime_text import LimeTextExplainer
 
 
 class TestLimeText(unittest.TestCase):

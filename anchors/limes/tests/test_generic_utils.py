@@ -1,6 +1,6 @@
 import unittest
 import sys
-from lime.utils.generic_utils import has_arg
+from ..utils.generic_utils import has_arg
 
 
 class TestGenericUtils(unittest.TestCase):

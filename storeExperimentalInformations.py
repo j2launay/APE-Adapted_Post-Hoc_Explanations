@@ -1,5 +1,7 @@
 import numpy as np
+import pandas as pd
 import csv
+import os
 
 def prepare_legends(mean_models, models, interpretability_name):
     bars = []
@@ -47,6 +49,11 @@ class store_experimental_informations(object):
         self.final_precisions, self.final_coverages, self.final_f1s = np.zeros(size_results), np.zeros(size_results), np.zeros(size_results)
         self.final_recalls = np.zeros(size_results)
         self.final_multimodals = np.zeros(len_models)
+        self.pd_all_models_precision = pd.DataFrame(columns=interpretability_name)
+        self.pd_all_models_coverage = pd.DataFrame(columns=interpretability_name)
+        self.pd_all_models_f1 = pd.DataFrame(columns=interpretability_name)
+        self.pd_all_models_stability = pd.DataFrame(columns=interpretability_name)
+        self.pd_all_models_stability_features = pd.DataFrame(columns=interpretability_name)
 
     def initialize_per_models(self):
         self.precision = {}
@@ -54,13 +61,18 @@ class store_experimental_informations(object):
         self.f1 = {}
         self.recall_user_experiments = {}
         self.multimodal = []
+        self.pd_stability = pd.DataFrame(columns=self.interpretability_name)
+        self.pd_stability_features = pd.DataFrame(columns=self.interpretability_name)
+        self.pd_precision = pd.DataFrame(columns=self.interpretability_name)
+        self.pd_coverage = pd.DataFrame(columns=self.interpretability_name)
+        self.pd_f1 = pd.DataFrame(columns=self.interpretability_name)
         for interpretability in self.interpretability_name:
             self.precision[interpretability] = []
             self.coverage[interpretability] = []
             self.f1[interpretability] = []
             self.recall_user_experiments[interpretability] = []
 
-    def store_experiments_information_instance(self, precisions, coverages, f1s, multimodal=None, filename=None):
+    def store_experiments_information_instance(self, precisions, coverages, f1s, multimodal=None):
         """
         Store precisions, coverages, f1s and multimodal results inside dictionary 
         Args: precisions: list of precision result for each explanation method on a single instance
@@ -68,24 +80,9 @@ class store_experimental_informations(object):
               f1s: list of f1 score for each explanation method on a single instance
               multimodal: 1 if APE selected a multimodal distribution, otherwise 0
         """
-        if filename != None:
-            with open(filename + "/tab_resume.csv", 'w', newline='') as f:
-                writer = csv.writer(f)
-                test = ['']*4
-                text = []
-                metrics = ["precision", "coverage", "f1s"]
-                for metric in metrics:
-                    text.append(metric)
-                    for element in test:
-                        text.append(element)
-                    text.append('')
-                print(text)
-                writer.writerow(text)
-                writer.writerow([precisions, '', coverages, '', f1s])
-                writer.writerow([])
-                #writer.writerow(['anchors precision'])
-                #writer.writerow([self.output_csv(writer, precision, x)])
-        
+        self.pd_precision = self.pd_precision.append(pd.DataFrame([precisions], columns=self.interpretability_name))
+        self.pd_coverage = self.pd_coverage.append(pd.DataFrame([coverages], columns=self.interpretability_name))
+        self.pd_f1 = self.pd_f1.append(pd.DataFrame([f1s], columns=self.interpretability_name))
         for precision, coverage, f1, interpretability in zip(precisions, coverages, f1s, self.interpretability_name):
             if self.precision[interpretability] == []:
                 self.precision[interpretability] = precision
@@ -101,29 +98,50 @@ class store_experimental_informations(object):
             else:
                 self.multimodal += multimodal
 
-    def store_experiments_information(self, nb_instance, nb_model):
+    def store_experiments_information(self, nb_instance, nb_model, filename=""):
         """ 
         Compute the mean coverage, precision and f1 per model 
         Args: nb_instance: Number of instance for which we generate explanation for each model
               nb_model: Numerous of the black box model for which we generate explanation (first model employed = 0 , second model employed = 1, etc...)
         """
+        os.makedirs(os.path.dirname(filename+"/"), exist_ok=True)
+
         self.final_precision = []
         self.final_coverage = []
         self.final_f1 = []
         for interpretability in self.interpretability_name:
-            # For each explanation method we compute the mean precision, coverage and f1
-            self.final_precision.append(self.precision[interpretability] / nb_instance)
-            self.final_coverage.append(self.coverage[interpretability] / nb_instance)
-            self.final_f1.append(self.f1[interpretability] / nb_instance)
-        for nb, interpretability in enumerate(self.interpretability_name):
-            # Store in arrays the mean precision, coverage and f1
-            self.final_precisions[nb*self.len_models + nb_model] = self.final_precision[nb]
-            self.final_coverages[nb*self.len_models + nb_model] = self.final_coverage[nb]
-            self.final_f1s[nb*self.len_models + nb_model] = self.final_f1[nb]
+            if self.precision[interpretability] != []:
+                # For each explanation method we compute the mean precision, coverage and f1
+                self.final_precision.append(self.precision[interpretability] / nb_instance)
+                self.final_coverage.append(self.coverage[interpretability] / nb_instance)
+                self.final_f1.append(self.f1[interpretability] / nb_instance)
+        if self.final_precision != []: 
+            for nb, interpretability in enumerate(self.interpretability_name):
+                # Store in arrays the mean precision, coverage and f1
+                self.final_precisions[nb*self.len_models + nb_model] = self.final_precision[nb]
+                self.final_coverages[nb*self.len_models + nb_model] = self.final_coverage[nb]
+                self.final_f1s[nb*self.len_models + nb_model] = self.final_f1[nb]
+            self.pd_all_models_precision = self.pd_all_models_precision.append(pd.DataFrame([self.final_precision], columns=self.interpretability_name))
+            self.pd_all_models_coverage = self.pd_all_models_coverage.append(pd.DataFrame([self.final_coverage], columns=self.interpretability_name))
+            self.pd_all_models_f1s = self.pd_all_models_f1.append(pd.DataFrame([self.final_f1], columns=self.interpretability_name))
+            self.pd_precision.to_csv(filename + 'precision.csv', index=False)
+            self.pd_coverage.to_csv(filename + 'coverage.csv', index=False)
+            self.pd_f1.to_csv(filename + 'f1.csv', index=False)
+            self.pd_all_models_precision.to_csv(filename + 'precisions.csv', index=False)
+            self.pd_all_models_coverage.to_csv(filename + 'coverages.csv', index=False)
+            self.pd_all_models_f1s.to_csv(filename + 'f1s.csv', index=False)
         
         if self.multimodal != []:
             self.final_multimodal = self.multimodal/nb_instance
             self.final_multimodals[nb_model] = self.final_multimodal
+        
+        if not self.pd_stability.empty:
+            self.pd_all_models_stability_features = self.pd_all_models_stability_features.append(self.pd_stability_features)
+            self.pd_stability_features.to_csv(filename + 'stability_feature.csv', index=False)
+            self.pd_all_models_stability_features.to_csv(filename + 'all_model_stability_features.csv', index=False)
+            self.pd_all_models_stability = self.pd_all_models_stability.append(self.pd_stability)
+            self.pd_stability.to_csv(filename + 'stability.csv', index=False)
+            self.pd_all_models_stability.to_csv(filename + 'all_model_stability.csv', index=False)
         
     def store_user_experiments_information_instance(self, recalls):
         """
@@ -150,58 +168,6 @@ class store_experimental_informations(object):
         for nb, interpretability in enumerate(self.interpretability_name):
             self.final_recalls[nb*self.len_models + nb_model] = self.final_recall[nb]
 
-def write_results(precisions, coverages, f1s, filename, interpretability_name, metrics_name):
-    with open(filename + "/tab_resume.csv", 'w', newline='') as f:
-        writer = csv.writer(f)
-        test = ['']*len(precisions)
-        text = []
-        inter = []
-        for metric in metrics_name:
-            text.append(metric)
-            for element in test:
-                text.append(element)
-            for interpretability in interpretability_name:
-                inter.append(interpretability)
-            inter.append("")
-        writer.writerow(text)
-        writer.writerow(inter)
-        results = [a for a in precisions]
-        results.append("")
-        for b in coverages:
-            results.append(b)
-        results.append("")
-        for c in f1s:
-            results.append(c)
-        results.append("")
-        writer.writerow(results)
-        writer.writerow([])
-
-with open("./tab_resume.csv", 'w', newline='') as f:
-    precisions = [0.9, 0.95, 0.92, 0.98]
-    coverages = [0.5, 0.54, 0.67, 0.76]
-    f1s = [0.23, 1, 0.95, 0.12]
-    writer = csv.writer(f)
-    test = ['']*len(precisions)
-    text = []
-    inter = []
-    interpretability = ["lime", "anchors", 'random', 'APE']
-    metrics = ["precision", "coverage", "f1s"]
-    for metric in metrics:
-        text.append(metric)
-        for element in test:
-            text.append(element)
-        for interpret in interpretability:
-            inter.append(interpret)
-        inter.append("")
-    writer.writerow(text)
-    writer.writerow(inter)
-    results = [a for a in precisions]
-    results.append("")
-    for b in coverages:
-        results.append(b)
-    results.append("")
-    for c in f1s:
-        results.append(c)
-    results.append("")
-    writer.writerow(results)
-    writer.writerow([])
+    def store_stability_information_instance(self, stability_score, stability_features_score):
+        self.pd_stability = self.pd_stability.append(pd.DataFrame([stability_score], columns=self.interpretability_name))
+        self.pd_stability_features = self.pd_stability_features.append(pd.DataFrame([stability_features_score], columns=self.interpretability_name))

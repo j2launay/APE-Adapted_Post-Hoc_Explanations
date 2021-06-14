@@ -140,7 +140,7 @@ class GrowingSpheres:
                 percentage_distribution = segment[1]/self.farthest_distance_training_dataset*100
             layer = generate_categoric_inside_ball(center= self.obs_to_interprete, segment=segment, n=n, percentage_distribution=percentage_distribution,
                                             continuous_features=self.continuous_features, categorical_features=self.categorical_features, 
-                                            categorical_values=self.categorical_values, feature_variance= self.feature_variance, reducing_sphere=reducing_sphere,
+                                            categorical_values=self.categorical_values, feature_variance= self.feature_variance,
                                             probability_categorical_feature=self.probability_categorical_feature)
         else:
             layer = generate_inside_ball(self.obs_to_interprete, segment, n, feature_variance=self.feature_variance)
