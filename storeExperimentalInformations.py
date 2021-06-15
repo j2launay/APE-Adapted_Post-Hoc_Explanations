@@ -26,7 +26,7 @@ def prepare_legends(mean_models, models, interpretability_name):
         else:
             y_pos.append(nb+5)
         
-    colors = ['black', 'red', 'green', 'blue', 'yellow', 'grey', 'purple']
+    colors = ['black', 'red', 'green', 'blue', 'yellow', 'grey', 'purple', 'cyan', 'gold', 'brown']
     color= []
     for nb, model in enumerate(models):
         color.append(colors[nb])
