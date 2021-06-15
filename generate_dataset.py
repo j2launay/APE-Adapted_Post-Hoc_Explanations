@@ -92,6 +92,8 @@ def generate_dataset(dataset_name, multiclass=False):
                 tab = [int(x) for x in dataset.categorical_names[features]]
             except ValueError:
                 tab = [i for i in range(len(dataset.categorical_names[features]))]
+            if not 0 in tab:
+                tab.insert(0, 0)
             categorical_values.append(tab)
         class_names = ['Survive', 'Died']
         categorical_names = dataset.categorical_names

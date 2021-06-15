@@ -275,6 +275,7 @@ def simulate_user_experiments_lime_ls(ape_tabular, instance, nb_features_employe
         features_employed_in_local_surrogate.sort()
         return features_employed_in_linear, features_employed_in_local_surrogate
     else:
+        print("multimodal data")
         return [], []
 
 def ape_illustrative_results(ape_tabular, instance, counterfactual_in_sphere):

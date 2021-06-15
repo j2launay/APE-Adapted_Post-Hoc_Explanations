@@ -36,11 +36,11 @@ if __name__ == "__main__":
     # Number of feature from the dataset that are modified (values are set to 0 to train the decision model)
     nb_feature_to_modify = 6
     # If set to True store the results inside a graph
-    graph = False
+    graph = True
     # Number of instance for which explanations are computed
     max_instance_to_explain = 30
     # If set to True print detailed information
-    verbose = True
+    verbose = False
     # Precision threshold for explanation models and linear separability test 
     threshold_interpretability = 0.8
     models_name = []
@@ -83,9 +83,10 @@ if __name__ == "__main__":
                 explainer = ape_tabular.ApeTabularExplainer(x_test, class_names, black_box.predict, black_box.predict_proba, continuous_features=continuous_features, 
                                                             categorical_features=categorical_features, categorical_values=categorical_values, 
                                                             feature_names=dataset.feature_names, categorical_names=categorical_names,
-                                                            verbose=False)
+                                                            verbose=verbose, threshold_precision=threshold_interpretability)
                 # Get the list of features employed by Lime and Local Surrogate 
-                features_employed_in_lime, features_employed_in_local_surrogate = explainer.explain_instance(instance_to_explain, lime_vs_local_surrogate=True,                  nb_features_employed=len(features_employed_black_box))
+                features_employed_in_lime, features_employed_in_local_surrogate = explainer.explain_instance(instance_to_explain, 
+                                                            lime_vs_local_surrogate=True, nb_features_employed=len(features_employed_black_box))
                 if features_employed_in_lime == []:
                     continue
 
