@@ -110,12 +110,12 @@ class store_experimental_informations(object):
         self.final_coverage = []
         self.final_f1 = []
         for interpretability in self.interpretability_name:
-            if self.precision[interpretability] != []:
+            if not self.precision[interpretability] == []:
                 # For each explanation method we compute the mean precision, coverage and f1
                 self.final_precision.append(self.precision[interpretability] / nb_instance)
                 self.final_coverage.append(self.coverage[interpretability] / nb_instance)
                 self.final_f1.append(self.f1[interpretability] / nb_instance)
-        if self.final_precision != []: 
+        if not self.final_precision == []: 
             for nb, interpretability in enumerate(self.interpretability_name):
                 # Store in arrays the mean precision, coverage and f1
                 self.final_precisions[nb*self.len_models + nb_model] = self.final_precision[nb]
@@ -131,7 +131,7 @@ class store_experimental_informations(object):
             self.pd_all_models_coverage.to_csv(filename + 'coverages.csv', index=False)
             self.pd_all_models_f1s.to_csv(filename + 'f1s.csv', index=False)
         
-        if self.multimodal != []:
+        if not self.multimodal == []:
             self.final_multimodal = self.multimodal/nb_instance
             self.final_multimodals[nb_model] = self.final_multimodal
         

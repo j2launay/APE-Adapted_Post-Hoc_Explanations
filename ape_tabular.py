@@ -322,6 +322,13 @@ class ApeTabularExplainer(object):
             except OverflowError:
                     print("over flow error")
             instances_in_sphere = np.append(self.train_data[position_instances_in_sphere], generated_instances_inside_sphere, axis=0) if position_instances_in_sphere != [] else generated_instances_inside_sphere
+            if len(instances_in_sphere) > len(generated_instances_inside_sphere_libfolding) and len(self.categorical_features) > 1:
+                _, generated_libfolding = generate_categoric_inside_ball(closest_counterfactual, (0, radius), 
+                                                            percentage_distribution, len(instances_in_sphere) - len(generated_instances_inside_sphere_libfolding), 
+                                                            self.continuous_features, self.categorical_features, self.categorical_values, 
+                                                            feature_variance=self.feature_variance, probability_categorical_feature=self.probability_categorical_feature, 
+                                                            libfolding=libfolding)
+                generated_instances_inside_sphere_libfolding = np.append(generated_instances_inside_sphere_libfolding, generated_libfolding, axis=0)
             labels_in_sphere = self.black_box_predict(instances_in_sphere)
             for label_sphere in labels_in_sphere:
                 if label_sphere != self.target_class:
@@ -549,7 +556,7 @@ class ApeTabularExplainer(object):
 
         """ Compute the libfolding test to verify wheter instances in the area of the hyper sphere is multimodal or unimodal """
         if instances_in_sphere_libfolding != []:
-            # In case of categorical data, we transform categorical values into probability distribution (continuous values for libfolding) 
+            # In case of categorical data, we transform categorical values into probability distribution (continuous values for libfolding)
             index_counterfactual_instances_in_sphere = self.store_counterfactual_instances_in_sphere(instances_in_sphere, self.target_class, libfolding=True)
             counterfactual_instances_in_sphere = instances_in_sphere[index_counterfactual_instances_in_sphere]
             counterfactual_libfolding = instances_in_sphere_libfolding[index_counterfactual_instances_in_sphere]
