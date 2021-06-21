@@ -27,7 +27,7 @@ if __name__ == "__main__":
                 RidgeClassifier(), 
                 VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('rc', RidgeClassifier())], voting="hard"),
                 MLPClassifier(random_state=1), 
-                LogisticRegression(), Sequential()]
+                Sequential()]
     models = [RandomForestClassifier(n_estimators=20), RidgeClassifier(), Sequential()]
 
     # Number of instances explained by each model on each dataset

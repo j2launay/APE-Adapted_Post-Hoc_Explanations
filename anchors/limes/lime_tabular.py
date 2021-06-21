@@ -509,7 +509,12 @@ class LimeTabularExplainer(object):
                 continue
             name = int(data_row[i])
             if i in self.categorical_names:
-                name = self.categorical_names[i][name]
+                try:
+                    name = self.categorical_names[i][name]
+                except IndexError:
+                    print("error in dataset categorical names", self.categorical_names)
+                    print(i)
+                    print(name)
             feature_names[i] = '%s=%s' % (feature_names[i], name)
             values[i] = 'True'
         categorical_features = self.categorical_features

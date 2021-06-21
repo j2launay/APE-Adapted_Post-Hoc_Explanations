@@ -32,18 +32,17 @@ if __name__ == "__main__":
     dataset_names = ["generate_blobs", "diabete", "adult"]
     # Black box models for which we generate explanation
     models = [tree.DecisionTreeClassifier(max_depth=4), tree.DecisionTreeClassifier(), LogisticRegression()]
-
+    models_name = ['DecisionTreeClassifier_depth4', 'DecisionTreeClassifier', 'LogisticRegression']
     # Number of feature from the dataset that are modified (values are set to 0 to train the decision model)
     nb_feature_to_modify = 6
     # If set to True store the results inside a graph
     graph = True
     # Number of instance for which explanations are computed
-    max_instance_to_explain = 30
+    max_instance_to_explain = 3
     # If set to True print detailed information
     verbose = False
     # Precision threshold for explanation models and linear separability test 
     threshold_interpretability = 0.8
-    models_name = []
     # Name of the explanation method printed on the graphs
     interpretability_name = ['lime', 'Local Surrogate', 'random']
 
@@ -54,8 +53,7 @@ if __name__ == "__main__":
         x, y, class_names, regression, multiclass, continuous_features, categorical_features, categorical_values, categorical_names = generate_dataset(dataset_name)
         for nb_model, model in enumerate(models):
             if graph: experimental_informations.initialize_per_models()
-            model_name = type(model).__name__
-            models_name.append(model_name)
+            model_name = models_name[nb_model]
             # Split the dataset in test and train set (50% each)
             dataset, black_box, x_train, x_test, y_train, y_test = preparing_dataset(x, y, dataset_name, model)
             print("###", model_name, "training on", dataset_name, "dataset.")
@@ -105,7 +103,8 @@ if __name__ == "__main__":
                     break
                 cnt += 1
                 if graph: experimental_informations.store_user_experiments_information_instance([score_lime, score_local_surrogate, score_random])
-            if graph: experimental_informations.store_user_experiments_information(max_instance_to_explain, nb_model)
+            filename="./results/"+dataset_name+"/"+model_name+"/"+str(threshold_interpretability)+"/"
+            if graph: experimental_informations.store_user_experiments_information(max_instance_to_explain, nb_model, filename=filename, lime=True)
 
             if graph:
                 plt.show(block=False)

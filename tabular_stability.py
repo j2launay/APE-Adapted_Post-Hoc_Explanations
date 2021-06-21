@@ -33,21 +33,19 @@ if __name__ == "__main__":
     # Datasets used for the experiments
     dataset_names = ["titanic"]#, "generate_moons", "generate_blobs", "artificial", "titanic", "adult", "blood", "diabete", "iris"]
     # array of the models used for the experiments
-    models = [RandomForestClassifier(n_estimators=20), LogisticRegression()]
-    """         Sequential(),
+    models = [RandomForestClassifier(n_estimators=20), LogisticRegression(),
+                VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('dt', tree.DecisionTreeClassifier())], voting="soft"),
+                #Sequential(),
                 GradientBoostingClassifier(n_estimators=20, learning_rate=1.0),
                 tree.DecisionTreeClassifier(), 
-                RidgeClassifier(), 
-                VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('rc', RidgeClassifier()))], voting="hard"),
-                MLPClassifier(random_state=1), 
-                LogisticRegression(), Sequential(),]
-    """
+                #RidgeClassifier(), 
+                MLPClassifier(random_state=1)]
     # Number of instances explained by each model on each dataset
-    max_instance_to_explain = 3
+    max_instance_to_explain = 5
     # Number of perturbed instances around the instances to explain for which we compute the test of unimodality
-    number_of_perturb_instances = 10
+    number_of_perturb_instances = 5
     # The ratio of distance for the radius of the field
-    ratio_radius = 5
+    ratio_radius = 10
     """ All the variable necessaries for generating the graph results """
     # Store results inside graph if set to True
     graph = True

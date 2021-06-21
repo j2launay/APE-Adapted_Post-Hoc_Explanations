@@ -54,6 +54,7 @@ class store_experimental_informations(object):
         self.pd_all_models_f1 = pd.DataFrame(columns=interpretability_name)
         self.pd_all_models_stability = pd.DataFrame(columns=interpretability_name)
         self.pd_all_models_stability_features = pd.DataFrame(columns=interpretability_name)
+        self.pd_all_models_recall = pd.DataFrame(columns=interpretability_name)
 
     def initialize_per_models(self):
         self.precision = {}
@@ -66,6 +67,7 @@ class store_experimental_informations(object):
         self.pd_precision = pd.DataFrame(columns=self.interpretability_name)
         self.pd_coverage = pd.DataFrame(columns=self.interpretability_name)
         self.pd_f1 = pd.DataFrame(columns=self.interpretability_name)
+        self.pd_recall = pd.DataFrame(columns=self.interpretability_name)
         for interpretability in self.interpretability_name:
             self.precision[interpretability] = []
             self.coverage[interpretability] = []
@@ -154,19 +156,30 @@ class store_experimental_informations(object):
             else:
                 self.recall_user_experiments[interpretability] += recall
         print(self.recall_user_experiments)
-    
-    def store_user_experiments_information(self, nb_instance, nb_model):
+        self.pd_recall = self.pd_recall.append(pd.DataFrame([recalls], columns=self.interpretability_name))
+
+    def store_user_experiments_information(self, nb_instance, nb_model, filename="", lime=False):
         """
         Compute the mean score of each explanation method and store it into an array
         Args: nb_instance: Number of instances for which we generate an explanation for each model
               nb_model: Numerous of the black box model for which we generate explanation (first model employed = 0 , second model employed = 1, etc...)
         """
+        os.makedirs(os.path.dirname(filename+"/"), exist_ok=True)
         self.final_recall = []
         for interpretability in self.interpretability_name:
             self.final_recall.append(self.recall_user_experiments[interpretability] / nb_instance)
 
         for nb, interpretability in enumerate(self.interpretability_name):
             self.final_recalls[nb*self.len_models + nb_model] = self.final_recall[nb]
+        self.pd_all_models_recall = self.pd_all_models_recall.append(self.pd_recall)
+        if lime:
+            name_filename = 'recall_lime.csv'
+            name_filename_models = 'all_model_recalls_lime.csv'
+        else:
+            name_filename = 'recall.csv'
+            name_filename_models = 'all_model_recalls.csv'
+        self.pd_recall.to_csv(filename + name_filename, index=False)
+        self.pd_all_models_recall.to_csv(filename + name_filename_models, index=False)
 
     def store_stability_information_instance(self, stability_score, stability_features_score):
         self.pd_stability = self.pd_stability.append(pd.DataFrame([stability_score], columns=self.interpretability_name))
