@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from .utils.gs_utils import generate_inside_ball, get_distances, generate_categoric_inside_ball
+from .utils.gs_utils import generate_inside_ball, generate_categoric_inside_ball, distances, get_distances
 from itertools import combinations
 import numpy as np
 from sklearn.metrics.pairwise import pairwise_distances

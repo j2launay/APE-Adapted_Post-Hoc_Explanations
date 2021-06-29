@@ -4,6 +4,7 @@ from sklearn.multiclass import OneVsRestClassifier
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier, VotingClassifier
 from sklearn.linear_model import LogisticRegression, RidgeClassifier
 from sklearn.naive_bayes import GaussianNB
+from sklearn.metrics import pairwise_distances
 import matplotlib.pyplot as plt
 import numpy as np
 from generate_dataset import generate_dataset, preparing_dataset
@@ -15,14 +16,17 @@ import pickle
 import pyfolding as pf
 from keras.models import Sequential
 from keras.layers import Dense
-from growingspheres.utils.gs_utils import generate_inside_ball, get_distances, generate_categoric_inside_ball
+from growingspheres.utils.gs_utils import generate_inside_ball, generate_categoric_inside_ball, distances#, get_distances
 
 def get_farthest_distance(instance, train_data, categorical_features, metric='euclidean'):
     farthest_distance = 0
     for training_instance in train_data:
         # get_distance is similar to pairwise distance (i.e: it is the same results for euclidean distance) 
-        # but it adds a sparsity distance computation (i.e: number of same values) 
-        farthest_distance_now = get_distances(training_instance, instance, categorical_features=categorical_features)[metric]
+        # but it adds a sparsity distance computation (i.e: number of same values)
+        if 'manhattan' in metric:
+            farthest_distance_now = distances(training_instance, instance, train_data, explainer.max_features, explainer.min_features, categorical_features)
+        else:
+            farthest_distance_now = get_distances(training_instance, instance, categorical_features=categorical_features)[metric]
         if farthest_distance_now > farthest_distance:
             farthest_distance = farthest_distance_now
     return farthest_distance
@@ -88,19 +92,20 @@ if __name__ == "__main__":
                 score = black_box.score
             print('### Accuracy:', score(x_test, y_test))
             cnt = 0
+            explainer = ape_tabular.ApeTabularExplainer(x_train, class_names, predict, black_box_predict_proba=black_box.predict_proba,
+                                                            continuous_features=continuous_features, 
+                                                            categorical_features=categorical_features, categorical_values=categorical_values, 
+                                                            feature_names=dataset.feature_names, categorical_names=categorical_names,
+                                                            verbose=verbose_ape, threshold_precision=threshold_interpretability)            
             for instance_to_explain in x_test:
                 if cnt == max_instance_to_explain:
                     break
                 print("### Instance number:", cnt + 1, "over", max_instance_to_explain)
                 print("### Models ", nb_model + 1, "over", len(models))
                 print("instance to explain:", instance_to_explain)
-                explainer = ape_tabular.ApeTabularExplainer(x_train, class_names, predict, black_box_predict_proba=black_box.predict_proba,
-                                                            continuous_features=continuous_features, 
-                                                            categorical_features=categorical_features, categorical_values=categorical_values, 
-                                                            feature_names=dataset.feature_names, categorical_names=categorical_names,
-                                                            verbose=verbose_ape, threshold_precision=threshold_interpretability)
+
                 multimodal_result, original_features_employed = explainer.explain_instance(instance_to_explain, stability=True)
-                farthest_distance = get_farthest_distance(instance_to_explain, x_train, categorical_features, metric='euclidean')
+                farthest_distance = get_farthest_distance(instance_to_explain, x_train, categorical_features, metric='manhattan')
                 if verbose:
                     print("distance la plus éloignée", farthest_distance)
                     print('features employed originaly', original_features_employed, "original multimodal", multimodal_result)
@@ -112,6 +117,8 @@ if __name__ == "__main__":
                                                                         libfolding=True)
                 else:
                     perturb_instances = generate_inside_ball(instance_to_explain, (0, farthest_distance/ratio_radius), number_of_perturb_instances, feature_variance=explainer.feature_variance)
+
+                # Test the stability error
                 stability_results = 0
                 nb_identical_features= 0
                 for instance in perturb_instances:

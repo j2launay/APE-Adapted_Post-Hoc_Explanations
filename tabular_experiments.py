@@ -19,7 +19,7 @@ if __name__ == "__main__":
     # Filter the warning from matplotlib
     warnings.filterwarnings("ignore")
     # Datasets used for the experiments
-    dataset_names = ["generate_moons", "generate_blob", "generate_blobs", "artificial", "titanic", "adult", "blood", "diabete", "iris"]
+    dataset_names = ["titanic", "generate_moons", "generate_blob", "generate_blobs", "artificial", "titanic", "adult", "blood", "diabete", "iris"]
     # array of the models used for the experiments
     models = [RandomForestClassifier(n_estimators=20), LogisticRegression(),
                 GradientBoostingClassifier(n_estimators=20, learning_rate=1.0),
@@ -31,7 +31,7 @@ if __name__ == "__main__":
     models = [RandomForestClassifier(n_estimators=20), RidgeClassifier(), Sequential()]
 
     # Number of instances explained by each model on each dataset
-    max_instance_to_explain = 2
+    max_instance_to_explain = 50
     # Print explanation result
     illustrative_example = False
     """ All the variable necessaries for generating the graph results """
@@ -80,6 +80,7 @@ if __name__ == "__main__":
                 print("### Instance number:", cnt + 1, "over", max_instance_to_explain)
                 print("### Models ", nb_model + 1, "over", len(models))
                 print("instance to explain:", instance_to_explain)
+
                 explainer = ape_tabular.ApeTabularExplainer(x_train, class_names, predict, 
                                                             continuous_features=continuous_features, 
                                                             categorical_features=categorical_features, categorical_values=categorical_values, 

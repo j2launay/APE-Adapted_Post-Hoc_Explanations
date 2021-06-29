@@ -9,7 +9,7 @@ from sklearn.linear_model import LinearRegression, LogisticRegression
 from yellowbrick.cluster import KElbowVisualizer
 from anchors import utils, anchor_tabular, anchor_base, limes
 from growingspheres import counterfactuals as cf
-from growingspheres.utils.gs_utils import get_distances, generate_inside_ball, generate_categoric_inside_ball
+from growingspheres.utils.gs_utils import generate_inside_ball, generate_categoric_inside_ball
 import pyfolding as pf
 from typing import Dict, Tuple
 from scipy.stats import multinomial

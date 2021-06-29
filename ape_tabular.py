@@ -9,7 +9,7 @@ from sklearn.linear_model import LinearRegression, LogisticRegression
 from yellowbrick.cluster import KElbowVisualizer
 from anchors import utils, anchor_tabular, anchor_base, limes
 from growingspheres import counterfactuals as cf
-from growingspheres.utils.gs_utils import get_distances, generate_inside_ball, generate_categoric_inside_ball
+from growingspheres.utils.gs_utils import generate_inside_ball, generate_categoric_inside_ball, distances, get_distances
 from ape_tabular_experiments import compute_all_explanation_method_precision, simulate_user_experiments, compute_local_surrogate_precision_coverage, ape_illustrative_results, simulate_user_experiments_lime_ls
 import pyfolding as pf
 
@@ -65,6 +65,12 @@ class ApeTabularExplainer(object):
                 for categorical_feature in set_categorical_value:
                     probability_instance_per_feature.append(sum(self.train_data[:,feature] == categorical_feature)/len(self.train_data[:,feature]))
                 self.probability_categorical_feature.append(probability_instance_per_feature)
+        self.min_features = []
+        self.max_features = []
+        continuous_features = [x for x in set(range(train_data.shape[1])).difference(categorical_features)]
+        for continuous_feature in continuous_features:
+            self.max_features.append(max(train_data[:,continuous_feature]))
+            self.min_features.append(min(train_data[:,continuous_feature]))
 
 
     def modify_instance_for_linear_model(self, lime_exp, instances_in_sphere):
@@ -263,7 +269,9 @@ class ApeTabularExplainer(object):
         position_instances_in_sphere = []
         nb_training_instance_in_sphere = 0
         for position, instance_data in enumerate(self.train_data):
-            if get_distances(closest_counterfactual, instance_data, categorical_features=self.categorical_features)["euclidean"] < radius:
+            #if get_distances(closest_counterfactual, instance_data, categorical_features=self.categorical_features)["euclidean"] < radius:
+            #x, y, train_data, max_feature, min_feature, categorical_features=[]
+            if distances(closest_counterfactual, instance_data, self.train_data, self.max_features, self.min_features, categorical_features=self.categorical_features) < radius:
                 position_instances_in_sphere.append(position)
                 nb_training_instance_in_sphere += 1
         if self.verbose: print("nb original instances from the training dataset in the hypersphere : ", nb_training_instance_in_sphere)
@@ -508,9 +516,10 @@ class ApeTabularExplainer(object):
         # Computes the distance to the farthest instance from the training dataset to bound generating instances 
         farthest_distance = 0
         for training_instance in self.train_data:
-            # get_distance is similar to pairwise distance (i.e: it is the same results for euclidean distance) 
+            # get_distances is similar to pairwise distance (i.e: it is the same results for euclidean distance) 
             # but it adds a sparsity distance computation (i.e: number of same values) 
-            farthest_distance_now = get_distances(training_instance, instance, categorical_features=self.categorical_features)["euclidean"]
+            #farthest_distance_now = get_distances(training_instance, instance, categorical_features=self.categorical_features)["euclidean"]
+            farthest_distance_now = distances(training_instance, instance, self.train_data, self.max_features, self.min_features, self.categorical_features)
             if farthest_distance_now > farthest_distance:
                 farthest_distance = farthest_distance_now
         

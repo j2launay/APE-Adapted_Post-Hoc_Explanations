@@ -2,7 +2,6 @@
 import numpy as np
 from sklearn.utils import check_random_state
 
-from .utils.gs_utils import get_distances
 from . import growingspheres
 
 
@@ -56,12 +55,3 @@ class CounterfactualExplanation:
         self.e_star = cf.e_star
         self.move = self.enemy - self.obs_to_interprete
         self.fitted = 1
-
-    def distances(self, metrics=None):
-        """
-        scores de distances entre l'obs et le counterfactual
-        """
-        if self.fitted < 1:
-            raise AttributeError('CounterfactualExplanation has to be fitted first!')
-        return get_distances(self.obs_to_interprete, self.enemy, metrics=metrics)
-    

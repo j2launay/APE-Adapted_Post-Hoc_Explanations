@@ -7,6 +7,20 @@ from sklearn.metrics.pairwise import pairwise_distances
 from random import randrange, randint, choices, uniform, random
 from scipy.stats import multinomial
 
+def distances(x, y, train_data, max_feature, min_feature, categorical_features=[]):
+    continuous_features = [x for x in set(range(len(x))).difference(categorical_features)]
+    x_categorical, y_categorical = x[categorical_features], y[categorical_features]
+    x_continuous, y_continuous = x[continuous_features], y[continuous_features]
+    #print("x", x)
+    #print("y", y)
+    same_coordinates_categorical = x_categorical.shape[0] - sum(x_categorical == y_categorical)
+    distance = 0
+    for nb_feature in range(x_continuous.shape[0]):
+        distance += abs(x_continuous[nb_feature] - y_continuous[nb_feature])/(max_feature[nb_feature] - min_feature[nb_feature])
+    distance = distance + same_coordinates_categorical
+    distance = distance/x.shape[0]
+    return distance
+
 def get_distances(x1, x2, metrics=None, categorical_features=[]):
     """
     Function that computes the distance between x1 and x2 based on euclidean metric or l0 norm (sparsity)
@@ -49,7 +63,6 @@ def generate_inside_ball(center, segment, n, feature_variance=None):
         v= np.linalg.norm(v, ord=2, axis=1)
         return v
     # Just for clarity of display
-        
     d = center.shape[0]
     z = np.zeros((n,d))
     if feature_variance is not None:
@@ -110,6 +123,11 @@ def generate_categoric_inside_ball(center, segment, percentage_distribution, n, 
             to_return[:,continuous] = z[:,nb].ravel()
         return to_return
     
+    if segment[1] > 1:
+        print("Il y a un problème puisque la distance est supérieure à 1")
+    if percentage_distribution > 100:
+        print("il y a un problème puisque le pourcentage de distribution est supérieur à 100")
+
     to_return = np.zeros((n, len(center)))
     for i in range(len(categorical_features)):
         # value_libfolding generates n instances between 0 and percentage distribution (probabilities values inferior to "percentage_distribution")
@@ -132,13 +150,13 @@ def generate_categoric_inside_ball(center, segment, percentage_distribution, n, 
                     to_return[nb_instance][categorical_feature] = categorical_value
                 else:
                     to_return[nb_instance][categorical_feature] = value_target_instance
-    np.set_printoptions(formatter={'float': '{:g}'.format})
+    #np.set_printoptions(formatter={'float': '{:g}'.format})
     
     to_return = perturb_continuous_features(continuous_features, n, feature_variance, segment, center, to_return)
     if libfolding:
         to_return_libfolding = perturb_continuous_features(continuous_features, n, feature_variance, segment, center, to_return_libfolding)
     
     if libfolding:
-        return to_return, to_return_libfolding  
+        return to_return, to_return_libfolding
     else:
         return to_return
