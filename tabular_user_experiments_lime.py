@@ -29,7 +29,7 @@ if __name__ == "__main__":
     # Filter the warning from matplotlib
     warnings.filterwarnings("ignore")
     # Dataset used for the experiments
-    dataset_names = ["generate_blobs", "diabete", "adult"]
+    dataset_names = ["compas", "generate_blobs", "diabete", "adult"]
     # Black box models for which we generate explanation
     models = [tree.DecisionTreeClassifier(max_depth=4), tree.DecisionTreeClassifier(), LogisticRegression()]
     models_name = ['DecisionTreeClassifier_depth4', 'DecisionTreeClassifier', 'LogisticRegression']

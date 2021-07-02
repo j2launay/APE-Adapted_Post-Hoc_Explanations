@@ -55,7 +55,7 @@ class ApeTabularExplainer(object):
         # Compute and store variance of each feature
         self.feature_variance = []
         for feature in range(len(train_data[0])):
-            self.feature_variance.append(np.var(train_data[feature]))
+            self.feature_variance.append(np.var(train_data[:,feature]))
         # Compute and store the probability of each value for each categorical feature
         self.probability_categorical_feature = []
         if self.categorical_features is not None:
@@ -104,14 +104,17 @@ class ApeTabularExplainer(object):
         Return: The rules used by the anchor explanation
                 Training data convert to data frame 
         """        
-        
         pandas_frame = self.transform_data_into_data_frame(data_to_transform)
 
         rules = {}
         features_employed_in_rule = []
         for exp in anchor_exp:
             for feature_number, feature_spliting in enumerate(self.feature_names):
-                split = re.split(feature_spliting, exp)
+                if "bytes_" in str(type(feature_spliting)):
+                    bin_feature_spliting = "b'" + feature_spliting.decode('utf-8') + "'"
+                    split = re.split(bin_feature_spliting, exp)
+                else:
+                    split = re.split(feature_spliting, exp)
                 if len(split) > 1:
                     features_employed_in_rule.append(feature_number)
                     signe = str(split[1][:3]).replace(" ", "")
@@ -126,7 +129,6 @@ class ApeTabularExplainer(object):
                                 break
                         if self.verbose: print("Caution ! You're data are not only numbers.")
                     rules[feature_spliting] = [(signe, comparaison, target_class)]
-
         if simulated_user_experiment:
             return rules, pandas_frame, features_employed_in_rule
         else:
@@ -331,12 +333,22 @@ class ApeTabularExplainer(object):
                     print("over flow error")
             instances_in_sphere = np.append(self.train_data[position_instances_in_sphere], generated_instances_inside_sphere, axis=0) if position_instances_in_sphere != [] else generated_instances_inside_sphere
             if len(instances_in_sphere) > len(generated_instances_inside_sphere_libfolding) and len(self.categorical_features) > 1:
-                _, generated_libfolding = generate_categoric_inside_ball(closest_counterfactual, (0, radius), 
+                if libfolding:
+                    _, generated_libfolding = generate_categoric_inside_ball(closest_counterfactual, (0, radius), 
                                                             percentage_distribution, len(instances_in_sphere) - len(generated_instances_inside_sphere_libfolding), 
                                                             self.continuous_features, self.categorical_features, self.categorical_values, 
                                                             feature_variance=self.feature_variance, probability_categorical_feature=self.probability_categorical_feature, 
                                                             libfolding=libfolding)
-                generated_instances_inside_sphere_libfolding = np.append(generated_instances_inside_sphere_libfolding, generated_libfolding, axis=0)
+                else:
+                    generated_libfolding = generate_categoric_inside_ball(closest_counterfactual, (0, radius), 
+                                                            percentage_distribution, len(instances_in_sphere) - len(generated_instances_inside_sphere_libfolding), 
+                                                            self.continuous_features, self.categorical_features, self.categorical_values, 
+                                                            feature_variance=self.feature_variance, probability_categorical_feature=self.probability_categorical_feature, 
+                                                            libfolding=libfolding)
+                try:
+                    generated_instances_inside_sphere_libfolding = np.append(generated_instances_inside_sphere_libfolding, generated_libfolding, axis=0)
+                except ValueError:
+                    generated_instances_inside_sphere_libfolding = generated_libfolding
             labels_in_sphere = self.black_box_predict(instances_in_sphere)
             for label_sphere in labels_in_sphere:
                 if label_sphere != self.target_class:

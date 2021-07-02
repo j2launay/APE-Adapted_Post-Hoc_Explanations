@@ -146,6 +146,185 @@ def load_dataset(dataset_name, balance=False, discretize=True, dataset_folder='.
             balance=balance, feature_transformations=transformations)
         dataset.class_names = ['Survived', 'Died']
 
+    elif dataset_name == 'compas':
+        """
+        feature_names = ['id', 'name', 'first', 'last', 'compas_screening_date', 'sex', 'dob', 
+                        'age', 'age_cat', 'race', 'juv_fel_count', 'decile_score', 'juv_misd_count', 
+                        'juv_other_count', 'priors_count', 'days_b_screening_arrest', 'c_jail_in',
+                        'c_jail_out', 'c_case_number', 'c_offense_date', 'c_arrest_date', 'c_days_from_compas',
+                        'c_charge_degree', 'c_charge_desc', 'is_recid', 'r_case_number', 'r_charge_degree',
+                        'r_days_from_arrest', 'r_offense_date', 'r_charge_desc', 'r_jail_in', 'r_jail_out',
+                        'violent_recid', 'is_violent_recid', 'vr_case_number', 'vr_charge_degree',
+                        'vr_offense_date', 'vr_charge_desc', 'type_of_assessment', 'decile_score.1',
+                        'score_text', 'screening_date', 'v_type_of_assessment', 'v_decile_score',
+                        'v_score_text', 'v_screening_date', 'in_custody', 'out_custody', 'priors_count.1',#48
+                        'start', 'end', 'event', 'two_year_recid']
+        """
+        """
+        features_to_use = ['sex', 'age', 'race', 'juv_fel_count', 'decile_score', 'juv_misd_count', 'juv_other_count', 'priors_count', 'days_b_screening_arrest',
+                        'c_days_from_compas', 'c_charge_degree', 'c_charge_desc', 'is_recid', 'is_violent_recid', 'decile_score.1',
+                        'v_decile_score', '.1']
+        """
+        #features_to_use = [5, 7, 9, 10, 11, 12, 13, 14, 15, 21, 22, 23, 24, 32, 33, 39, 43, 48]
+        #categorical_features = [5, 9, 10, 11, 12, 13, 14, 22, 23, 24, 32]
+        categorical_features = [0, 2, 3, 4, 5, 6, 7, 10, 11, 12, 13]
+        transformations = {
+            0: lambda x: map_array_values(x, sex_map),
+            2: lambda x: map_array_values(x, race_map),
+            10: lambda x: map_array_values(x, charge_degree_map),
+            11: lambda x: map_array_values(x, charge_desc_map),
+        }
+        sex_map = {0: 'Female', 1: 'Male'}
+        race_map = {0: 'Other', 1: "African-American", 2: 'Caucasian', 3: 'Hispanic', 4: 'Native American', 5: 'Asian'}
+        charge_degree_map = {0: 'F', 1: 'M'}
+        charge_desc_map = {0: 'Aggravated Assault w/Firearm', 1: 'Felony Battery w/Prior Convict', 2: 'Possession of Cocaine',
+                            3: 'Possession of Cannabis', 4: 'arrest case no charge', 5: 'Battery', 6: 'Possession Burglary Tools',
+                            7: 'Insurance Fraud', 8: 'Poss 3,4 MDMA (Ecstasy)', 9: 'Poss3,4 Methylenedioxymethcath', 
+                            10: 'Felony Driving While Lic Suspd', 11: 'Grand Theft in the 3rd Degree', 12: 'Driving While License Revoked',
+                            13: 'Possession Of Heroin', 14: 'Battery on Law Enforc Officer', 15: 'Possession Of Methamphetamine',
+                            16: 'Introduce Contraband Into Jail', 17: 'Lewd/Lasc Battery Pers 12+/<16', 18: 'Susp Drivers Lic 1st Offense',
+                            19: 'Carrying Concealed Firearm', 20: 'Pos Cannabis W/Intent Sel/Del', 21: 'Tampering With Physical Evidence',
+                            22: 'Att Tamper w/Physical Evidence', 23: 'Agg Fleeing and Eluding', 24: 'Operating W/O Valid License',
+                            25: 'Poss Wep Conv Felon', 26: 'Possess Cannabis/20 Grams Or Less', 27: 'Unlaw Use False Name/Identity',
+                            28: 'Viol Injunct Domestic Violence', 29: 'Defrauding Innkeeper $300/More', 30: 'Uttering a Forged Instrument',
+                            31: 'DUI Level 0.15 Or Minor In Veh', 32: 'Driving License Suspended', 33: 'Possession of Oxycodone',
+                            34: 'Attempt Armed Burglary Dwell', 35: 'Poss Tetrahydrocannabinols', 36: 'Possess Drug Paraphernalia',
+                            37: 'Poss Firearm W/Altered ID#', 38: 'Sell Conterfeit Cont Substance', 39: 'Unlaw LicTag/Sticker Attach',
+                            40: 'Aggravated Battery / Pregnant', 41: 'Burglary Structure Unoccup', 42: 'False Name By Person Arrest',
+                            43: 'Poss Cocaine/Intent To Del/Sel', 44: 'Burglary Dwelling Assault/Batt', 45: 'Felony Battery (Dom Strang)',
+                            46: 'Attempted Burg/struct/unocc', 47: 'Deliver Cocaine', 48: 'Possession Of Alprazolam', 49: 'Flee/Elude LEO-Agg Flee Unsafe',
+                            50: 'Fail To Redeliv Hire/Leas Prop', 51: 'Aggravated Assault W/Dead Weap', 52: 'False Ownership Info/Pawn Item',
+                            53: 'Possession of Morphine', 54: 'Poss Contr Subst W/o Prescript', 55: 'Aggrav Stalking After Injunctn',
+                            56: 'Crim Use of Personal ID Info', 57: 'Resist/Obstruct W/O Violence', 58: 'Petit Theft', 59: 'Disorderly Intoxication', 
+                            60: 'Lewdness Violation', 61: 'Poss Pyrrolidinovalerophenone', 62: 'Assault', 63: 'Fail To Obey Police Officer',
+                            64: 'Solicit Purchase Cocaine', 65: 'Grand Theft in the 1st Degree', 66: 'Driving Under The Influence',
+                            67: 'nan', 68: 'Possession Of Carisoprodol', 69: 'Burglary Conveyance Assault/Bat', 70: 'Deliver 3,4 Methylenediox',
+                            71: 'Aggravated Assault W/dead Weap', 72: 'Leave Acc/Attend Veh/More $50', 73: 'Burglary Unoccupied Dwelling', 
+                            74: 'Child Abuse', 75: 'Agg Battery Grt/Bod/Harm', 76: 'Lewd or Lascivious Molestation', 77: 'Felony Petit Theft',
+                            78: 'Sexual Performance by a Child', 79: 'Leaving Acc/Unattended Veh', 80: 'Fleeing Or Attmp Eluding A Leo', 
+                            81: 'Criminal Mischief', 82: 'Aggrav Battery w/Deadly Weapon', 83: 'Trespass Struct/Conveyance', 
+                            84: 'DUI Property Damage/Injury', 85: 'Aggravated Battery (Firearm/Actual Possession)', 86: 'Robbery / No Weapon',
+                            87: 'Grand Theft (Motor Vehicle)', 88: 'Robbery / Weapon', 89: 'Burglary With Assault/battery', 90: 'Voyeurism',
+                            91: 'False Imprisonment', 92: 'Prowling/Loitering', 93: 'Viol Prot Injunc Repeat Viol', 94: 'Throw In Occupied Dwell',
+                            95: 'Burglary Conveyance Unoccup', 96: 'Unauth Poss ID Card or DL', 97: 'Opert With Susp DL 2nd Offens', 
+                            98: 'Failure To Return Hired Vehicle', 99: 'Agg Fleeing/Eluding High Speed', 100: 'Attempted Robbery  No Weapon',
+                            101: 'Resist Officer w/Violence', 102: 'Battery On Parking Enfor Speci', 103: 'Corrupt Public Servant',
+                            104: 'Robbery Sudd Snatch No Weapon', 105: 'Forging Bank Bills/Promis Note', 106: 'Felony/Driving Under Influence',
+                            107: 'Tamper With Witness/Victim/CI', 108: 'Throw Deadly Missile Into Veh', 109: 'Exposes Culpable Negligence',
+                            110: 'Use Scanning Device to Defraud', 111: 'Leaving the Scene of Accident', 112: 'Crimin Mischief Damage $1000+',
+                            113: 'Fleeing or Eluding a LEO', 114: 'Possession of Ethylone', 115: 'Aggravated Battery', 116: 'Felony DUI (level 3)',
+                            117: 'Fraudulent Use of Credit Card', 118: 'Drivg While Lic Suspd/Revk/Can', 119: 'Burglary Dwelling Occupied',
+                            120: 'Cash Item w/Intent to Defraud', 121: 'False Bomb Report', 122: 'Leave Accd/Attend Veh/Less $50', 
+                            123: 'Fail Register Vehicle', 124: 'Trespassing/Construction Site', 125: 'Reckless Driving', 
+                            126: 'Consp Traff Oxycodone 28g><30k', 127: 'Unemployment Compensatn Fraud', 128: 'Sexual Battery / Vict 12 Yrs +',
+                            129: 'Neglect Child / No Bodily Harm', 130: 'Criminal Mischief Damage <$200', 131: 'Aggravated Assault',
+                            132: 'Disorderly Conduct', 133: 'Viol Pretrial Release Dom Viol', 134: 'Petit Theft $100- $300', 
+                            135: 'Att Burgl Unoccupied Dwel', 136: 'Grand Theft Firearm', 137: 'Failure To Pay Taxi Cab Charge',
+                            138: 'Burglary Conveyance Occupied', 139: 'Manslaughter W/Weapon/Firearm', 140: 'Arson II (Vehicle)',
+                            141: 'Violation of Injunction Order/Stalking/Cyberstalking', 142: 'Obstruct Fire Equipment', 
+                            143: 'Deliver Alprazolam', 144: 'Manufacture Cannabis', 145: 'Attempted Robbery Firearm', 146: 'Fail To Secure Load',
+                            147: 'Battery on a Person Over 65', 148: 'Felony Battery', 149: 'Fel Drive License Perm Revoke',
+                            150: 'Deliver Cannabis', 151: 'Deliver Cocaine 1000FT Church', 152: 'Possession of Hydromorphone', 
+                            153: 'Simulation of Legal Process', 154: 'Defrauding Innkeeper', 155: 'Grand Theft of a Fire Extinquisher',
+                            156: 'Fighting/Baiting Animals', 157: 'Att Burgl Conv Occp', 158: 'Depriv LEO of Protect/Communic',
+                            159: 'Delivery of 5-Fluoro PB-22', 160: 'Open Carrying Of Weapon', 161: 'Pos Cannabis For Consideration',
+                            162: 'Uttering Forged Bills', 163: 'Expired DL More Than 6 Months', 164: 'Stalking', 165: 'Trespass Structure/Conveyance',
+                            166: 'DUI - Enhanced', 167: 'Sex Offender Fail Comply W/Law', 168: 'Battery Emergency Care Provide',
+                            169: 'Sale/Del Counterfeit Cont Subs', 170: 'Possession Child Pornography', 171: 'Lve/Scen/Acc/Veh/Prop/Damage',
+                            172: 'Sex Battery Deft 18+/Vict 11-', 173: 'Posses/Disply Susp/Revk/Frd DL', 174: 'DUI Blood Alcohol Above 0.20',
+                            175: 'Burglary Conveyance Armed', 176: 'Crim Attempt/Solicit/Consp', 177: 'License Suspended Revoked',
+                            178: 'Live on Earnings of Prostitute', 179: 'Robbery W/Firearm', 180: 'Money Launder 100K or More Dols',
+                            181: 'Aggravated Assault W/o Firearm', 182: 'Poss Unlaw Issue Driver Licenc', 183: 'Theft/To Deprive',
+                            184: 'Retail Theft $300 1st Offense', 185: 'Intoxicated/Safety Of Another', 186: 'Gambling/Gamb Paraphernalia',
+                            187: 'Neglect/Abuse Elderly Person', 188: 'Traffick Amphetamine 28g><200g', 189: 'Grand Theft In The 3Rd Degree',
+                            190: 'Poss Of Controlled Substance', 191: 'Del of JWH-250 2-Methox 1-Pentyl', 192: 'Purchasing Of Alprazolam',
+                            193: 'Unauthorized Interf w/Railroad', 194: 'Possession Of Lorazepam', 195: 'Restraining Order Dating Viol',
+                            196: 'Solic to Commit Battery', 197: 'Carjacking with a Firearm', 198: 'Culpable Negligence', 
+                            199: 'Criminal Mischief>$200<$1000', 200: 'Delivery of Heroin', 201: 'DUI - Property Damage/Personal Injury',
+                            202: 'Exploit Elderly Person 20-100K', 203: 'Poss of Methylethcathinone', 203: 'Possession Of Buprenorphine',
+                            204: 'Tresspass Struct/Conveyance', 205: 'Poss Alprazolam W/int Sell/Del', 206: 'Offer Agree Secure For Lewd Act',
+                            207: 'Prostitution/Lewdness/Assign', 208: 'Neglect Child / Bodily Harm', 209: 'Trespass Structure w/Dang Weap',
+                            210: 'Possession of Benzylpiperazine', 211: 'Cruelty Toward Child', 212: 'Prostitution/Lewd Act Assignation',
+                            213: 'Grand Theft Dwell Property', 214: 'Sound Articles Over 100', 215: 'Burgl Dwel/Struct/Convey Armed',
+                            216: 'Ride Tri-Rail Without Paying', 217: 'Disrupting School Function', 218: 'Strong Armed  Robbery',
+                            219: 'Poss Trifluoromethylphenylpipe', 220: 'Felony Batt(Great Bodily Harm)', 221: 'Carry Open/Uncov Bev In Pub',
+                            222: 'Possession of Hydrocodone', 223: 'Agg Assault Law Enforc Officer', 224: 'Agg Assault W/int Com Fel Dome',
+                            225: 'Poss Cntrft Contr Sub w/Intent', 226: 'Counterfeit Lic Plates/Sticker', 227: 'Possession of Butylone',
+                            228: 'Sale/Del Cannabis At/Near Scho', 229: 'Poss of Firearm by Convic Felo', 230: 'Refuse to Supply DNA Sample',
+                            231: 'Stalking (Aggravated)', 232: 'Sel/Pur/Mfr/Del Control Substa', 233: 'Poss Drugs W/O A Prescription',
+                            234: 'Poss of Cocaine W/I/D/S 1000FT Park', 235: 'Lewd Act Presence Child 16-', 236: 'Soliciting For Prostitution',
+                            237: 'Extradition/Defendants', 238: 'Refuse Submit Blood/Breath Test', 239: 'Trespass Other Struct/Conve',
+                            240: 'Solicit Deliver Cocaine', 241: 'Felon in Pos of Firearm or Amm', 
+                            242: 'Burglary Dwelling Armed', 243: 'DWI w/Inj Susp Lic / Habit Off', 244: 'DUI- Enhanced',
+                            245: 'Violation License Restrictions', 246: 'Aggr Child Abuse-Torture,Punish', 247: 'Purchase Cannabis',
+                            248: 'Use of Anti-Shoplifting Device', 249: 'Possess Countrfeit Credit Card', 250: 'Robbery W/Deadly Weapon',
+                            251: 'Poss Counterfeit Payment Inst', 252: 'D.U.I. Serious Bodily Injury', 253: 'Poss Anti-Shoplifting Device',
+                            254: 'Threat Public Servant', 255: 'Use Of 2 Way Device To Fac Fel', 256: 'Escape', 257: 'DUI/Property Damage/Persnl Inj',
+                            258: 'Hiring with Intent to Defraud', 259: 'Carrying A Concealed Weapon', 260: 'Solicitation On Felony 3 Deg', 
+                            261: 'Video Voyeur-<24Y on Child >16', 262: 'Sell or Offer for Sale Counterfeit Goods', 263: 'Throw Missile Into Pub/Priv Dw',
+                            264: 'Crim Use Of Personal Id Info', 265: 'Possession Of Diazepam', 266: 'Burglary Structure Assault/Batt', 
+                            267: 'Shoot In Occupied Dwell', 268: 'Battery On A Person Over 65', 269: 'Fail To Redeliver Hire Prop', 
+                            269: 'Unl/Disturb Education/Instui', 270: 'Violation Of Boater Safety Id', 271: 'False Motor Veh Insurance Card', 
+                            272: 'DWLS Susp/Cancel Revoked', 273: 'Viol Injunction Protect Dom Vi', 274: 'Aggrav Child Abuse-Agg Battery',
+                            275: 'Deliver Cocaine 1000FT Store', 276: 'Aggravated Battery On 65/Older', 277: 'Possess/Use Weapon 1 Deg Felon',
+                            278: 'Fail Obey Driv Lic Restrictions', 279: 'Carjacking w/o Deadly Weapon', 280: 'Contribute Delinquency Of A Minor',
+                            281: 'Aggrav Child Abuse-Causes Harm', 282: 'Imperson Public Officer or Emplyee', 283: 'Possession of Codeine',
+                            284: 'Tamper With Victim', 285: 'Abuse Without Great Harm', 286: 'Compulsory Sch Attnd Violation', 287: 'Battery On Fire Fighter',
+                            288: 'Oper Motorcycle W/O Valid DL', 289: 'Aiding Escape', 290: 'Traffick Hydrocodone   4g><14g', 
+                            291: 'Poss/Sell/Del Cocaine 1000FT Sch', 292: 'Poss/pur/sell/deliver Cocaine', 293: 'Del Morphine at/near Park',
+                            294: 'Giving False Crime Report', 295: 'Felony Committing Prostitution', 296: 'Possess Tobacco Product Under 18',
+                            297: 'Murder in the First Degree', 298: 'Use Computer for Child Exploit', 299: 'Traff In Cocaine <400g>150 Kil',
+                            300: 'Murder In 2nd Degree W/firearm', 301: 'Grand Theft (motor Vehicle)', 302: 'Poss Meth/Diox/Meth/Amp (MDMA)',
+                            303: 'Trans/Harm/Material to a Minor', 304: 'Harass Witness/Victm/Informnt', 305: 'Grand Theft of the 2nd Degree',
+                            306: 'Possession Of Phentermine', 307: 'Poss Of RX Without RX', 308: 'Interference with Custody', 
+                            309: 'Traffic Counterfeit Cred Cards', 310: 'Possession Of 3,4Methylenediox', 311: 'Crlty Twrd Child Urge Oth Act',
+                            312: 'Dealing in Stolen Property', 313: 'Obtain Control Substance By Fraud', 314: 'Tampering with a Victim',
+                            315: 'Poss Pyrrolidinovalerophenone W/I/D/S', 316: 'Solicit To Deliver Cocaine', 317: 'Pos Methylenedioxymethcath W/I/D/S',
+                            318: 'Offn Against Intellectual Prop', 319: 'Poss Of 1,4-Butanediol', 320: 'Poss F/Arm Delinq', 321: 'Poss/Sell/Deliver Clonazepam',
+                            322: 'Attempted Robbery  Weapon', 323: 'Traffick Oxycodone     4g><14g', 324: 'Interfere W/Traf Cont Dev RR', 
+                            325: 'Tresspass in Structure or Conveyance', 326: 'Attempted Burg/Convey/Unocc', 327: 'Att Burgl Struc/Conv Dwel/Occp',
+                            328: 'Murder in 2nd Degree', 328: 'Fabricating Physical Evidence', 329: 'DOC/Cause Public Danger', 330: 'Fail Sex Offend Report Bylaw',
+                            331: 'Contradict Statement', 332: 'Unlaw Lic Use/Disply Of Others', 333: 'Del 3,4 Methylenedioxymethcath', 334: 'Possession Of Amphetamine',
+                            335: 'Discharge Firearm From Vehicle', 336: 'Lease For Purpose Trafficking', 337: 'Lewd/Lasciv Molest Elder Persn', 
+                            338: 'Opert With Susp DL 2ND Offense', 339: 'Del Cannabis At/Near Park', 340: 'Burglary Assault/Battery Armed', 
+                            341: 'DWLS Canceled Disqul 1st Off', 342: 'Bribery Athletic Contests', 343: 'Grand Theft on 65 Yr or Older',
+                            344: 'Crim Attempt/Solic/Consp', 345: 'Poss/Sell/Del/Man Amobarbital', 346: 'Kidnapping / Domestic Violence',
+                            347: 'Cruelty to Animals', 348: 'Trespass Private Property', 349: 'Unauth C/P/S Sounds>1000/Audio', 350: 'Obstruct Officer W/Violence',
+                            351: 'Cause Anoth Phone Ring Repeat', 352: 'Poss Unlaw Issue Id', 353: 'PL/Unlaw Use Credit Card', 
+                            354: 'Possession of LSD', 355: 'Tamper With Witness', 356: 'Possession Of Cocaine', 357: 'Harm Public Servant Or Family',
+                            358: 'Possess Cannabis 1000FTSch', 359: 'Consp Traff Oxycodone  4g><14g', 360: 'Consume Alcoholic Bev Pub', 361: 'Shoot Into Vehicle',
+                            362: 'Battery Spouse Or Girlfriend', 363: 'Delivery Of Drug Paraphernalia', 364: 'Theft', 365: 'Misuse Of 911 Or E911 System',
+                            366: 'Uttering Forged Credit Card', 367: 'Retail Theft $300 2nd Offense', 368: 'Agg Abuse Elderlly/Disabled Adult',
+                            369: 'Accessory After the Fact', 370: 'Prostitution', 371: 'Poss Similitude of Drivers Lic', 372: 'Present Proof of Invalid Insur',
+                            373: 'Structuring Transactions', 374: 'Principal In The First Degree', 375: 'Assault Law Enforcement Officer', 376: 'Possession Of Fentanyl',
+                            377: 'Del Cannabis For Consideration', 378: 'Possess w/I/Utter Forged Bills', 379: 'False Info LEO During Invest',
+                            380: 'Possess Mot Veh W/Alt Vin #', 381: 'Possession Of Paraphernalia', 382: 'Criminal Attempt 3rd Deg Felon', 
+                            383: 'Possess Weapon On School Prop', 384: 'Possession of Alcohol Under 21', 385: 'Unlicensed Telemarketing', 386: 'Issuing a Worthless Draft',
+                            387: 'Conspiracy to Deliver Cocaine', 388: 'Fraud Obtain Food or Lodging', 389: 'Aide/Abet Prostitution Lewdness',
+                            390: 'Arson in the First Degree', 391: 'Possession Firearm School Prop', 392: 'Falsely Impersonating Officer',
+                            393: 'Poss Oxycodone W/Int/Sell/Del', 394: 'Poss of Vessel w/Altered ID NO', 395:'Poss Pyrrolidinobutiophenone',
+                            396: 'Conspiracy Dealing Stolen Prop', 397: 'Felony DUI - Enhanced', 398: 'Aggravated Battery (Firearm)',
+                            399: 'False 911 Call', 400: 'Computer Pornography', 401: 'Trespass Property w/Dang Weap', 402: 'Aggress/Panhandle/Beg/Solict',
+                            403: 'Sell/Man/Del Pos/w/int Heroin', 404: 'Purchase/P/W/Int Cannabis', 405: 'Uttering Worthless Check +$150',
+                            406: 'Deliver Cannabis 1000FTSch', 407: 'Unlawful Conveyance of Fuel',
+                            408: 'Fail Register Career Offender', 409: 'Lewd/Lasc Exhib Presence <16yr', 410: 'Armed Trafficking in Cannabis',
+                            411: 'Dealing In Stolen Property', 412: 'Trespass On School Grounds', 413: 'Offer Agree Secure/Lewd Act',
+                            414: 'Sex Batt Faml/Cust Vict 12-17Y', 415: 'Possession of Methadone', 416: 'Possession Of Clonazepam',
+                            417: 'Trespass Struct/Convey Occupy', 418: 'Sell Cannabis', 419: 'Compulsory Attendance Violation',
+                            420: 'Possess Controlled Substance', 421: 'Unlawful Use Of Police Badges', 422: 'Manage Busn W/O City Occup Lic',
+                            423: 'Deliver Cocaine 1000FT School', 424: 'Sel Etc/Pos/w/Int Contrft Schd', 425: 'Possession Of Anabolic Steroid',
+                            426: 'Exhibition Weapon School Prop', 427: 'Purchase Of Cocaine', 428: 'Deliver Cocaine 1000FT Park',
+                            429: 'Burglary Structure Occupied', 430: 'Alcoholic Beverage Violation-FL', 431: 'Attempted Deliv Control Subst',
+                            432: 'Possession of XLR11', 434: 'Attempt Burglary (Struct)', 435: 'Littering'}
+        dataset = load_csv_dataset(
+            os.path.join(dataset_folder, 'compas/compas_numpy.csv'), -1, ',',
+            #features_to_use=features_to_use,
+            #feature_names=feature_names, 
+            #'compas/compas-scores-two-years.csv'), -1, ',',
+            categorical_features=categorical_features, 
+            discretize=discretize,
+            balance=balance, feature_transformations=transformations)
+        dataset.class_names = ['Recidiv', 'Disappear']
     elif dataset_name == 'blood':
         feature_names = ["Recency", "Frequency",  "Monetary", "Time", "Class"]
         
@@ -279,6 +458,8 @@ def load_csv_dataset(data, target_idx, delimiter=',',
             data = np.genfromtxt("dataset/blood_transfusion_service.csv", delimiter=",", dtype='|S128')
         elif "diabete" in data:
             data = np.genfromtxt("dataset/diabetes.csv", delimiter=",", dtype='|S128')
+        #elif "compas" in data:
+
         else:
             try:
                 data = np.genfromtxt(data, delimiter=delimiter, dtype='|S128')
@@ -301,6 +482,7 @@ def load_csv_dataset(data, target_idx, delimiter=',',
         data = data[1:]
     if filter_fn is not None:
         data = filter_fn(data)
+    
     for feature, fun in feature_transformations.items():
         data[:, feature] = fun(data[:, feature])
     labels = data[:, target_idx]
@@ -390,6 +572,18 @@ def load_csv_dataset(data, target_idx, delimiter=',',
     # ret.validation, ret.test, ret.labels_validation, ret.labels_test = (
     #     sklearn.cross_validation.train_test_split(ret.test, ret.labels_test,
     #                                               train_size=.5))
+    
+    # Code to save Compas modifed data into a csv file 
+    """ 
+    np.set_printoptions(precision=3)
+    data = data.astype('str')
+    data = np.insert(data, 0, ['sex', 'age', 'race', 'juv_fel_count', 'decile_score', 'juv_misd_count', 'juv_other_count', 'priors_count', 'days_b_screening_arrest',
+                        'c_days_from_compas', 'c_charge_degree', 'c_charge_desc', 'is_recid', 'is_violent_recid', 'decile_score.1',
+                        'v_decile_score', 'priors_count.1', 'two_year_recid'], 0)
+    print("data numy", data)
+    np.savetxt("dataset/compas/compas_numpy.csv", data, delimiter=",", fmt='%s')
+    """
+
     ret.data = data
     return ret
 

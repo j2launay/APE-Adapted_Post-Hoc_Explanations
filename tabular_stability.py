@@ -16,7 +16,7 @@ import pickle
 import pyfolding as pf
 from keras.models import Sequential
 from keras.layers import Dense
-from growingspheres.utils.gs_utils import generate_inside_ball, generate_categoric_inside_ball, distances#, get_distances
+from growingspheres.utils.gs_utils import generate_inside_ball, generate_categoric_inside_ball, distances, get_distances
 
 def get_farthest_distance(instance, train_data, categorical_features, metric='euclidean'):
     farthest_distance = 0
@@ -35,7 +35,7 @@ if __name__ == "__main__":
     # Filter the warning from matplotlib
     warnings.filterwarnings("ignore")
     # Datasets used for the experiments
-    dataset_names = ["titanic"]#, "generate_moons", "generate_blobs", "artificial", "titanic", "adult", "blood", "diabete", "iris"]
+    dataset_names = ["compas", "generate_moons", "generate_blobs", "artificial", "titanic", "adult", "blood", "diabete", "iris"]
     # array of the models used for the experiments
     models = [RandomForestClassifier(n_estimators=20), LogisticRegression(),
                 VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('dt', tree.DecisionTreeClassifier())], voting="soft"),

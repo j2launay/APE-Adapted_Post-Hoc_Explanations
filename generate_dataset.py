@@ -6,6 +6,7 @@ from anchors import utils
 import numpy as np
 import os
 from numpy.random import randint
+import pandas as pd
 
 def preparing_dataset(x, y, dataset_name, model, plot=False, text=False):
     if plot:
@@ -13,8 +14,8 @@ def preparing_dataset(x, y, dataset_name, model, plot=False, text=False):
         x = PCA(n_components=2).fit_transform(x)
     if not text:
         # Store the dataset based on the function from anchors
-        dataset = utils.load_dataset(dataset_name, balance=True, discretize=False, dataset_folder="./dataset", X=x, y=y, plot=plot)
-
+        dataset = utils.load_dataset(dataset_name, balance=False, discretize=False, dataset_folder="./dataset", X=x, y=y, plot=plot)
+        
     if not text:
         # Split the data inside a test and a train set (50% each)
         x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.5)
@@ -70,7 +71,7 @@ def generate_dataset(dataset_name, multiclass=False):
         multiclass=True
     
     elif "adult" in dataset_name:
-        dataset = utils.load_dataset("adult", balance=True, discretize=False, dataset_folder="./dataset/")
+        dataset = utils.load_dataset("adult", balance=False, discretize=False, dataset_folder="./dataset/")
         X, y = dataset.train, dataset.labels_train
         categorical_features = dataset.categorical_features
         tab = [i for i in range(len(dataset.train[0]))]
@@ -82,7 +83,7 @@ def generate_dataset(dataset_name, multiclass=False):
         categorical_names = dataset.categorical_names
     
     elif "titanic" in dataset_name:
-        dataset = utils.load_dataset("titanic", balance=True, discretize=False, dataset_folder="./dataset/")
+        dataset = utils.load_dataset("titanic", balance=False, discretize=False, dataset_folder="./dataset/")
         X, y = dataset.train, dataset.labels_train
         categorical_features = dataset.categorical_features
         tab = [i for i in range(len(dataset.train[0]))]
@@ -99,12 +100,12 @@ def generate_dataset(dataset_name, multiclass=False):
         categorical_names = dataset.categorical_names
     
     elif "blood" in dataset_name:
-        dataset = utils.load_dataset("blood", balance=True, discretize=False, dataset_folder="./dataset/")
+        dataset = utils.load_dataset("blood", balance=False, discretize=False, dataset_folder="./dataset/")
         X, y = dataset.train, dataset.labels_train
         class_names = ['Donating', 'Not donating']
     
     elif "diabete" in dataset_name:
-        dataset = utils.load_dataset("diabete", balance=True, discretize=False, dataset_folder="./dataset/")
+        dataset = utils.load_dataset("diabete", balance=False, discretize=False, dataset_folder="./dataset/")
         X, y = dataset.train, dataset.labels_train
         class_names = ['Tested Positive', 'Tested Negative']
     
@@ -147,6 +148,39 @@ def generate_dataset(dataset_name, multiclass=False):
         X, y = make_circles(n_samples=1000, noise=0.05)
         class_names = ['class ' + str(Y)  for Y in range(len(set(y)))]
     
+    elif 'compas' in dataset_name:
+        dataset = utils.load_dataset("compas", balance=False, discretize=False, dataset_folder="./dataset/")
+        X, y = dataset.train, dataset.labels_train
+        categorical_features = dataset.categorical_features
+        tab = [i for i in range(len(dataset.train[0]))]
+        categorical_values =[]
+        for nb, features in enumerate(categorical_features):
+            try:
+                tab = [int(x) for x in dataset.categorical_names[features]]
+            except ValueError:
+                tab = [i for i in range(len(dataset.categorical_names[features]))]
+            if not 0 in tab:
+                tab.insert(0, 0)
+            categorical_values.append(tab)
+        """
+        data = pd.read_csv("./dataset/compas/compas_numpy.csv")
+
+        #data[['age', 'c_charge_degree', 'race', 'age_cat', 'score_text', 'sex', 'priors_count', 
+        #                    'days_b_screening_arrest', 'decile_score', 'is_recid', 'two_year_recid', 'c_jail_in', 'c_jail_out']]
+
+        filter_data = data[data['days_b_screening_arrest'].notnull()]
+        filter_data[filter_data['days_b_screening_arrest'] <= 30] 
+        filter_data[filter_data['days_b_screening_arrest'].astype(int) >= -30]
+        filter_data[filter_data['is_recid'] != -1] 
+        filter_data[filter_data['c_charge_degree'] != "O"]
+        #filter_data[filter_data['score_text'] != "N/A"]
+
+        y = data['two_year_recid'].tolist()
+        X = data.drop(['two_year_recid'], axis=1).values
+        """
+        class_names = ['Recidiv', 'Vanish']
+
+
     else:
         # By default the dataset chosen is generate_moons
         dataset_name = "generate_moons"

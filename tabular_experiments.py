@@ -19,7 +19,7 @@ if __name__ == "__main__":
     # Filter the warning from matplotlib
     warnings.filterwarnings("ignore")
     # Datasets used for the experiments
-    dataset_names = ["titanic", "generate_moons", "generate_blob", "generate_blobs", "artificial", "titanic", "adult", "blood", "diabete", "iris"]
+    dataset_names = ["generate_moons", "generate_blob", "generate_blobs", "artificial", "compas", "titanic", "adult", "blood", "diabete", "iris"]
     # array of the models used for the experiments
     models = [RandomForestClassifier(n_estimators=20), LogisticRegression(),
                 GradientBoostingClassifier(n_estimators=20, learning_rate=1.0),
@@ -37,6 +37,7 @@ if __name__ == "__main__":
     """ All the variable necessaries for generating the graph results """
     # Store results inside graph if set to True
     graph = True
+    verbose = False
     # Threshold for explanation method precision
     threshold_interpretability = 0.99
     linear_models_name = ['local surrogate', 'lime extending', 'lime regression', 'lime not binarize', 'lime traditional']
@@ -85,7 +86,7 @@ if __name__ == "__main__":
                                                             continuous_features=continuous_features, 
                                                             categorical_features=categorical_features, categorical_values=categorical_values, 
                                                             feature_names=dataset.feature_names, categorical_names=categorical_names,
-                                                            verbose=False, threshold_precision=threshold_interpretability)
+                                                            verbose=verbose, threshold_precision=threshold_interpretability)
                 precision, coverage, f1, multimodal_result = explainer.explain_instance(instance_to_explain, all_explanations_model=True)
                 if graph: experimental_informations.store_experiments_information_instance(precision, coverage, f1)
                 cnt += 1
