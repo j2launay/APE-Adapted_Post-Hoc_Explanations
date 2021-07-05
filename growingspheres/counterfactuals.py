@@ -2,7 +2,7 @@
 import numpy as np
 from sklearn.utils import check_random_state
 
-from . import growingspheres
+from . import growingfields, growingspheres
 
 
 class CounterfactualExplanation:
@@ -23,7 +23,10 @@ class CounterfactualExplanation:
         self.method = method
         self.target_class = target_class
         self.random_state = check_random_state(random_state)
-        self.methods_ = {'GS': growingspheres.GrowingSpheres}
+        if method == 'GS':
+                self.methods_ = {'GS': growingspheres.GrowingSpheres}
+        else:
+                self.methods_ = {'GF': growingfields.GrowingFields}
         self.fitted = 0
         self.continuous_features = continuous_features
         self.categorical_features = categorical_features

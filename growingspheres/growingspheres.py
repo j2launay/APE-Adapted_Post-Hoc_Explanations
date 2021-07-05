@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from .utils.gs_utils import generate_inside_ball, generate_categoric_inside_ball, distances, get_distances
+from .utils.gs_utils import generate_inside_ball, get_distances
 from itertools import combinations
 import numpy as np
 from sklearn.metrics.pairwise import pairwise_distances
@@ -24,8 +24,8 @@ class GrowingSpheres:
                 target_class=None,
                 caps=None,
                 n_in_layer=2000,
-                first_radius=0.01,
-                dicrease_radius=2,
+                first_radius=0.1,
+                dicrease_radius=10,
                 sparse=True,
                 verbose=False,
                 continuous_features=None,
@@ -34,48 +34,24 @@ class GrowingSpheres:
                 feature_variance=None,
                 farthest_distance_training_dataset=None,
                 probability_categorical_feature=None,
-                min_counterfactual_in_sphere=0
-                ):
+                min_counterfactual_in_sphere=0):
         """
-        Args: obs_to_interprete: Raw instance for which we generate a counterfactual explanation
-              predicition_fn: Function used by the black box model to classify instances
-              target_class: If target_class is None it returns the counterfactual from the closest class, 
-                            otherwise it returns the counterfactual of the given target class
-              n_in_layer: number of instances generated in each sphere (or field)
-              first_radius: Initial radius of the sphere (or field)
-              dicrease_radius: ratio to dicrease the radius of the sphere (or field)
-              sparse: If set to True execute a feature selection
-              verbose: If set to True print maximum information about the research of the closest counterfactual
-              continuous_features: List of features that are continuous or discrete
-              categorical_features: List of features that are categorical
-              categorical values: Array of arrays containing the values for each categorical feature
-              feature_variance: Array of variance for each continuous feature
-              farthest_distance_training_dataset: Distance from the instance to explain to the farthest distance from the training data
-              probability_categorical_feature: Maximum percentage of the distribution to change the value of artificial instance for categorical feature
-              min_counterfactual_in_sphere: Minimum number of counterfactual instances to find in the sphere (or field) to stop the algorithm
         """
         self.obs_to_interprete = obs_to_interprete
         self.prediction_fn = prediction_fn
         self.y_obs = prediction_fn(obs_to_interprete.reshape(1, -1))
-        if target_class == None:
-            self.target_other = True
-            target_class = self.y_obs
-        else:
-            self.target_other = False
+        
+        if target_class == None: #To change: works only for binary classification...
+            target_class = 1 - self.y_obs
+        
         self.target_class = target_class
         self.caps = caps
         self.n_in_layer = n_in_layer
         self.first_radius = first_radius
-        self.dicrease_radius = dicrease_radius
+        self.dicrease_radius = dicrease_radius 
         self.sparse = sparse
+        
         self.verbose = verbose
-        self.continuous_features = continuous_features if continuous_features != None else [range(len(obs_to_interprete))]
-        self.categorical_features = categorical_features
-        self.categorical_values = categorical_values
-        self.feature_variance = feature_variance
-        self.farthest_distance_training_dataset = farthest_distance_training_dataset
-        self.probability_categorical_feature = probability_categorical_feature
-        self.min_counterfactual_in_sphere = min_counterfactual_in_sphere
         
         if int(self.y_obs) != self.y_obs:
             raise ValueError("Prediction function should return a class (integer)")
@@ -86,15 +62,14 @@ class GrowingSpheres:
         Finds the decision border then perform projections to make the explanation sparse.
         """
         ennemies_, radius = self.exploration()
-        ennemies_ = sorted(ennemies_, 
+        ennemies = sorted(ennemies_, 
                                  key= lambda x: pairwise_distances(self.obs_to_interprete.reshape(1, -1), x.reshape(1, -1)))
-        closest_ennemy_ = ennemies_[0]
-        self.e_star = closest_ennemy_
+        self.e_star = ennemies[0]
         if self.sparse == True:
-            out = self.feature_selection(closest_ennemy_)
+            out = self.feature_selection(ennemies[0])
         else:
-            out = closest_ennemy_
-        return out, ennemies_, radius
+            out = ennemies[0]
+        return out, ennemies, radius
     
     
     def exploration(self):
@@ -103,9 +78,9 @@ class GrowingSpheres:
         """
         n_ennemies_ = 999
         radius_ = self.first_radius
-
+        
         while n_ennemies_ > 0:
-            first_layer_ = self.ennemies_in_layer_((0, radius_), self.caps, self.n_in_layer, reducing_sphere=True)
+            first_layer_ = self.ennemies_in_layer_((0, radius_), self.caps, self.n_in_layer)
             n_ennemies_ = first_layer_.shape[0]
             radius_ = radius_ / self.dicrease_radius
             if self.verbose == True:
@@ -114,44 +89,34 @@ class GrowingSpheres:
         else:
             if self.verbose == True:
                 print("Exploring...")
-            step_ = (self.dicrease_radius - 1) * radius_/2.0
+            iteration = 0
+            step_ = (self.dicrease_radius - 1) * radius_/5.0
             
-            while n_ennemies_ <= self.min_counterfactual_in_sphere/2:
+            while n_ennemies_ <= 0:
                 layer = self.ennemies_in_layer_((radius_, radius_ + step_), self.caps, self.n_in_layer)
                 n_ennemies_ = layer.shape[0]
                 radius_ = radius_ + step_
+                iteration += 1
+            if self.verbose == True:
+                print("Final number of iterations: ", iteration)
         if self.verbose == True:
             print("Final radius: ", (radius_ - step_, radius_))
             print("Final number of ennemies: ", n_ennemies_)
         return layer, radius_
     
     
-    def ennemies_in_layer_(self, segment, caps=None, n=1000, reducing_sphere=False):
+    def ennemies_in_layer_(self, segment, caps=None, n=1000):
         """
         Basis for GS: generates a hypersphere layer, labels it with the blackbox and returns the instances that are predicted to belong to the target class.
         """
-        if self.categorical_features != []:
-            # If there are categorical features we must have a maximum distribution probability for changing the values of categorical feature for artificial instances
-            if self.farthest_distance_training_dataset is None:
-                print("you must initialize a distance for the percentage distribution")
-            else:
-                # Initialize the percentage of categorical features that are changed 
-                percentage_distribution = segment[1]/self.farthest_distance_training_dataset*100
-            layer = generate_categoric_inside_ball(center= self.obs_to_interprete, segment=segment, n=n, percentage_distribution=percentage_distribution,
-                                            continuous_features=self.continuous_features, categorical_features=self.categorical_features, 
-                                            categorical_values=self.categorical_values, feature_variance= self.feature_variance,
-                                            probability_categorical_feature=self.probability_categorical_feature)
-        else:
-            layer = generate_inside_ball(self.obs_to_interprete, segment, n, feature_variance=self.feature_variance)
-        
+        layer = generate_inside_ball(self.obs_to_interprete, segment, n)
         #cap here: not optimal
         if caps != None:
             cap_fn_ = lambda x: min(max(x, caps[0]), caps[1])
             layer = np.vectorize(cap_fn_)(layer)
+            
         preds_ = self.prediction_fn(layer)
-        if self.target_other:
-            return layer[np.where(preds_ != self.target_class)]
-        return layer[np.where(preds_ == self.target_class)]
+        return layer[np.where(preds_ == self.target_class)]        
     
     
     def feature_selection(self, counterfactual):
@@ -163,8 +128,6 @@ class GrowingSpheres:
         """
         if self.verbose == True:
             print("Feature selection...")
-
-        #print("counterfactual : ", counterfactual)
         move_sorted = sorted(enumerate(abs(counterfactual - self.obs_to_interprete)), key=lambda x: x[1])
         move_sorted = [x[0] for x in move_sorted if x[1] > 0.0]
         out = counterfactual.copy()
@@ -173,14 +136,9 @@ class GrowingSpheres:
         for k in move_sorted:
             new_enn = out.copy()
             new_enn[k] = self.obs_to_interprete[k]
-            if self.target_other:
-                if self.prediction_fn(new_enn.reshape(1, -1)) != self.target_class:
-                    out[k] = new_enn[k]
-                    reduced += 1
-            else:
-                if self.prediction_fn(new_enn.reshape(1, -1)) == self.target_class:
-                    out[k] = new_enn[k]
-                    reduced += 1
+            if self.prediction_fn(new_enn.reshape(1, -1)) == self.target_class:
+                out[k] = new_enn[k]
+                reduced += 1
         if self.verbose == True:
             print("Reduced %d coordinates"%reduced)
         return out
@@ -200,17 +158,10 @@ class GrowingSpheres:
                 new_enn = out.copy()
                 for v in combo:
                     new_enn[v] = self.obs_to_interprete[v]
-                if self.target_other:
-                    if self.prediction_fn(new_enn.reshape(1, -1)) != self.target_class:
-                        print('bim')
-                        out = new_enn.copy()
-                        reduced = k
-                else:
-                    if self.prediction_fn(new_enn.reshape(1, -1)) == self.target_class:
-                        print('bim')
-                        out = new_enn.copy()
-                        reduced = k
+                if self.prediction_fn(new_enn.reshape(1, -1)) == self.target_class:
+                    print('bim')
+                    out = new_enn.copy()
+                    reduced = k
         if self.verbose == True:
             print("Reduced %d coordinates"%reduced)
         return out
-    

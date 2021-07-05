@@ -503,13 +503,14 @@ class ApeTabularExplainer(object):
         f1_lime_extending = (precision_ls_raw_data + lime_extending_coverage)/2
         return precision_ls_raw_data, lime_extending_coverage, f1_lime_extending, ls_raw_data.as_list()
 
-    def explain_instance(self, instance, opponent_class=None, n_instance_per_layer=2000, first_radius=0.1, nb_features_employed=4,
-                        dicrease_radius=10, all_explanations_model=False, user_experiments=False, lime_vs_local_surrogate=False,
-                        local_surrogate_experiment=False, illustrative_results=False, stability=False):
+    def explain_instance(self, instance, opponent_class=None, growing_method='GS', n_instance_per_layer=2000, first_radius=0.1, 
+                        nb_features_employed=4, dicrease_radius=10, all_explanations_model=False, user_experiments=False, 
+                        lime_vs_local_surrogate=False, local_surrogate_experiment=False, illustrative_results=False, stability=False):
         """
         Returns either an explanation from anchors or lime along with one or multiple counter factual explanation
         Args: instance: Target instance to explain
               opponent_class: Class of the desired counterfactual instance
+              growing_method: Type of method to find counterfactual instances (GF = GrowingFields; GS = GrowingSpheres)
               n_instance_per_layer: Number of instances require in each layer for growing field
               first_radius: Radius of the initial field for growing field
               nb_features_employed: Indicate how many features will be used as explanation for the linear explanation (used also for experiments)
@@ -535,7 +536,7 @@ class ApeTabularExplainer(object):
             if farthest_distance_now > farthest_distance:
                 farthest_distance = farthest_distance_now
         
-        growing_sphere = cf.CounterfactualExplanation(instance, self.black_box_predict, method='GS', target_class=opponent_class, 
+        growing_sphere = cf.CounterfactualExplanation(instance, self.black_box_predict, method=growing_method, target_class=opponent_class, 
                     continuous_features=self.continuous_features, categorical_features=self.categorical_features, categorical_values=self.categorical_values)
         growing_sphere.fit(n_in_layer=n_instance_per_layer, first_radius=first_radius, dicrease_radius=dicrease_radius, sparse=True, 
                     verbose=self.verbose, feature_variance=self.feature_variance, farthest_distance_training_dataset=farthest_distance, 
@@ -543,7 +544,7 @@ class ApeTabularExplainer(object):
         first_closest_counterfactual = growing_sphere.enemy
 
         # After searching for the closest counterfactual, we take the closest from this point from the same class as the target instance to explain
-        second_growing_sphere = cf.CounterfactualExplanation(first_closest_counterfactual, self.black_box_predict, method='GS', target_class=self.target_class, 
+        second_growing_sphere = cf.CounterfactualExplanation(first_closest_counterfactual, self.black_box_predict, method=growing_method, target_class=self.target_class, 
                     continuous_features=self.continuous_features, categorical_features=self.categorical_features, categorical_values=self.categorical_values)
         second_growing_sphere.fit(n_in_layer=n_instance_per_layer, first_radius=first_radius, dicrease_radius=dicrease_radius, sparse=True, 
                     verbose=self.verbose, feature_variance=self.feature_variance, farthest_distance_training_dataset=farthest_distance, 
