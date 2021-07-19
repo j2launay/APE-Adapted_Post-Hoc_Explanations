@@ -35,7 +35,7 @@ if __name__ == "__main__":
     # Filter the warning from matplotlib
     warnings.filterwarnings("ignore")
     # Datasets used for the experiments
-    dataset_names = ["compas", "generate_moons", "generate_blobs", "artificial", "titanic", "adult", "blood", "diabete", "iris"]
+    dataset_names = ["generate_moons", "generate_blob", "generate_blobs", "compas", "artificial", "titanic", "adult", "blood", "diabete", "iris"]
     # array of the models used for the experiments
     models = [RandomForestClassifier(n_estimators=20), LogisticRegression(),
                 VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('dt', tree.DecisionTreeClassifier())], voting="soft"),
@@ -45,9 +45,9 @@ if __name__ == "__main__":
                 #RidgeClassifier(), 
                 MLPClassifier(random_state=1)]
     # Number of instances explained by each model on each dataset
-    max_instance_to_explain = 5
+    max_instance_to_explain = 50
     # Number of perturbed instances around the instances to explain for which we compute the test of unimodality
-    number_of_perturb_instances = 5
+    number_of_perturb_instances = 10
     # The ratio of distance for the radius of the field
     ratio_radius = 10
     """ All the variable necessaries for generating the graph results """
@@ -104,6 +104,8 @@ if __name__ == "__main__":
                 print("### Models ", nb_model + 1, "over", len(models))
                 print("instance to explain:", instance_to_explain)
 
+                msi, csi, vsi = explainer.explain_instance(instance_to_explain, lime_stability=True, model_stability_index=True)
+                print("msi, csi, vsi", msi, csi, vsi)
                 multimodal_result, original_features_employed = explainer.explain_instance(instance_to_explain, stability=True)
                 farthest_distance = get_farthest_distance(instance_to_explain, x_train, categorical_features, metric='manhattan')
                 if verbose:

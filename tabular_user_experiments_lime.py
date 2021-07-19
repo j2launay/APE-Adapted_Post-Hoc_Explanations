@@ -68,6 +68,10 @@ if __name__ == "__main__":
             
             print('### Accuracy:', sum(black_box.predict(x_test) == y_test)/len(y_test))
             cnt = 1
+            explainer = ape_tabular.ApeTabularExplainer(x_test, class_names, black_box.predict, black_box.predict_proba, continuous_features=continuous_features, 
+                                                            categorical_features=categorical_features, categorical_values=categorical_values, 
+                                                            feature_names=dataset.feature_names, categorical_names=categorical_names,
+                                                            verbose=verbose, threshold_precision=threshold_interpretability)
             for instance_to_explain in x_test: 
                 print("### Instance number:", cnt, "over", max_instance_to_explain)
                 print("### Models ", nb_model+1, "over", len(models))
@@ -78,10 +82,7 @@ if __name__ == "__main__":
                     features_employed_black_box = feature_kept
                 if verbose: print("features employed by the black box", features_employed_black_box)
 
-                explainer = ape_tabular.ApeTabularExplainer(x_test, class_names, black_box.predict, black_box.predict_proba, continuous_features=continuous_features, 
-                                                            categorical_features=categorical_features, categorical_values=categorical_values, 
-                                                            feature_names=dataset.feature_names, categorical_names=categorical_names,
-                                                            verbose=verbose, threshold_precision=threshold_interpretability)
+                
                 # Get the list of features employed by Lime and Local Surrogate 
                 features_employed_in_lime, features_employed_in_local_surrogate = explainer.explain_instance(instance_to_explain, 
                                                             lime_vs_local_surrogate=True, nb_features_employed=len(features_employed_black_box))

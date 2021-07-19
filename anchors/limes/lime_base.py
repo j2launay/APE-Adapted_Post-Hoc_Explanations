@@ -113,7 +113,8 @@ class LimeBase(object):
                                    label,
                                    num_features,
                                    feature_selection='auto',
-                                   model_regressor=None):
+                                   model_regressor=None,
+                                   stability=False):
         """Takes perturbed data, labels and distances, returns explanation.
 
         Args:
@@ -162,6 +163,7 @@ class LimeBase(object):
                                                num_features,
                                                feature_selection)
 
+        self.used_features = used_features
         if model_regressor is None:
             model_regressor = Ridge(alpha=1, fit_intercept=True,
                                     random_state=self.random_state)
@@ -178,6 +180,26 @@ class LimeBase(object):
             coef = easy_model.coef_[local_pred]
         else:
             coef = easy_model.coef_
+       
+
+        if stability:
+            # For Lime stability computation
+            print("searching for vsi and csi indicators...")
+            try:
+                assert isinstance(easy_model, Ridge)
+            except AssertionError:
+                self.alpha = None
+                print("""Attention: Lime Local Model is not a Weighted Ridge Regression (WRR),
+                Lime Method will work anyway, but the stability indices may not be computed
+                (the formula is model specific)""")
+            else:
+                self.alpha = easy_model.alpha
+            finally:
+                self.easy_model = easy_model
+                self.X = neighborhood_data[:, used_features]
+                self.weights = weights
+                self.true_labels = labels_column
+        
         return (easy_model.intercept_,
                 sorted(zip(used_features, coef),
                        key=lambda x: np.abs(x[1]), reverse=True),

@@ -55,6 +55,7 @@ class store_experimental_informations(object):
         self.pd_all_models_stability = pd.DataFrame(columns=interpretability_name)
         self.pd_all_models_stability_features = pd.DataFrame(columns=interpretability_name)
         self.pd_all_models_recall = pd.DataFrame(columns=interpretability_name)
+        self.pd_all_models_distance = pd.DataFrame(columns=interpretability_name)
 
     def initialize_per_models(self):
         self.precision = {}
@@ -68,6 +69,7 @@ class store_experimental_informations(object):
         self.pd_coverage = pd.DataFrame(columns=self.interpretability_name)
         self.pd_f1 = pd.DataFrame(columns=self.interpretability_name)
         self.pd_recall = pd.DataFrame(columns=self.interpretability_name)
+        self.pd_average_distance =pd.DataFrame(columns=self.interpretability_name)
         for interpretability in self.interpretability_name:
             self.precision[interpretability] = []
             self.coverage[interpretability] = []
@@ -144,6 +146,11 @@ class store_experimental_informations(object):
             self.pd_all_models_stability = self.pd_all_models_stability.append(self.pd_stability)
             self.pd_stability.to_csv(filename + 'stability.csv', index=False)
             self.pd_all_models_stability.to_csv(filename + 'all_model_stability.csv', index=False)
+
+        if not self.pd_average_distance.empty:
+            self.pd_all_models_distance = self.pd_all_models_distance.append(self.pd_average_distance)
+            self.pd_average_distance.to_csv(filename + 'average_distance.csv', index=False)
+            self.pd_all_models_distance.to_csv(filename + 'all_models_distance.csv', index=False)
         
     def store_user_experiments_information_instance(self, recalls):
         """
@@ -184,3 +191,7 @@ class store_experimental_informations(object):
     def store_stability_information_instance(self, stability_score, stability_features_score):
         self.pd_stability = self.pd_stability.append(pd.DataFrame([stability_score], columns=self.interpretability_name))
         self.pd_stability_features = self.pd_stability_features.append(pd.DataFrame([stability_features_score], columns=self.interpretability_name))
+
+    def store_average_distance_instance(self, average_distance, all_average_distance):
+        average = np.array([[average_distance, all_average_distance]])
+        self.pd_average_distance = self.pd_average_distance.append(pd.DataFrame(average, columns=self.interpretability_name))

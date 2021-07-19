@@ -3,11 +3,13 @@ import re
 import numpy as np
 import pandas as pd
 import scipy
+import scipy.spatial
 from sklearn.cluster import KMeans
 from sklearn.metrics import roc_auc_score, f1_score
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from yellowbrick.cluster import KElbowVisualizer
 from anchors import utils, anchor_tabular, anchor_base, limes
+from anchors.limes.utils_stability import compute_WLS_stdevs, refactor_confints_todict, compare_confints
 from growingspheres import counterfactuals as cf
 from growingspheres.utils.gs_utils import generate_inside_ball, generate_categoric_inside_ball, distances, get_distances
 from ape_tabular_experiments import compute_all_explanation_method_precision, simulate_user_experiments, compute_local_surrogate_precision_coverage, ape_illustrative_results, simulate_user_experiments_lime_ls
@@ -503,9 +505,73 @@ class ApeTabularExplainer(object):
         f1_lime_extending = (precision_ls_raw_data + lime_extending_coverage)/2
         return precision_ls_raw_data, lime_extending_coverage, f1_lime_extending, ls_raw_data.as_list()
 
-    def explain_instance(self, instance, opponent_class=None, growing_method='GS', n_instance_per_layer=2000, first_radius=0.1, 
+    def model_stability_index(self, instance, growing_method, opponent_class, n_instance_per_layer, first_radius, 
+                            dicrease_radius, farthest_distance):
+        growing_sphere = cf.CounterfactualExplanation(instance, self.black_box_predict, method=growing_method, target_class=opponent_class, 
+                    continuous_features=self.continuous_features, categorical_features=self.categorical_features, categorical_values=self.categorical_values)
+        growing_sphere.fit(n_in_layer=n_instance_per_layer, first_radius=first_radius, dicrease_radius=dicrease_radius, sparse=True, 
+                    verbose=self.verbose, feature_variance=self.feature_variance, farthest_distance_training_dataset=farthest_distance, 
+                    probability_categorical_feature=self.probability_categorical_feature, min_counterfactual_in_sphere=self.nb_min_instance_per_class_in_sphere)
+        first_closest_counterfactual = growing_sphere.enemy
+
+        # After searching for the closest counterfactual, we take the closest from this point from the same class as the target instance to explain
+        second_growing_sphere = cf.CounterfactualExplanation(first_closest_counterfactual, self.black_box_predict, method=growing_method, target_class=self.target_class, 
+                    continuous_features=self.continuous_features, categorical_features=self.categorical_features, categorical_values=self.categorical_values)
+        second_growing_sphere.fit(n_in_layer=n_instance_per_layer, first_radius=first_radius, dicrease_radius=dicrease_radius, sparse=True, 
+                    verbose=self.verbose, feature_variance=self.feature_variance, farthest_distance_training_dataset=farthest_distance, 
+                    probability_categorical_feature=self.probability_categorical_feature, min_counterfactual_in_sphere=self.nb_min_instance_per_class_in_sphere)
+        closest_counterfactual = second_growing_sphere.enemy            
+        
+        """ Generates or store instances in the area of the hyperfield and their corresponding labels """
+        min_instance_per_class = self.nb_min_instance_per_class_in_sphere
+        position_instances_in_sphere, nb_training_instance_in_sphere = self.instances_from_dataset_inside_sphere(closest_counterfactual, growing_sphere.radius)
+
+        instances_in_sphere, labels_in_sphere, percentage_distribution, instances_in_sphere_libfolding = self.generate_instances_inside_sphere(growing_sphere.radius, 
+                                                                                                                closest_counterfactual, farthest_distance, 
+                                                                                                                min_instance_per_class, position_instances_in_sphere, 
+                                                                                                                nb_training_instance_in_sphere, libfolding=True)
+
+        """ Compute the libfolding test to verify wheter instances in the area of the hyper sphere is multimodal or unimodal """
+        if instances_in_sphere_libfolding != []:
+            # In case of categorical data, we transform categorical values into probability distribution (continuous values for libfolding)
+            index_counterfactual_instances_in_sphere = self.store_counterfactual_instances_in_sphere(instances_in_sphere, self.target_class, libfolding=True)
+            counterfactual_instances_in_sphere = instances_in_sphere[index_counterfactual_instances_in_sphere]
+            counterfactual_libfolding = instances_in_sphere_libfolding[index_counterfactual_instances_in_sphere]
+            unimodal_test = self.check_test_unimodal_data(np.array(counterfactual_instances_in_sphere), instances_in_sphere, growing_sphere.radius,
+                                                         counterfactual_libfolding=counterfactual_libfolding)
+        else:
+            counterfactual_instances_in_sphere = self.store_counterfactual_instances_in_sphere(instances_in_sphere, self.target_class)
+            unimodal_test = self.check_test_unimodal_data(np.array(counterfactual_instances_in_sphere), instances_in_sphere, growing_sphere.radius)
+
+        nb = 0
+        while not unimodal_test:
+            # While the libfolding test is not able to declare that data are multimodal or unimodal we extend the number of instances that are generated
+            min_instance_per_class *= 1.5
+            instances_in_sphere, labels_in_sphere, percentage_distribution, instances_in_sphere_libfolding = self.generate_instances_inside_sphere(growing_sphere.radius, 
+                                                                                                                closest_counterfactual, farthest_distance, 
+                                                                                                                min_instance_per_class, position_instances_in_sphere, 
+                                                                                                                nb_training_instance_in_sphere, libfolding=True)
+            
+            if instances_in_sphere_libfolding != []:
+                index_counterfactual_instances_in_sphere = self.store_counterfactual_instances_in_sphere(instances_in_sphere, self.target_class, libfolding=True)
+                counterfactual_instances_in_sphere = instances_in_sphere[index_counterfactual_instances_in_sphere]
+                counterfactual_libfolding = instances_in_sphere_libfolding[index_counterfactual_instances_in_sphere]
+                unimodal_test = self.check_test_unimodal_data(np.array(counterfactual_instances_in_sphere), instances_in_sphere, growing_sphere.radius,
+                                                            counterfactual_libfolding=counterfactual_libfolding)
+            else:
+                counterfactual_instances_in_sphere = self.store_counterfactual_instances_in_sphere(instances_in_sphere, self.target_class)
+                unimodal_test = self.check_test_unimodal_data(np.array(counterfactual_instances_in_sphere), instances_in_sphere, growing_sphere.radius)
+            if self.verbose:
+                print("nb times libfolding is not able to determine wheter datas are unimodal or multimodal:", nb)
+                print("There are ", len(counterfactual_instances_in_sphere), " instances in the datas given to libfolding.")
+                print()
+            nb += 1
+        return self.multimodal_results
+
+    def explain_instance(self, instance, opponent_class=None, growing_method='GF', n_instance_per_layer=2000, first_radius=0.1, 
                         nb_features_employed=4, dicrease_radius=10, all_explanations_model=False, user_experiments=False, 
-                        lime_vs_local_surrogate=False, local_surrogate_experiment=False, illustrative_results=False, stability=False):
+                        lime_vs_local_surrogate=False, local_surrogate_experiment=False, illustrative_results=False, stability=False,
+                        lime_stability=False, k_closest=False, model_stability_index=False, nb_iteration=0):
         """
         Returns either an explanation from anchors or lime along with one or multiple counter factual explanation
         Args: instance: Target instance to explain
@@ -612,6 +678,16 @@ class ApeTabularExplainer(object):
                 print()
             nb += 1
         
+        if model_stability_index or lime_stability:
+            print("compute model stability index...")
+            model_stability = []
+            initial_multimodal = self.multimodal_results
+            model_stability.append(initial_multimodal)
+            for i in range(10):
+                model_stability.append(self.model_stability_index(instance, growing_method, opponent_class, n_instance_per_layer, first_radius, 
+                            dicrease_radius, farthest_distance))
+            model_stability_score = model_stability.count(initial_multimodal)
+
         """ Computes the labels for instances from the dataset to compute precision for explanation method """
         labels_instance_train_data = self.black_box_predict(self.train_data)
         nb_instance_train_data_label_as_target = sum(x == self.target_class for x in labels_instance_train_data)
@@ -639,11 +715,84 @@ class ApeTabularExplainer(object):
                                             growing_sphere, position_instances_in_sphere, nb_training_instance_in_sphere)
             multimodal = 1 if self.multimodal_results else 0
             return multimodal, features_employed_by_ape
+        
+        elif lime_stability:
+            csi, vsi = self.lime_explainer.check_stability(self.closest_counterfactual, self.black_box_predict_proba, n_calls=10, index_verbose=False)
+            def compute_vsi_anchors(used_features):
+                true_labels = self.black_box_predict(self.train_data)
+                stdevs_beta = compute_WLS_stdevs(X=self.train_data, Y=true_labels,
+                                            weights=[1]*len(true_labels), alpha=1)
+
+                print("standard deviation ANCHORS", stdevs_beta)
+                print("features used in anchors", used_features)
+                beta_ridge = []
+                for j in range (len(self.train_data[0])):
+                    print("j", j)
+                    if j in used_features:
+                        temp_mean = np.mean(self.train_data[:,0])
+                        print("temp mean", temp_mean)
+                        beta_ridge.append(temp_mean)
+                    else:
+                        beta_ridge.append(0)
+
+                print("beta ridge", beta_ridge)
+                #beta_ridge = [np.mean(self.train_data[:,0]), np.mean(self.train_data[:,1])]
+
+                feature_ids = used_features
+                used_features = [self.feature_names[i] for i in feature_ids]
+
+                conf_int = refactor_confints_todict(means=beta_ridge, st_devs=stdevs_beta, feat_names=used_features)
+
+                return conf_int
+            _, _, features_employed_in_rule = simulate_user_experiments(self, 
+                                            instance, nb_features_employed, farthest_distance, self.closest_counterfactual, 
+                                            growing_sphere, position_instances_in_sphere, nb_training_instance_in_sphere)
+            confidence_intervals = []
+            for i in range(10):
+                confidence_intervals.append(compute_vsi_anchors(features_employed_in_rule))
+            csi_anchors, vsi_anchors = compare_confints(confidence_intervals=confidence_intervals,
+                                    index_verbose=True)
+
+            print("csi / vsi anchor", csi_anchors, vsi_anchors)
+            return model_stability_score, csi, vsi
+
+        elif k_closest:
+            #closest_instances = np.concatenate((instances_in_sphere, self.train_data), axis=0)
+            if 'S' in growing_method:
+                growing_method_other = 'GF'
+            else:
+                growing_method_other = 'GS'
+            if nb_iteration == 0:
+                kdt = scipy.spatial.cKDTree(self.train_data)
+                k = 5
+                try:
+                    dists, neighs = kdt.query(self.clusters_centers, k+1)
+                except AttributeError:
+                    dists, neighs = kdt.query(self.closest_counterfactual, k+1)
+                mean_dists, mean_neighs = kdt.query(self.train_data, k+1)
+                avg_dists = np.mean(dists)
+                mean_avg_dists = np.mean(mean_dists[:, 1:], axis=1)
+                avg_dists_other, avg_dists_all_other = self.explain_instance(instance, growing_method=growing_method_other, 
+                                                            k_closest=True, nb_iteration=nb_iteration+1)
+                return avg_dists, np.mean(mean_avg_dists), avg_dists_other, avg_dists_all_other
+            else:
+                kdt = scipy.spatial.cKDTree(self.train_data)
+                k = 5
+                try:
+                    dists, neighs = kdt.query(self.clusters_centers, k+1)
+                except AttributeError:
+                    dists, neighs = kdt.query(self.closest_counterfactual, k+1)
+                mean_dists, mean_neighs = kdt.query(self.train_data, k+1)
+                avg_dists = np.mean(dists)
+                mean_avg_dists = np.mean(mean_dists[:, 1:], axis=1)
+                return avg_dists, np.mean(mean_avg_dists)
+
+
 
         if self.multimodal_results:
             # In case of multimodal data, we generate a rule based explanation and compute precision and coverage of this explanation model
             ape_precision, ape_coverage, ape_f1, ape_explanation = self.compute_anchor_precision_coverage(instance, 
-                                        labels_instance_train_data, nb_instances_in_sphere, 
+                                        labels_instance_train_data, len(instances_in_sphere), 
                                         farthest_distance, percentage_distribution, nb_instance_train_data_label_as_target)
         
         else:

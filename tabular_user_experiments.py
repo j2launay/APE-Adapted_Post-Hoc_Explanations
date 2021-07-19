@@ -67,6 +67,10 @@ if __name__ == "__main__":
             #print("feature employed by black box", features_employed_black_box)
             print('### Accuracy:', sum(black_box.predict(x_test) == y_test)/len(y_test))
             cnt = 0
+            explainer = ape_tabular.ApeTabularExplainer(x_test, class_names, black_box.predict, black_box.predict_proba, continuous_features=continuous_features, 
+                                                            categorical_features=categorical_features, categorical_values=categorical_values, 
+                                                            feature_names=dataset.feature_names, categorical_names=categorical_names,
+                                                            verbose=False)
             for instance_to_explain in x_test: 
                 if cnt == max_instance_to_explain:
                     break
@@ -80,10 +84,7 @@ if __name__ == "__main__":
                     features_employed_black_box = feature_kept
 
                 if verbose: print("features employed by the black box", features_employed_black_box)
-                explainer = ape_tabular.ApeTabularExplainer(x_test, class_names, black_box.predict, black_box.predict_proba, continuous_features=continuous_features, 
-                                                            categorical_features=categorical_features, categorical_values=categorical_values, 
-                                                            feature_names=dataset.feature_names, categorical_names=categorical_names,
-                                                            verbose=False)
+                
                 # Get the list of features employed by the 3 explanation models 
                 features_employed_in_local_surrogate, features_employed_by_ape, features_employed_anchors = explainer.explain_instance(instance_to_explain, user_experiments=True, nb_features_employed=len(features_employed_black_box))
                 # Selects randomly as many features as the black box model is actually chosen among all the features

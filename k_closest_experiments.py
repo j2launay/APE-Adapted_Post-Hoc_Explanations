@@ -19,7 +19,7 @@ if __name__ == "__main__":
     # Filter the warning from matplotlib
     warnings.filterwarnings("ignore")
     # Datasets used for the experiments
-    dataset_names = ["generate_moons", "generate_blob", "generate_blobs", "artificial", "compas", "titanic", "adult", "blood", "diabete", "iris"]
+    dataset_names = ["generate_blob", "generate_moons", "generate_blobs", "artificial", "compas", "titanic", "adult", "blood", "diabete", "iris"]
     # array of the models used for the experiments
     models = [RandomForestClassifier(n_estimators=20), LogisticRegression(),
                 GradientBoostingClassifier(n_estimators=20, learning_rate=1.0),
@@ -28,10 +28,10 @@ if __name__ == "__main__":
                 VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('rc', RidgeClassifier())], voting="hard"),
                 MLPClassifier(random_state=1), 
                 Sequential()]
-    models = [RandomForestClassifier(n_estimators=20), RidgeClassifier(), Sequential()]
+    models = [RandomForestClassifier(n_estimators=20), MLPClassifier(random_state=1), Sequential()]
 
     # Number of instances explained by each model on each dataset
-    max_instance_to_explain = 50
+    max_instance_to_explain = 5
     # Print explanation result
     illustrative_example = False
     """ All the variable necessaries for generating the graph results """
@@ -48,7 +48,7 @@ if __name__ == "__main__":
     # Threshold for explanation method precision
     threshold_interpretability = 0.99
     linear_models_name = ['local surrogate', 'lime extending', 'lime regression', 'lime not binarize', 'lime traditional']
-    interpretability_name = ['LS extend', 'APE', 'anchor']
+    interpretability_name = ['Growing Fields', 'Growing Spheres']
     #interpretability_name = ['ls log reg', 'ls raw data']
     # Initialize all the variable needed to store the result in graph
     if graph: experimental_informations = store_experimental_informations(len(models), len(interpretability_name), interpretability_name)
@@ -93,17 +93,21 @@ if __name__ == "__main__":
                 print("### Instance number:", cnt + 1, "over", max_instance_to_explain)
                 print("### Models ", nb_model + 1, "over", len(models))
                 print("instance to explain:", instance_to_explain)
-
-                precision, coverage, f1, multimodal_result = explainer.explain_instance(instance_to_explain, growing_method=growing_method, 
-                                                            all_explanations_model=True)
-                if graph: experimental_informations.store_experiments_information_instance(precision, coverage, f1)
+                
+                average_distance, all_average_distance, average_distance_spheres, all_average_distance_spheres = explainer.explain_instance(instance_to_explain, 
+                                                            growing_method=growing_method, k_closest=True)
+                print("average distance for GF", average_distance)
+                print("average distance for GS", average_distance_spheres)
+                if average_distance != average_distance_spheres:
+                    print("GF", "better" if average_distance < average_distance_spheres else "worse", "than GS")
+                if graph: experimental_informations.store_average_distance_instance(average_distance, average_distance_spheres)
                 cnt += 1
             if growing_sphere:
                 filename="./results/"+dataset_name+"/"+model_name+"/growing_spheres/"+str(threshold_interpretability)+"/"
             else:
                 filename="./results/"+dataset_name+"/"+model_name+"/"+str(threshold_interpretability)+"/"
             if graph: experimental_informations.store_experiments_information(max_instance_to_explain, nb_model, filename=filename)
-
+            """
             if graph:
                 plt.show(block=False)
                 plt.pause(1)
@@ -162,4 +166,4 @@ if __name__ == "__main__":
             graph_models_multimodal.show_proportion_multimodal(model=models_name, 
                                         proportions_multimodal=experimental_informations.final_multimodals, 
                                         color=color[:len(models)], title= label_graph + "Proportion of Multimodal")
-            
+            """

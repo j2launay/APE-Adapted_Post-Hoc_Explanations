@@ -19,7 +19,7 @@ from .discretize import KMeansDiscretizer
 from .discretize import BaseDiscretizer
 from . import explanation
 from . import lime_base
-
+from .utils_stability import refactor_confints_todict, compute_WLS_stdevs, compare_confints, LocalModelError
 
 class TableDomainMapper(explanation.DomainMapper):
     """Maps feature ids to names, generates table views, etc"""
@@ -240,7 +240,8 @@ class LimeTabularExplainer(object):
                          num_features=10,
                          num_samples=5000,
                          distance_metric='euclidean',
-                         model_regressor=None):
+                         model_regressor=None,
+                         stability=False):
         """Generates explanations for a prediction.
 
         First, we generate neighborhood data by randomly perturbing features
@@ -384,7 +385,8 @@ class LimeTabularExplainer(object):
                     label,
                     num_features,
                     model_regressor=model_regressor,
-                    feature_selection=self.feature_selection)
+                    feature_selection=self.feature_selection,
+                    stability=stability)
 
         if self.mode == "regression":
             ret_exp.intercept[1] = ret_exp.intercept[0]
@@ -623,3 +625,124 @@ class LimeTabularExplainer(object):
         inverse[0] = data_row
         return data, inverse
     
+    def confidence_intervals(self):
+        """
+        Method to calculate stability indices of an application of the LIME method
+        to a particular unit of the dataset.
+        The stability indices are described in the paper:
+        "Statistical stability indices for LIME: obtaining reliable explanations for Machine Learning models"
+        which can be found in the ArXiv online repository: https://arxiv.org/abs/2001.11757
+        The paper is currently under review in the Journal of Operational Research Society (JORS)
+        Returns:
+            conf_int: list of two values (lower and upper bound of the confidence interval)
+        """
+
+        print("X", self.base.X)
+        print("true labels", self.base.true_labels)
+        print("weights", self.base.weights)
+        print("alpha", self.base.alpha)
+        stdevs_beta = compute_WLS_stdevs(X=self.base.X, Y=self.base.true_labels,
+                                         weights=self.base.weights, alpha=self.base.alpha)
+
+        print("standard deviation LIME", stdevs_beta)
+        beta_ridge = self.base.easy_model.coef_.tolist()
+        print("beta ridge", beta_ridge)
+        print("mean for first feature", np.mean(self.base.X[:,1]))
+        print("TEST", self.base.X[:,1])
+        feature_ids = self.base.used_features
+        print("feature used", feature_ids)
+        used_features = [self.feature_names[i] for i in feature_ids]
+        print("used features", used_features)
+
+        conf_int = refactor_confints_todict(means=beta_ridge, st_devs=stdevs_beta, feat_names=used_features)
+
+        return conf_int
+
+    def check_stability(self,
+                        data_row,
+                        predict_fn,
+                        labels=(1,),
+                        top_labels=None,
+                        num_features=10,
+                        num_samples=5000,
+                        distance_metric='euclidean',
+                        model_regressor=None,
+                        n_calls=10,
+                        index_verbose=False,
+                        verbose=False):
+
+        """
+        Method to calculate stability indices for a trained LIME instance.
+        The stability indices are relative to the particular data point we are explaining.
+        The stability indices are described in the paper:
+        "Statistical stability indices for LIME: obtaining reliable explanations for Machine Learning models".
+        It can be found in the ArXiv online repository: https://arxiv.org/abs/2001.11757
+        The paper is currently under review in the Journal of Operational Research Society (JORS)
+        Args:
+            data_row: 1d numpy array or scipy.sparse matrix, corresponding to a row
+            predict_fn: prediction function. For classifiers, this should be a
+                function that takes a numpy array and outputs prediction
+                probabilities. For regressors, this takes a numpy array and
+                returns the predictions. For ScikitClassifiers, this is
+                `classifier.predict_proba()`. For ScikitRegressors, this
+                is `regressor.predict()`. The prediction function needs to work
+                on multiple feature vectors (the vectors randomly perturbed
+                from the data_row).
+            labels: iterable with labels to be explained.
+            top_labels: if not None, ignore labels and produce explanations for
+                the K labels with highest prediction probabilities, where K is
+                this parameter.
+            num_features: maximum number of features present in explanation
+            num_samples: size of the neighborhood to learn the linear model
+            distance_metric: the distance metric to use for weights.
+            model_regressor: sklearn regressor to use in explanation. Defaults
+                to Ridge regression in LimeBase.
+                If not Ridge Regression, the stability indices may not be calculated
+                and the method will raise a LocalModelError.
+            n_calls: number of repeated Lime calls to perform.
+                High number of calls slows down the execution,
+                however a meaningful comparison takes place only when
+                there is a reasonable number of calls to compare.
+            index_verbose: Controls for the verbosity at the stability indices level,
+                when set to True gives information about partial values related to stability.
+            verbose: Controls for the verbosity at the LocalModel level,
+                when set to True, gives information about the repeated calls of WRR.
+        Returns:
+            csi: index to evaluate the stability of the coefficients of each variable across
+            different Lime explanations obtained from the repeated n_calls.
+            Ranges from 0 to 100.
+            vsi: index to evaluate whether the variables retrieved in different Lime explanations
+                are the same. Ranges from 0 to 100.
+        """
+
+        # Override verbosity in the LimeBaseOvr instance
+        previous_verbose = self.base.verbose
+        self.base.verbose = verbose
+
+        confidence_intervals = []
+        for i in range(n_calls):
+            alpha = self.explain_instance(data_row,
+                                  predict_fn,
+                                  labels,
+                                  top_labels,
+                                  num_features,
+                                  num_samples,
+                                  distance_metric,
+                                  model_regressor,
+                                  stability=True).easy_model.alpha
+
+            # The first time check if the local model is WRR, otherwise raise Exception
+            if not i:
+                if alpha is None:
+                    raise LocalModelError("""Lime Local Model is not a Weighted Ridge Regression (WRR),
+                    Stability indices may not be computed: the formula is model specific""")
+
+            confidence_intervals.append(self.confidence_intervals())
+
+        csi, vsi = compare_confints(confidence_intervals=confidence_intervals,
+                                    index_verbose=index_verbose)
+
+        # Set back the original verbosity
+        self.base.verbose = previous_verbose
+
+        return csi, vsi

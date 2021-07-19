@@ -181,6 +181,7 @@ def simulate_user_experiments(ape_tabular, instance, nb_features_employed, farth
     rules, training_instances_pandas_frame, features_employed_in_rule = ape_tabular.generate_rule_and_data_for_anchors(anchor_exp.names(), 
                                                                                             ape_tabular.target_class, ape_tabular.train_data, 
                                                                                             simulated_user_experiment=True)
+    print("rules in anchor", rules)
     if not ape_tabular.multimodal_results:
         # In case of unimodal data we compute a local surrogate explanation trained over raw instances located in the hyper sphere 
         local_surogate = ape_tabular.lime_explainer.explain_instance_training_dataset(instance,
