@@ -28,7 +28,7 @@ if __name__ == "__main__":
                 VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('rc', RidgeClassifier())], voting="hard"),
                 MLPClassifier(random_state=1), 
                 Sequential()]
-    models = [RandomForestClassifier(n_estimators=20), RidgeClassifier(), Sequential()]
+    #models = [RandomForestClassifier(n_estimators=20), RidgeClassifier(), Sequential()]
 
     # Number of instances explained by each model on each dataset
     max_instance_to_explain = 50
@@ -98,11 +98,15 @@ if __name__ == "__main__":
                                                             all_explanations_model=True)
                 if graph: experimental_informations.store_experiments_information_instance(precision, coverage, f1)
                 cnt += 1
+
             if growing_sphere:
-                filename="./results/"+dataset_name+"/"+model_name+"/growing_spheres/"+str(threshold_interpretability)+"/"
+                filename = "./results/"+dataset_name+"/"+model_name+"/growing_spheres/"+str(threshold_interpretability)+"/"
+                filename_all = "./results/"+dataset_name+"/growing_spheres/"+str(threshold_interpretability)+"/"
             else:
                 filename="./results/"+dataset_name+"/"+model_name+"/"+str(threshold_interpretability)+"/"
-            if graph: experimental_informations.store_experiments_information(max_instance_to_explain, nb_model, filename=filename)
+                filename_all="./results/"+dataset_name+"/"+str(threshold_interpretability)+"/"
+
+            if graph: experimental_informations.store_experiments_information(max_instance_to_explain, nb_model, filename=filename, filename_all=filename_all)
 
             if graph:
                 plt.show(block=False)

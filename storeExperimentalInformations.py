@@ -36,7 +36,7 @@ class store_experimental_informations(object):
     """
     Class to store the experimental results of precision, coverage and F1 score for graph representation
     """
-    def __init__(self, len_models, len_interpretability_name, interpretability_name):
+    def __init__(self, len_models, len_interpretability_name, interpretability_name, nb_models):
         """
         Initialize all the variable that will be used to store experimental results
         Args: len_models: Number of black box models that we are explaining during experiments
@@ -49,6 +49,7 @@ class store_experimental_informations(object):
         self.final_precisions, self.final_coverages, self.final_f1s = np.zeros(size_results), np.zeros(size_results), np.zeros(size_results)
         self.final_recalls = np.zeros(size_results)
         self.final_multimodals = np.zeros(len_models)
+        self.nb_models = nb_models
         self.pd_all_models_precision = pd.DataFrame(columns=interpretability_name)
         self.pd_all_models_coverage = pd.DataFrame(columns=interpretability_name)
         self.pd_all_models_f1 = pd.DataFrame(columns=interpretability_name)
@@ -56,6 +57,7 @@ class store_experimental_informations(object):
         self.pd_all_models_stability_features = pd.DataFrame(columns=interpretability_name)
         self.pd_all_models_recall = pd.DataFrame(columns=interpretability_name)
         self.pd_all_models_distance = pd.DataFrame(columns=interpretability_name)
+        self.pd_all_models_lime_ls = pd.DataFrame(columns=interpretability_name)
 
     def initialize_per_models(self):
         self.precision = {}
@@ -69,7 +71,8 @@ class store_experimental_informations(object):
         self.pd_coverage = pd.DataFrame(columns=self.interpretability_name)
         self.pd_f1 = pd.DataFrame(columns=self.interpretability_name)
         self.pd_recall = pd.DataFrame(columns=self.interpretability_name)
-        self.pd_average_distance =pd.DataFrame(columns=self.interpretability_name)
+        self.pd_average_distance = pd.DataFrame(columns=self.interpretability_name)
+        self.pd_lime_ls = pd.DataFrame(columns=self.interpretability_name)
         for interpretability in self.interpretability_name:
             self.precision[interpretability] = []
             self.coverage[interpretability] = []
@@ -102,7 +105,7 @@ class store_experimental_informations(object):
             else:
                 self.multimodal += multimodal
 
-    def store_experiments_information(self, nb_instance, nb_model, filename=""):
+    def store_experiments_information(self, nb_instance, nb_model, filename="", filename_all=""):
         """ 
         Compute the mean coverage, precision and f1 per model 
         Args: nb_instance: Number of instance for which we generate explanation for each model
@@ -131,9 +134,10 @@ class store_experimental_informations(object):
             self.pd_precision.to_csv(filename + 'precision.csv', index=False)
             self.pd_coverage.to_csv(filename + 'coverage.csv', index=False)
             self.pd_f1.to_csv(filename + 'f1.csv', index=False)
-            self.pd_all_models_precision.to_csv(filename + 'precisions.csv', index=False)
-            self.pd_all_models_coverage.to_csv(filename + 'coverages.csv', index=False)
-            self.pd_all_models_f1s.to_csv(filename + 'f1s.csv', index=False)
+            if nb_model ==self.nb_models:
+                self.pd_all_models_precision.to_csv(filename_all + 'precisions.csv', index=False)
+                self.pd_all_models_coverage.to_csv(filename_all + 'coverages.csv', index=False)
+                self.pd_all_models_f1s.to_csv(filename_all + 'f1s.csv', index=False)
         
         if not self.multimodal == []:
             self.final_multimodal = self.multimodal/nb_instance
@@ -142,15 +146,23 @@ class store_experimental_informations(object):
         if not self.pd_stability.empty:
             self.pd_all_models_stability_features = self.pd_all_models_stability_features.append(self.pd_stability_features)
             self.pd_stability_features.to_csv(filename + 'stability_feature.csv', index=False)
-            self.pd_all_models_stability_features.to_csv(filename + 'all_model_stability_features.csv', index=False)
             self.pd_all_models_stability = self.pd_all_models_stability.append(self.pd_stability)
             self.pd_stability.to_csv(filename + 'stability.csv', index=False)
-            self.pd_all_models_stability.to_csv(filename + 'all_model_stability.csv', index=False)
+            if nb_model ==self.nb_models:
+                 self.pd_all_models_stability_features.to_csv(filename_all + 'stability_features.csv', index=False)
+                 self.pd_all_models_stability.to_csv(filename_all + 'stability.csv', index=False)
 
         if not self.pd_average_distance.empty:
             self.pd_all_models_distance = self.pd_all_models_distance.append(self.pd_average_distance)
             self.pd_average_distance.to_csv(filename + 'average_distance.csv', index=False)
-            self.pd_all_models_distance.to_csv(filename + 'all_models_distance.csv', index=False)
+            if nb_model ==self.nb_models:
+                self.pd_all_models_distance.to_csv(filename_all + 'distance.csv', index=False)
+        
+        if not self.pd_lime_ls.empty:
+            self.pd_all_models_lime_ls = self.pd_all_models_lime_ls.append(self.pd_lime_ls)
+            self.pd_lime_ls.to_csv(filename + 'lime_vs_ls.csv', index=False)
+            if nb_model ==self.nb_models:
+                self.pd_all_models_lime_ls.to_csv(filename_all + 'lime_ls.csv', index=False)
         
     def store_user_experiments_information_instance(self, recalls):
         """
@@ -165,7 +177,7 @@ class store_experimental_informations(object):
         print(self.recall_user_experiments)
         self.pd_recall = self.pd_recall.append(pd.DataFrame([recalls], columns=self.interpretability_name))
 
-    def store_user_experiments_information(self, nb_instance, nb_model, filename="", lime=False):
+    def store_user_experiments_information(self, nb_instance, nb_model, filename="", filename_all="", lime=False):
         """
         Compute the mean score of each explanation method and store it into an array
         Args: nb_instance: Number of instances for which we generate an explanation for each model
@@ -181,12 +193,13 @@ class store_experimental_informations(object):
         self.pd_all_models_recall = self.pd_all_models_recall.append(self.pd_recall)
         if lime:
             name_filename = 'recall_lime.csv'
-            name_filename_models = 'all_model_recalls_lime.csv'
+            name_filename_models = 'recalls_lime.csv'
         else:
             name_filename = 'recall.csv'
-            name_filename_models = 'all_model_recalls.csv'
+            name_filename_models = 'recalls.csv'
         self.pd_recall.to_csv(filename + name_filename, index=False)
-        self.pd_all_models_recall.to_csv(filename + name_filename_models, index=False)
+        if nb_model == self.nb_models:
+            self.pd_all_models_recall.to_csv(filename_all + name_filename_models, index=False)
 
     def store_stability_information_instance(self, stability_score, stability_features_score):
         self.pd_stability = self.pd_stability.append(pd.DataFrame([stability_score], columns=self.interpretability_name))
@@ -195,3 +208,7 @@ class store_experimental_informations(object):
     def store_average_distance_instance(self, average_distance, all_average_distance):
         average = np.array([[average_distance, all_average_distance]])
         self.pd_average_distance = self.pd_average_distance.append(pd.DataFrame(average, columns=self.interpretability_name))
+    
+    def store_lime_vs_local_surrogate(self, k_closest_lime, k_closest_ls, radius):
+        k_closest = np.array([[radius, k_closest_lime, k_closest_ls]])
+        self.pd_lime_ls = self.pd_lime_ls.append(pd.DataFrame(k_closest, columns=self.interpretability_name))

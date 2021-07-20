@@ -53,10 +53,10 @@ if __name__ == "__main__":
     """ All the variable necessaries for generating the graph results """
     # Store results inside graph if set to True
     graph = True
-    verbose = True
+    verbose = False
     verbose_ape = False
     # Threshold for explanation method precision
-    threshold_interpretability = 0.9
+    threshold_interpretability = 0.99
     linear_models_name = ['local surrogate', 'lime extending', 'lime regression', 'lime not binarize', 'lime traditional']
     interpretability_name = ['stability score']
     #interpretability_name = ['ls log reg', 'ls raw data']
@@ -137,5 +137,6 @@ if __name__ == "__main__":
                     print("stability score", stability_results)
                 if graph: experimental_informations.store_stability_information_instance(stability_results, identical_features_score)
                 cnt += 1
-            filename="results/"+dataset_name+"/"+model_name+"/"+str(threshold_interpretability)+"/"
-            if graph: experimental_informations.store_experiments_information(max_instance_to_explain, nb_model, filename=filename)
+            filename = "./results/"+dataset_name+"/"+model_name+"/"+str(threshold_interpretability)+"/"
+            filename_all = "./results/"+dataset_name+"/"+str(threshold_interpretability)+"/"
+            if graph: experimental_informations.store_experiments_information(max_instance_to_explain, nb_model, filename=filename, filename_all=filename_all)
