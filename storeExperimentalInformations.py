@@ -49,7 +49,7 @@ class store_experimental_informations(object):
         self.final_precisions, self.final_coverages, self.final_f1s = np.zeros(size_results), np.zeros(size_results), np.zeros(size_results)
         self.final_recalls = np.zeros(size_results)
         self.final_multimodals = np.zeros(len_models)
-        self.nb_models = nb_models
+        self.nb_models = nb_models - 1
         self.pd_all_models_precision = pd.DataFrame(columns=interpretability_name)
         self.pd_all_models_coverage = pd.DataFrame(columns=interpretability_name)
         self.pd_all_models_f1 = pd.DataFrame(columns=interpretability_name)

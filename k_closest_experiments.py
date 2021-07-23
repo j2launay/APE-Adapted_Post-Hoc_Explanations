@@ -19,7 +19,7 @@ if __name__ == "__main__":
     # Filter the warning from matplotlib
     warnings.filterwarnings("ignore")
     # Datasets used for the experiments
-    dataset_names = ["generate_blob", "generate_moons", "generate_blobs", "blood", "diabete", "iris", "artificial"]
+    dataset_names = ["generate_moons", "generate_blob", "generate_blobs", "blood", "diabete", "iris", "artificial", "titanic", "compas", "adult"]
     # array of the models used for the experiments
     models = [RandomForestClassifier(n_estimators=20), LogisticRegression(),
                 GradientBoostingClassifier(n_estimators=20, learning_rate=1.0),
@@ -51,7 +51,7 @@ if __name__ == "__main__":
     interpretability_name = ['Growing Fields', 'Growing Spheres']
     #interpretability_name = ['ls log reg', 'ls raw data']
     # Initialize all the variable needed to store the result in graph
-    if graph: experimental_informations = store_experimental_informations(len(models), len(interpretability_name), interpretability_name)
+    if graph: experimental_informations = store_experimental_informations(len(models), len(interpretability_name), interpretability_name, len(models))
     for dataset_name in dataset_names:
         models_name = []
         # Store dataset inside x and y (x data and y labels), with aditional information
@@ -90,6 +90,8 @@ if __name__ == "__main__":
             for instance_to_explain in x_test:
                 if cnt == max_instance_to_explain:
                     break
+                #print()
+                #print()
                 print("### Instance number:", cnt + 1, "over", max_instance_to_explain)
                 print("### Models ", nb_model + 1, "over", len(models))
                 print("instance to explain:", instance_to_explain)

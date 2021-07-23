@@ -762,27 +762,45 @@ class ApeTabularExplainer(object):
                 growing_method_other = 'GF'
             else:
                 growing_method_other = 'GS'
+            
+            index_train_data_counterfactual_class = np.where([x != self.target_class for x in self.black_box_predict(self.train_data)])
+            train_data_counterfactual_class = self.train_data[index_train_data_counterfactual_class]
+            #print("train data counterfactual class", train_data_counterfactual_class[:20])
+            #print("TRAIN DATA", self.train_data[:20])
+            #print("index train data", index_train_data_counterfactual_class)
+            k = 5
+
             if nb_iteration == 0:
-                kdt = scipy.spatial.cKDTree(self.train_data)
-                k = 5
+                kdt = scipy.spatial.cKDTree(train_data_counterfactual_class)
                 try:
                     dists, neighs = kdt.query(self.clusters_centers, k+1)
                 except AttributeError:
-                    dists, neighs = kdt.query(self.closest_counterfactual, k+1)
-                mean_dists, mean_neighs = kdt.query(self.train_data, k+1)
+                    dists, neighs = kdt.query(self.closest_counterfactual.reshape(1, -1), k+1)
+                mean_dists, mean_neighs = kdt.query(train_data_counterfactual_class, k+1)
+                
+                closest_ennemis = train_data_counterfactual_class[neighs[0]]
+                dists = []
+                for ennemis in closest_ennemis:
+                    dists.append(distances(self.closest_counterfactual, ennemis, self.train_data, self.max_features, self.min_features, self.categorical_features))
+                
                 avg_dists = np.mean(dists)
                 mean_avg_dists = np.mean(mean_dists[:, 1:], axis=1)
                 avg_dists_other, avg_dists_all_other = self.explain_instance(instance, growing_method=growing_method_other, 
                                                             k_closest=True, nb_iteration=nb_iteration+1)
                 return avg_dists, np.mean(mean_avg_dists), avg_dists_other, avg_dists_all_other
             else:
-                kdt = scipy.spatial.cKDTree(self.train_data)
-                k = 5
+                kdt = scipy.spatial.cKDTree(train_data_counterfactual_class)
                 try:
                     dists, neighs = kdt.query(self.clusters_centers, k+1)
                 except AttributeError:
-                    dists, neighs = kdt.query(self.closest_counterfactual, k+1)
-                mean_dists, mean_neighs = kdt.query(self.train_data, k+1)
+                    dists, neighs = kdt.query(self.closest_counterfactual.reshape(1, -1), k+1)
+                
+                closest_ennemis = train_data_counterfactual_class[neighs[0]]
+                dists = []
+                for ennemis in closest_ennemis:
+                    dists.append(distances(self.closest_counterfactual, ennemis, self.train_data, self.max_features, self.min_features, self.categorical_features))
+
+                mean_dists, mean_neighs = kdt.query(train_data_counterfactual_class, k+1)
                 avg_dists = np.mean(dists)
                 mean_avg_dists = np.mean(mean_dists[:, 1:], axis=1)
                 return avg_dists, np.mean(mean_avg_dists)

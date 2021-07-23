@@ -28,7 +28,7 @@ if __name__ == "__main__":
     # Filter the warning from matplotlib
     warnings.filterwarnings("ignore")
     # The datasets employed for experiments
-    dataset_names = ["compas", "generate_blobs", "diabete", "adult"]
+    dataset_names = ["generate_blobs", "diabete", "compas", "adult"]
     # Models employed for experiments
     models = [tree.DecisionTreeClassifier(max_depth=4),tree.DecisionTreeClassifier(), LogisticRegression()]
     models_name = ['DecisionTreeClassifier_depth4', 'DecisionTreeClassifier', 'LogisticRegression']    
@@ -45,7 +45,7 @@ if __name__ == "__main__":
     interpretability_name = ['local surrogate', 'ape', 'anchors', 'random']
 
     # Initialize variable to store the results for the graph representation
-    if graph: experimental_informations = store_experimental_informations(len(models), len(interpretability_name), interpretability_name)
+    if graph: experimental_informations = store_experimental_informations(len(models), len(interpretability_name), interpretability_name, len(models))
     for dataset_name in dataset_names:
         # Store dataset information such as class names and the list of categerical features as well as variables (x for input and y for labels)
         x, y, class_names, regression, multiclass, continuous_features, categorical_features, categorical_values, categorical_names = generate_dataset(dataset_name)
@@ -74,8 +74,8 @@ if __name__ == "__main__":
             for instance_to_explain in x_test: 
                 if cnt == max_instance_to_explain:
                     break
-                print("### Instance number:", cnt+1, "over", max_instance_to_explain)
                 print("### Models ", nb_model+1, "over", len(models))
+                print("### Instance number:", cnt+1, "over", max_instance_to_explain)
                 if "Tree" in model_name:
                     # Store the features that were actually used by the decision tree model to classify instances
                     features_employed_black_box = decision_tree_function(model, instance_to_explain.reshape(1, -1))

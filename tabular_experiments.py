@@ -51,7 +51,7 @@ if __name__ == "__main__":
     interpretability_name = ['LS extend', 'APE', 'anchor']
     #interpretability_name = ['ls log reg', 'ls raw data']
     # Initialize all the variable needed to store the result in graph
-    if graph: experimental_informations = store_experimental_informations(len(models), len(interpretability_name), interpretability_name)
+    if graph: experimental_informations = store_experimental_informations(len(models), len(interpretability_name), interpretability_name, len(models))
     for dataset_name in dataset_names:
         models_name = []
         # Store dataset inside x and y (x data and y labels), with aditional information

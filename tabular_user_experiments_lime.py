@@ -47,7 +47,7 @@ if __name__ == "__main__":
     interpretability_name = ['lime', 'Local Surrogate', 'random']
 
     # Initialize variable to store the results for the graph representation
-    if graph: experimental_informations = store_experimental_informations(len(models), len(interpretability_name), interpretability_name)
+    if graph: experimental_informations = store_experimental_informations(len(models), len(interpretability_name), interpretability_name, len(models))
     for dataset_name in dataset_names:
         # Store dataset information such as class names and the list of categerical features as well as variables (x for input and y for labels)
         x, y, class_names, regression, multiclass, continuous_features, categorical_features, categorical_values, categorical_names = generate_dataset(dataset_name)
