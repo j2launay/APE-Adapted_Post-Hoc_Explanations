@@ -23,15 +23,15 @@ if __name__ == "__main__":
     # array of the models used for the experiments
     models = [RandomForestClassifier(n_estimators=20), LogisticRegression(),
                 GradientBoostingClassifier(n_estimators=20, learning_rate=1.0),
-                tree.DecisionTreeClassifier(), 
-                RidgeClassifier(), 
+                tree.DecisionTreeClassifier(),
+                RidgeClassifier(),
+                Sequential(),
                 VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('rc', RidgeClassifier())], voting="hard"),
-                MLPClassifier(random_state=1), 
-                Sequential()]
-    #models = [RandomForestClassifier(n_estimators=20), RidgeClassifier(), Sequential()]
+                MLPClassifier(random_state=1)]
+    models = [RandomForestClassifier(n_estimators=20), RidgeClassifier(), Sequential()]
 
     # Number of instances explained by each model on each dataset
-    max_instance_to_explain = 50
+    max_instance_to_explain = 5
     # Print explanation result
     illustrative_example = False
     """ All the variable necessaries for generating the graph results """
@@ -82,7 +82,7 @@ if __name__ == "__main__":
                 score = black_box.score
             print('### Accuracy:', score(x_test, y_test))
             cnt = 0
-            explainer = ape_tabular.ApeTabularExplainer(x_train, class_names, predict, black_box.predict_proba,
+            explainer = ape_tabular.ApeTabularExplainer(x_train, class_names, predict, #black_box.predict_proba,
                                                             continuous_features=continuous_features,
                                                             categorical_features=categorical_features, categorical_values=categorical_values, 
                                                             feature_names=dataset.feature_names, categorical_names=categorical_names,

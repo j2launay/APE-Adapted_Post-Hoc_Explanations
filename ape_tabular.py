@@ -311,7 +311,7 @@ class ApeTabularExplainer(object):
         percentage_distribution = radius/farthest_distance*100
         if len(self.categorical_features) > 1 and self.verbose: 
             print("growing sphere radius", np.round(radius, decimals=3), "percentage of categorical feature changing:", percentage_distribution)
-        while (nb_different_outcome < min_instance_per_class or nb_same_outcome < min_instance_per_class): 
+        while (nb_different_outcome < min_instance_per_class or nb_same_outcome < min_instance_per_class) and (nb_different_outcome + nb_same_outcome < 10000): 
             # While there is not enough instances from each class
             nb_different_outcome, nb_same_outcome = 0, 0
             try:
@@ -365,6 +365,8 @@ class ApeTabularExplainer(object):
         if self.verbose: 
             print('There are ', nb_different_outcome, " instances from a different class in the sphere over ", len(instances_in_sphere), " total instances in the dataset.")
             print("There are : ", nb_same_outcome, " instances classified as the target instance in the sphere.")
+        if nb_different_outcome + nb_same_outcome > 10000:
+            return 0
         return instances_in_sphere, labels_in_sphere, percentage_distribution, generated_instances_inside_sphere_libfolding
 
     def compute_linear_regression_precision(self, prediction_inside_sphere, labels_in_sphere):

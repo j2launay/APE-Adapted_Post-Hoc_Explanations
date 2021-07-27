@@ -63,9 +63,13 @@ def get_farthest_distance(instance, train_data, categorical_features, metric='eu
 def compute_precision_in_sphere(ape_tabular, radius_sphere, linear_explainer, closest_counterfactual, farthest_distance, target_class):
     position_instances_in_sphere, nb_training_instance_in_sphere = ape_tabular.instances_from_dataset_inside_sphere(closest_counterfactual, radius_sphere)
     ape_tabular.target_class = target_class
-    instances_in_sphere, labels_in_sphere, percentage_distribution, _ = ape_tabular.generate_instances_inside_sphere(radius_sphere, closest_counterfactual, 
+    try:
+        instances_in_sphere, labels_in_sphere, percentage_distribution, _ = ape_tabular.generate_instances_inside_sphere(radius_sphere, closest_counterfactual, 
                                                                                         farthest_distance, ape_tabular.nb_min_instance_per_class_in_sphere,
                                                                                         position_instances_in_sphere, nb_training_instance_in_sphere)
+    except:
+        return 0
+    ape_tabular.nb_min_instance_in_sphere = 800
     prediction_inside_sphere = ape_tabular.modify_instance_for_linear_model(linear_explainer, instances_in_sphere)
     precision_local_surrogate = ape_tabular.compute_linear_regression_precision(prediction_inside_sphere, labels_in_sphere)
     return precision_local_surrogate
@@ -160,8 +164,10 @@ if __name__ == "__main__":
                 lime = lime_explainer.explain_instance_training_dataset(instance_to_explain, predict, 
                                                                     num_features=6, model_regressor=LogisticRegression())
                 
-                for radius in (0.5, 0.6, 0.7, 0.8, 0.9, 1):
+                for radius in (0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1):
+                    explainer.nb_min_instance_in_sphere = 800
                     local_surrogate_precision = compute_precision_in_sphere(explainer, radius, local_surrogate, closest_counterfactual, farthest_distance, target_class)
+                    explainer.nb_min_instance_in_sphere = 800
                     lime_precision = compute_precision_in_sphere(explainer, radius, lime, instance_to_explain, farthest_distance, opponent_class)
                     if local_surrogate_precision >= lime_precision:
                         print("YEAH")

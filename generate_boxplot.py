@@ -26,7 +26,7 @@ pyplot.title('boxplot avec array 2d')
 """
 
 threshold_interpretability = "0.99"
-datasets = ["compas", "titanic", "adult"]#"generate_moons", "generate_blob", "generate_blobs", "artificial", "blood", "diabete", "iris",
+datasets = ["generate_moons"]#["compas", "titanic", "adult"]#"generate_moons", "generate_blob", "generate_blobs", "artificial", "blood", "diabete", "iris",
 models = [RandomForestClassifier(), LogisticRegression(),
                 VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('dt', tree.DecisionTreeClassifier())], voting="soft"),
                 #Sequential(),
@@ -35,6 +35,8 @@ models = [RandomForestClassifier(), LogisticRegression(),
                 RidgeClassifier(), 
                 MLPClassifier()]
 graphs = ["coverage", "precision", "f1", 'recall']#, "average_distance", "lime_vs_ls"]
+
+"""
 for dataset in datasets:
     print(dataset)
     for model in models:
@@ -47,6 +49,26 @@ for dataset in datasets:
             #print("data", data)
             pyplot.boxplot(data)
             pyplot.gca().xaxis.set_ticklabels(data.columns)
+            pyplot.title('boxplot of ' + graph + " on " + dataset + " for " + model)
+            os.makedirs(os.path.dirname("./boxplot/" + filename), exist_ok=True)
+            pyplot.savefig("./boxplot/" + filename + ".png")
+            pyplot.show(block=False)
+            pyplot.pause(1)
+            pyplot.close('all')
+"""
+
+# TODO modify for lime_ls to generate graph for each radius instead of a boxplot
+graph_multiple = ["coverages", "precisions", "f1s", "lime_ls"]
+for dataset in datasets:
+    print(dataset)
+    for graph in graph_multiple:
+            pyplot.subplot(212)
+            filename = dataset + "/" + threshold_interpretability + "/" + graph
+            data = pd.read_csv("./results/" + filename + ".csv")
+            #print("data", data)
+            pyplot.boxplot(data)
+            pyplot.gca().xaxis.set_ticklabels(data.columns)
+            pyplot.title('boxplot of ' + graph + " on " + dataset)
             os.makedirs(os.path.dirname("./boxplot/" + filename), exist_ok=True)
             pyplot.savefig("./boxplot/" + filename + ".png")
             pyplot.show(block=False)
