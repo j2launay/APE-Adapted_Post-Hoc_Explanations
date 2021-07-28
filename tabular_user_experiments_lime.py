@@ -38,7 +38,7 @@ if __name__ == "__main__":
     # If set to True store the results inside a graph
     graph = True
     # Number of instance for which explanations are computed
-    max_instance_to_explain = 3
+    max_instance_to_explain = 50
     # If set to True print detailed information
     verbose = False
     # Precision threshold for explanation models and linear separability test 

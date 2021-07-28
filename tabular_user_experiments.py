@@ -33,7 +33,7 @@ if __name__ == "__main__":
     models = [tree.DecisionTreeClassifier(max_depth=4),tree.DecisionTreeClassifier(), LogisticRegression()]
     models_name = ['DecisionTreeClassifier_depth4', 'DecisionTreeClassifier', 'LogisticRegression']    
     # Number of instance for which explanations are computed
-    max_instance_to_explain = 3
+    max_instance_to_explain = 50
     # Number of feature from the dataset that are modified (values are set to 0 to train the decision model)
     nb_feature_to_modify = 6
     # If set to True store the results inside a graph

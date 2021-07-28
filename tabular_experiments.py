@@ -12,8 +12,8 @@ import baseGraph
 import ape_tabular
 import warnings
 import pickle
-from keras.models import Sequential
-from keras.layers import Dense
+#from keras.models import Sequential
+#from keras.layers import Dense
 
 if __name__ == "__main__":
     # Filter the warning from matplotlib
@@ -25,13 +25,13 @@ if __name__ == "__main__":
                 GradientBoostingClassifier(n_estimators=20, learning_rate=1.0),
                 tree.DecisionTreeClassifier(),
                 RidgeClassifier(),
-                Sequential(),
+                #Sequential(),
                 VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('rc', RidgeClassifier())], voting="hard"),
                 MLPClassifier(random_state=1)]
-    models = [RandomForestClassifier(n_estimators=20), RidgeClassifier(), Sequential()]
+    #models = [RandomForestClassifier(n_estimators=20), RidgeClassifier(), Sequential()]
 
     # Number of instances explained by each model on each dataset
-    max_instance_to_explain = 5
+    max_instance_to_explain = 50
     # Print explanation result
     illustrative_example = False
     """ All the variable necessaries for generating the graph results """
