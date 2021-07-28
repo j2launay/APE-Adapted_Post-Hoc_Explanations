@@ -637,22 +637,12 @@ class LimeTabularExplainer(object):
             conf_int: list of two values (lower and upper bound of the confidence interval)
         """
 
-        print("X", self.base.X)
-        print("true labels", self.base.true_labels)
-        print("weights", self.base.weights)
-        print("alpha", self.base.alpha)
         stdevs_beta = compute_WLS_stdevs(X=self.base.X, Y=self.base.true_labels,
                                          weights=self.base.weights, alpha=self.base.alpha)
 
-        print("standard deviation LIME", stdevs_beta)
         beta_ridge = self.base.easy_model.coef_.tolist()
-        print("beta ridge", beta_ridge)
-        print("mean for first feature", np.mean(self.base.X[:,1]))
-        print("TEST", self.base.X[:,1])
         feature_ids = self.base.used_features
-        print("feature used", feature_ids)
         used_features = [self.feature_names[i] for i in feature_ids]
-        print("used features", used_features)
 
         conf_int = refactor_confints_todict(means=beta_ridge, st_devs=stdevs_beta, feat_names=used_features)
 

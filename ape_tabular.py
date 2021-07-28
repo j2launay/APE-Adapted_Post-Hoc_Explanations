@@ -288,7 +288,7 @@ class ApeTabularExplainer(object):
 
 
     def generate_instances_inside_sphere(self, radius, closest_counterfactual, farthest_distance, min_instance_per_class,
-                                        position_instances_in_sphere, nb_training_instance_in_sphere, libfolding=False):        
+                                        position_instances_in_sphere, nb_training_instance_in_sphere, libfolding=False, lime_ls=False):        
         
         """ 
         Generates instances in the  area of the hyper field until minimum instances are found from each class 
@@ -365,7 +365,7 @@ class ApeTabularExplainer(object):
         if self.verbose: 
             print('There are ', nb_different_outcome, " instances from a different class in the sphere over ", len(instances_in_sphere), " total instances in the dataset.")
             print("There are : ", nb_same_outcome, " instances classified as the target instance in the sphere.")
-        if nb_different_outcome + nb_same_outcome > 10000:
+        if nb_different_outcome + nb_same_outcome > 10000 and lime_ls:
             return 0
         return instances_in_sphere, labels_in_sphere, percentage_distribution, generated_instances_inside_sphere_libfolding
 
@@ -636,7 +636,7 @@ class ApeTabularExplainer(object):
                                                                                                                 self.closest_counterfactual, farthest_distance, 
                                                                                                                 min_instance_per_class, position_instances_in_sphere, 
                                                                                                                 nb_training_instance_in_sphere, libfolding=True)
-        
+
         if local_surrogate_experiment:
             local_surrogate_precision, local_surrogate_coverage, f1_local_surrogate = compute_local_surrogate_precision_coverage(self, 
                                                 instance, growing_sphere,

@@ -112,6 +112,7 @@ class store_experimental_informations(object):
               nb_model: Numerous of the black box model for which we generate explanation (first model employed = 0 , second model employed = 1, etc...)
         """
         os.makedirs(os.path.dirname(filename+"/"), exist_ok=True)
+        os.makedirs(os.path.dirname(filename_all+"/"), exist_ok=True)
 
         self.final_precision = []
         self.final_coverage = []
@@ -134,7 +135,7 @@ class store_experimental_informations(object):
             self.pd_precision.to_csv(filename + 'precision.csv', index=False)
             self.pd_coverage.to_csv(filename + 'coverage.csv', index=False)
             self.pd_f1.to_csv(filename + 'f1.csv', index=False)
-            if nb_model ==self.nb_models:
+            if nb_model == self.nb_models:
                 self.pd_all_models_precision.to_csv(filename_all + 'precisions.csv', index=False)
                 self.pd_all_models_coverage.to_csv(filename_all + 'coverages.csv', index=False)
                 self.pd_all_models_f1s.to_csv(filename_all + 'f1s.csv', index=False)
@@ -148,20 +149,20 @@ class store_experimental_informations(object):
             self.pd_stability_features.to_csv(filename + 'stability_feature.csv', index=False)
             self.pd_all_models_stability = self.pd_all_models_stability.append(self.pd_stability)
             self.pd_stability.to_csv(filename + 'stability.csv', index=False)
-            if nb_model ==self.nb_models:
+            if nb_model == self.nb_models:
                  self.pd_all_models_stability_features.to_csv(filename_all + 'stability_features.csv', index=False)
                  self.pd_all_models_stability.to_csv(filename_all + 'stability.csv', index=False)
 
         if not self.pd_average_distance.empty:
             self.pd_all_models_distance = self.pd_all_models_distance.append(self.pd_average_distance)
             self.pd_average_distance.to_csv(filename + 'average_distance.csv', index=False)
-            if nb_model ==self.nb_models:
+            if nb_model == self.nb_models:
                 self.pd_all_models_distance.to_csv(filename_all + 'distance.csv', index=False)
         
         if not self.pd_lime_ls.empty:
             self.pd_all_models_lime_ls = self.pd_all_models_lime_ls.append(self.pd_lime_ls)
             self.pd_lime_ls.to_csv(filename + 'lime_vs_ls.csv', index=False)
-            if nb_model ==self.nb_models:
+            if nb_model == self.nb_models:
                 self.pd_all_models_lime_ls.to_csv(filename_all + 'lime_ls.csv', index=False)
         
     def store_user_experiments_information_instance(self, recalls):
@@ -184,6 +185,7 @@ class store_experimental_informations(object):
               nb_model: Numerous of the black box model for which we generate explanation (first model employed = 0 , second model employed = 1, etc...)
         """
         os.makedirs(os.path.dirname(filename+"/"), exist_ok=True)
+        os.makedirs(os.path.dirname(filename_all+"/"), exist_ok=True)
         self.final_recall = []
         for interpretability in self.interpretability_name:
             self.final_recall.append(self.recall_user_experiments[interpretability] / nb_instance)

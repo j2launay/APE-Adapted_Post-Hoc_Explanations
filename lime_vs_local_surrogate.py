@@ -66,7 +66,8 @@ def compute_precision_in_sphere(ape_tabular, radius_sphere, linear_explainer, cl
     try:
         instances_in_sphere, labels_in_sphere, percentage_distribution, _ = ape_tabular.generate_instances_inside_sphere(radius_sphere, closest_counterfactual, 
                                                                                         farthest_distance, ape_tabular.nb_min_instance_per_class_in_sphere,
-                                                                                        position_instances_in_sphere, nb_training_instance_in_sphere)
+                                                                                        position_instances_in_sphere, nb_training_instance_in_sphere,
+                                                                                        lime_ls=True)
     except:
         return 0
     ape_tabular.nb_min_instance_in_sphere = 800
