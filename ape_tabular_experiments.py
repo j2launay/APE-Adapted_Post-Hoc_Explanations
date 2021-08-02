@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from sklearn.cluster import KMeans
 from sklearn.metrics import roc_auc_score, f1_score
+from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from yellowbrick.cluster import KElbowVisualizer
 from anchors import utils, anchor_tabular, anchor_base, limes
@@ -16,19 +17,19 @@ from scipy.stats import multinomial
 import pickle
 import random
 
-def compute_other_linear_explanation_precision_coverage(ape_tabular, nb_training_instance_in_sphere, position_instances_in_sphere,
-                                                            instances_in_sphere, labels_in_sphere, nb_instance_train_data_label_as_target, 
-                                                            nb_training_instance_in_sphere_label_as_target, labels_training_instance_in_sphere, 
+def compute_other_linear_explanation_precision_coverage(ape_tabular, nb_testing_instance_in_sphere, position_instances_in_sphere,
+                                                            instances_in_sphere, labels_in_sphere, nb_instance_test_data_label_as_target, 
+                                                            nb_testing_instance_in_sphere_label_as_target, labels_testing_instance_in_sphere, 
                                                             nb_features_employed):
     """
     Computation of precision and coverage to compare multiple local surrogate explanation model
     Args: ape_tabular: Ape tabular object used to explain instance
-            nb_training_instance_in_sphere: Number of instances from the training data that are located in the hyper field
+            nb_testing_instance_in_sphere: Number of instances from the training data that are located in the hyper field
             position_instances_in_sphere: index of the intances from the training data that are located in the hyper field
             instances_in_sphere: Artificial and training data located in the hyper field
             labels_in_sphere: Black box model classification of instances in the hyper field
             nb_instance_train_data_label_as_target: Number of instances from the training data that are classify as the target instance
-            nb_training_instance_in_sphere_label_as_target: Number of instances from the training data located in the hyper field classify as the target instance
+            nb_testing_instance_in_sphere_label_as_target: Number of instances from the training data located in the hyper field classify as the target instance
             labels_training_instance_in_sphere: Labels of training instances located in the hyper field
             nb_features_employed: Number of features employed as explanation by local surrogate
     Return: Precision, Coverage and F1 for classic local surrogate, local surrogate train over training data with a linear regression 
@@ -54,14 +55,14 @@ def compute_other_linear_explanation_precision_coverage(ape_tabular, nb_training
     precision_ls_linear_regression = ape_tabular.compute_linear_regression_precision(prediction_inside_sphere, labels_in_sphere)
     
     if ape_tabular.verbose: print("Computing multiple linear explanation models precision and coverage.")
-    linear_coverage = nb_training_instance_in_sphere_label_as_target/nb_instance_train_data_label_as_target
+    linear_coverage = nb_testing_instance_in_sphere_label_as_target/nb_instance_test_data_label_as_target
     f1_lime_regression = (precision_ls_linear_regression+linear_coverage)/2
     f1_not_bin_lime = (precision_local_surogate_linear_regression+linear_coverage)/2
     f1_local_surrogate = (precision_local_surrogate+linear_coverage)/2
     return [precision_ls_linear_regression, precision_local_surogate_linear_regression, precision_local_surrogate], [linear_coverage, linear_coverage, linear_coverage], [f1_lime_regression, f1_not_bin_lime, f1_local_surrogate]
 
 def compute_all_explanation_method_precision(ape_tabular, instance, growing_sphere, dicrease_radius, radius,
-                                                nb_training_instance_in_sphere, nb_instance_train_data_label_as_target,
+                                                nb_training_instance_in_sphere, nb_instance_test_data_label_as_target,
                                                 position_instances_in_sphere, instances_in_sphere, labels_in_sphere,
                                                 farthest_distance, percentage_distribution, nb_features_employed):
     """
@@ -82,17 +83,18 @@ def compute_all_explanation_method_precision(ape_tabular, instance, growing_sphe
             nb_features_employed: Number of features employed by the linear explanation model
     Return: Arrays of precision, coverage and F1 of multiple explanation models
     """
-    labels_instance_train_data = ape_tabular.black_box_predict(ape_tabular.train_data)
+    labels_instance_test_data = ape_tabular.black_box_predict(ape_tabular.test_data)
     ape_tabular.instance_to_explain = instance
     
     # Compute precision, coverage and F1 of local surrogate trained over raw data, with an extending sphere and a logistic regression model as explanation
     local_surrogate_extend_raw_precision, local_surrogate_extend_raw_coverage, f1_local_surrogate_extend_raw, _ = ape_tabular.compute_lime_extending_precision_coverage(instances_in_sphere,
                                             labels_in_sphere, growing_sphere, nb_features_employed, farthest_distance, dicrease_radius, 
-                                            nb_instance_train_data_label_as_target)
+                                            nb_instance_test_data_label_as_target)
     
     # Compute precision, coverage and F1 for Anchors
-    anchor_precision, anchor_coverage, f1_anchor, _ = ape_tabular.compute_anchor_precision_coverage(instance, labels_instance_train_data, len(instances_in_sphere), 
-                                    farthest_distance, percentage_distribution, nb_instance_train_data_label_as_target)
+    anchor_precision, anchor_coverage, f1_anchor, _ = ape_tabular.compute_anchor_precision_coverage(instance, 
+                                    labels_instance_test_data, len(instances_in_sphere), 
+                                    farthest_distance, percentage_distribution, nb_instance_test_data_label_as_target)
 
     ape_precision = anchor_precision if ape_tabular.multimodal_results else local_surrogate_extend_raw_precision
     ape_coverage = anchor_coverage if ape_tabular.multimodal_results else local_surrogate_extend_raw_coverage
@@ -116,8 +118,8 @@ def compute_all_explanation_method_precision(ape_tabular, instance, growing_sphe
     return precisions, coverages, f1s, multimodal
 
 def compute_local_surrogate_precision_coverage(ape_tabular, instance, growing_sphere,
-                                                instances_in_sphere, labels_in_sphere,
-                                                position_instances_in_sphere, nb_training_instance_in_sphere, 
+                                                test_instances_in_sphere, test_labels_in_sphere,
+                                                position_testing_instances_in_sphere, nb_testing_instance_in_sphere, 
                                                 nb_features_employed):
     """
     Compute precision, coverage and f1 for multiple linear explanation models
@@ -132,16 +134,17 @@ def compute_local_surrogate_precision_coverage(ape_tabular, instance, growing_sp
     Return: precision, coverage and f1 of classic local surrogate, a local surrogate train over training data with a linear regression 
             and a local surrogate using a logistic regression model as explanation
     """
-    labels_instance_train_data = ape_tabular.black_box_predict(ape_tabular.train_data)
-    nb_instance_train_data_label_as_target = sum(x == ape_tabular.target_class for x in labels_instance_train_data)
+    labels_instance_test_data = ape_tabular.black_box_predict(ape_tabular.test_data)
+    nb_instance_test_data_label_as_target = sum(x == ape_tabular.target_class for x in labels_instance_test_data)
     
-    nb_training_instance_in_sphere_label_as_target, labels_training_instance_in_sphere = ape_tabular.compute_labels_inside_sphere(nb_training_instance_in_sphere, 
-                                                                                                                                position_instances_in_sphere)    
+    nb_testing_instance_in_sphere_label_as_target, labels_testing_instance_in_sphere = ape_tabular.compute_labels_inside_sphere(nb_testing_instance_in_sphere, 
+                                                                                                                                position_testing_instances_in_sphere)    
     
     precision, coverage, f1 = compute_other_linear_explanation_precision_coverage(ape_tabular,
-                                                            nb_training_instance_in_sphere, position_instances_in_sphere, 
-                                                            instances_in_sphere, labels_in_sphere, nb_instance_train_data_label_as_target, 
-                                                            nb_training_instance_in_sphere_label_as_target, labels_training_instance_in_sphere, nb_features_employed)
+                                                            nb_testing_instance_in_sphere, position_testing_instances_in_sphere, 
+                                                            test_instances_in_sphere, test_labels_in_sphere, nb_instance_test_data_label_as_target, 
+                                                            nb_testing_instance_in_sphere_label_as_target, 
+                                                            labels_testing_instance_in_sphere, nb_features_employed)
     return precision, coverage, f1
 
 
@@ -168,9 +171,9 @@ def simulate_user_experiments(ape_tabular, instance, nb_features_employed, farth
     """ Generates or store instances in the area of the hypersphere and their correspoinding labels """
     min_instance_per_class = ape_tabular.nb_min_instance_per_class_in_sphere
     instances_in_sphere, labels_in_sphere, percentage_distribution, instances_in_sphere_libfolding = ape_tabular.generate_instances_inside_sphere(growing_sphere.radius, 
-                                                                                                            closest_counterfactual, farthest_distance, 
-                                                                                                            min_instance_per_class, position_instances_in_sphere, 
-                                                                                                            nb_training_instance_in_sphere, libfolding=True)
+                                                                                                    closest_counterfactual, farthest_distance, 
+                                                                                                    min_instance_per_class, position_instances_in_sphere, 
+                                                                                                    nb_training_instance_in_sphere, libfolding=True)
 
     # Always compute an anchor explanation to compare with APE and local Surrogate
     anchor_exp = ape_tabular.anchor_explainer.explain_instance(instance, ape_tabular.black_box_predict, threshold=ape_tabular.threshold_precision, 
@@ -184,7 +187,7 @@ def simulate_user_experiments(ape_tabular, instance, nb_features_employed, farth
     print("rules in anchor", rules)
     if not ape_tabular.multimodal_results:
         # In case of unimodal data we compute a local surrogate explanation trained over raw instances located in the hyper sphere 
-        local_surogate = ape_tabular.lime_explainer.explain_instance_training_dataset(instance,
+        local_surogate = ape_tabular.lime_explainer.explain_instance_training_dataset(closest_counterfactual,
                                                                     ape_tabular.black_box_predict_proba, 
                                                                     num_features=nb_features_employed,
                                                                     instances_in_sphere=instances_in_sphere)
@@ -193,10 +196,10 @@ def simulate_user_experiments(ape_tabular, instance, nb_features_employed, farth
             features_linear_employed.append(feature_linear_employed[0])
         #print("features linear employed", features_linear_employed) => To print the features importance generated by Local Surrogate
         # Transform the explanation generated by Local Surrogate to know what are the features employed by LS
-        rules, training_instances_pandas_frame, features_employed_in_linear = ape_tabular.generate_rule_and_data_for_anchors(features_linear_employed, 
+        rules, training_instances_pandas_frame, features_employed_by_extended_local_surrogate = ape_tabular.generate_rule_and_data_for_anchors(features_linear_employed, 
                                                                                                     ape_tabular.target_class, ape_tabular.train_data, 
                                                                                                     simulated_user_experiment=True)
-        features_employed_by_ape = features_employed_in_linear
+        features_employed_by_ape = features_employed_by_extended_local_surrogate
     else:
         # In case of multimodal data APE choose an anchor explanation 
         features_employed_by_ape = features_employed_in_rule
@@ -211,7 +214,11 @@ def simulate_user_experiments(ape_tabular, instance, nb_features_employed, farth
     rules, training_instances_pandas_frame, features_employed_in_linear = ape_tabular.generate_rule_and_data_for_anchors(features_linear_employed, 
                                                                                                     ape_tabular.target_class, ape_tabular.train_data, 
                                                                                                     simulated_user_experiment=True)
-        
+    try:
+        if features_employed_by_extended_local_surrogate != features_employed_in_linear:
+            print("There is a difference between the features chosen by classic local Surrogate and the one chosen by the Local Surrogate from APE")
+    except:
+        pass
     return features_employed_in_linear, features_employed_by_ape, features_employed_in_rule
 
 def simulate_user_experiments_lime_ls(ape_tabular, instance, nb_features_employed, farthest_distance, closest_counterfactual, growing_sphere,

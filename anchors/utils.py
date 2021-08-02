@@ -317,7 +317,7 @@ def load_dataset(dataset_name, balance=False, discretize=True, dataset_folder='.
                             429: 'Burglary Structure Occupied', 430: 'Alcoholic Beverage Violation-FL', 431: 'Attempted Deliv Control Subst',
                             432: 'Possession of XLR11', 434: 'Attempt Burglary (Struct)', 435: 'Littering'}
         dataset = load_csv_dataset(
-            os.path.join(dataset_folder, 'compas/compas_numpy.csv'), -1, ',',
+            os.path.join(dataset_folder, 'compas/compas.csv'), -1, ',',
             #features_to_use=features_to_use,
             #feature_names=feature_names, 
             #'compas/compas-scores-two-years.csv'), -1, ',',

@@ -180,7 +180,6 @@ def generate_dataset(dataset_name, multiclass=False):
         """
         class_names = ['Recidiv', 'Vanish']
 
-
     else:
         # By default the dataset chosen is generate_moons
         dataset_name = "generate_moons"

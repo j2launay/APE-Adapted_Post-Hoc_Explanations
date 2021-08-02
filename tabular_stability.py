@@ -39,7 +39,7 @@ if __name__ == "__main__":
     # array of the models used for the experiments
     models = [RandomForestClassifier(n_estimators=20), LogisticRegression(),
                 VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('dt', tree.DecisionTreeClassifier())], voting="soft"),
-                Sequential(),
+                #Sequential(),
                 GradientBoostingClassifier(n_estimators=20, learning_rate=1.0),
                 tree.DecisionTreeClassifier(), 
                 #RidgeClassifier(), 
