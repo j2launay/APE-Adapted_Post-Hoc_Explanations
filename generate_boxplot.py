@@ -21,7 +21,8 @@ models = [RandomForestClassifier(), LogisticRegression(),
                 RidgeClassifier(), 
                 MLPClassifier(),
                 None]
-graphs = ["coverage", "precision", "f1", 'recall', "average_distance", "coverages", "precisions", "f1s", "distance", 'recalls_lime', 'recall_lime']
+graphs = ["coverage", "precision", "f1", 'recall', "average_distance", "coverages", "precisions", "f1s", "distance", 
+            'recalls_lime', 'recall_lime', "degrees", "counterfactual_in_anchor", "kendall", "mean_top_k"]
 graphs_lime = ["lime_vs_ls", "lime_ls"]
 
 for threshold_interpretability in thresholds_interpretability:
@@ -51,12 +52,12 @@ for threshold_interpretability in thresholds_interpretability:
                         values_lime = values["Lime"].to_numpy()
                         values_ls = values["Local Surrogate"].to_numpy()
                         if first:
-                            pyplot.errorbar(rad, np.mean(values_lime), yerr=np.var(values_lime), color='b', marker='X', label = 'Lime')
-                            pyplot.errorbar(rad, np.mean(values_ls), yerr=np.var(values_ls), color='r', marker='o', label = 'Local Surrogate')
+                            pyplot.errorbar(rad + 0.005, np.mean(values_lime), yerr=np.var(values_lime), color='b', marker='X', label = 'Lime')
+                            pyplot.errorbar(rad - 0.005, np.mean(values_ls), yerr=np.var(values_ls), color='r', marker='o', label = 'Local Surrogate')
                             first = False
                         else:
-                            pyplot.errorbar(rad, np.mean(values_lime), yerr=np.var(values_lime), color='b', marker='X')
-                            pyplot.errorbar(rad, np.mean(values_ls), yerr=np.var(values_ls), color='r', marker='o')
+                            pyplot.errorbar(rad + 0.005, np.mean(values_lime), yerr=np.var(values_lime), color='b', marker='X')
+                            pyplot.errorbar(rad - 0.005, np.mean(values_ls), yerr=np.var(values_ls), color='r', marker='o')
                     fontP = FontProperties()
                     pyplot.legend(bbox_to_anchor=(0.35, 1.6), loc='upper left', prop=fontP)
                     os.makedirs(os.path.dirname("./boxplot/" + filename), exist_ok=True)
@@ -93,4 +94,3 @@ for threshold_interpretability in thresholds_interpretability:
                     pyplot.close('all')
                 except Exception as inst:
                     print(inst)
-

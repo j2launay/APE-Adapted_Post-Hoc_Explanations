@@ -121,7 +121,7 @@ def generate_dataset(dataset_name, multiclass=False):
     elif "blob" in dataset_name:
         X, y = make_blobs(1000, n_features=2, random_state=0, centers=2)
         class_names = ['class ' + str(Y)  for Y in range(len(set(y)))]
-        multiclass=True
+        multiclass=False
     
     elif "multilabel" in dataset_name:
         X, y = make_multilabel_classification(n_samples=500, n_classes=3, n_labels=1, allow_unlabeled=False, n_features=2)

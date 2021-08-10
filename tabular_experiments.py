@@ -19,7 +19,7 @@ if __name__ == "__main__":
     # Filter the warning from matplotlib
     warnings.filterwarnings("ignore")
     # Datasets used for the experiments
-    dataset_names = ["generate_moons", "generate_blob", "generate_blobs", "artificial", "compas", "titanic", "adult", "blood", "diabete", "iris"]
+    dataset_names = ["generate_moons", "generate_blob", "generate_blobs", "titanic", "adult", "blood", "diabete", "iris", "compas", "artificial"]
     # array of the models used for the experiments
     models = [RandomForestClassifier(n_estimators=20), LogisticRegression(),
                 GradientBoostingClassifier(n_estimators=20, learning_rate=1.0),
@@ -28,7 +28,7 @@ if __name__ == "__main__":
                 #Sequential(),
                 VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('rc', RidgeClassifier())], voting="hard"),
                 MLPClassifier(random_state=1)]
-    #models = [RandomForestClassifier(n_estimators=20), RidgeClassifier(), Sequential()]
+    #models = [RandomForestClassifier(n_estimators=20), RidgeClassifier()]#, Sequential()]
 
     # Number of instances explained by each model on each dataset
     max_instance_to_explain = 50
@@ -40,7 +40,7 @@ if __name__ == "__main__":
     verbose = False
     growing_sphere = False
     if growing_sphere:
-        label_graph = "growing_spheres"
+        label_graph = "growing spheres "
         growing_method = "GS"
     else:
         label_graph = ""

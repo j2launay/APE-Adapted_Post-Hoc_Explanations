@@ -51,6 +51,11 @@ class GrowingSpheres:
         self.dicrease_radius = dicrease_radius 
         self.sparse = sparse
         
+        # For experiments to compare with Growing Fields on dataset with categorical features
+        self.continuous_features = continuous_features
+        self.categorical_features = categorical_features
+        self.categorical_values = categorical_values
+
         self.verbose = verbose
         
         if int(self.y_obs) != self.y_obs:
@@ -109,19 +114,20 @@ class GrowingSpheres:
         """
         Basis for GS: generates a hypersphere layer, labels it with the blackbox and returns the instances that are predicted to belong to the target class.
         """
-        layer = generate_inside_ball(self.obs_to_interprete, segment, n)
+        layer = self.generate_inside_spheres(self.obs_to_interprete, segment, n)
         #cap here: not optimal
         if caps != None:
             cap_fn_ = lambda x: min(max(x, caps[0]), caps[1])
             layer = np.vectorize(cap_fn_)(layer)
-            
+
         preds_ = self.prediction_fn(layer)
         return layer[np.where(preds_ == self.target_class)]        
     
     
     def feature_selection(self, counterfactual):
         """
-        Projection step of the GS algorithm. Make projections to make (e* - obs_to_interprete) sparse. Heuristic: sort the coordinates of np.abs(e* - obs_to_interprete) in ascending order and project as long as it does not change the predicted class
+        Projection step of the GS algorithm. Make projections to make (e* - obs_to_interprete) sparse. 
+        Heuristic: sort the coordinates of np.abs(e* - obs_to_interprete) in ascending order and project as long as it does not change the predicted class
         
         Inputs:
         counterfactual: e*
@@ -165,3 +171,74 @@ class GrowingSpheres:
         if self.verbose == True:
             print("Reduced %d coordinates"%reduced)
         return out
+
+    def generate_inside_spheres(self, center, segment, n, feature_variance=None):
+        """
+        Args:
+            "center" corresponds to the target instance to explain
+            Segment corresponds to the size of the hypersphere
+            n corresponds to the number of instances generated
+            feature_variance: Array of variance for each continuous feature
+        """
+        def norm(v):
+            v= np.linalg.norm(v, ord=2, axis=1)
+            return v
+            
+        def perturb_continuous_features(continuous_features, n, segment, center, matrix_perturb_instances):
+            """
+            Perturb each continuous features of the n instances around center in the area of a sphere of radius equals to segment
+            Return a matrix of n instances of d dimension perturbed based on the distribution of the dataset
+            """
+            d = len(continuous_features)
+            z = np.random.normal(0, 1, (n, d))
+            # Draw uniformaly instances between the value of segment[0]**d and segment[1]**d with d the number of dimension of the instance to explain
+            u = np.random.uniform(segment[0]**d, segment[1]**d, n)
+            r = u**(1/float(d))
+            z = np.array([a * b / c for a, b, c in zip(z, r,  norm(z))])
+            to_add = np.zeros((n, len(center)))
+            for continuous in continuous_features:
+                to_add[:,continuous] = center[continuous]
+            z = z + to_add[:,continuous_features]
+            for nb, continuous in enumerate(continuous_features):
+                matrix_perturb_instances[:,continuous] = z[:,nb].ravel()
+            return matrix_perturb_instances
+
+
+        # Just for clarity of display
+        d = center.shape[0]
+        z = np.zeros((n,d))
+        if feature_variance is not None:
+            for feature in range(d):
+                # Modify the generation of artificial instance depending on the variance of each feature
+                z[:,feature] = np.random.normal(0, feature_variance[feature], n)
+        else:
+            z = np.random.normal(0, 1, (n, d))
+        # Draw uniformaly instances between the value of segment[0]**d and segment[1]**d with d the number of dimension of the instance to explain
+        u = np.random.uniform(segment[0]**d, segment[1]**d, n)
+        r = u**(1/float(d))
+        z = np.array([a * b / c for a, b, c in zip(z, r,  norm(z))])
+        z = z + center
+        return z
+        if self.categorical_features != []:
+            matrix_perturb_instances = np.zeros((n, len(center)))
+            for i in range(len(self.categorical_features)):
+                # add for each categorical feature these values to be considered as a probability 
+                matrix_perturb_instances[:, self.categorical_features[i]] = center[self.categorical_features[i]]
+            matrix_perturb_instances = perturb_continuous_features(self.continuous_features, n, segment, center, matrix_perturb_instances)
+            return matrix_perturb_instances       
+        else:
+            # Just for clarity of display
+            d = center.shape[0]
+            z = np.zeros((n,d))
+            if feature_variance is not None:
+                for feature in range(d):
+                    # Modify the generation of artificial instance depending on the variance of each feature
+                    z[:,feature] = np.random.normal(0, feature_variance[feature], n)
+            else:
+                z = np.random.normal(0, 1, (n, d))
+            # Draw uniformaly instances between the value of segment[0]**d and segment[1]**d with d the number of dimension of the instance to explain
+            u = np.random.uniform(segment[0]**d, segment[1]**d, n)
+            r = u**(1/float(d))
+            z = np.array([a * b / c for a, b, c in zip(z, r,  norm(z))])
+            z = z + center
+            return z

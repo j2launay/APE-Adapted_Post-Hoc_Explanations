@@ -29,7 +29,8 @@ def get_distances(x1, x2, metrics=None, categorical_features=[]):
           categorical_features: List of features that are categorical
     Return: A dictionary of the distance between x1 and x2 
     """
-    # Convert x1 and x2 to instance with only continuous features and instance with categorical feature in order to measure a distance between the euclidean and the sparsity 
+    # Convert x1 and x2 to instance with only continuous features and instance with categorical feature in order to
+    # measure a distance between the euclidean and the sparsity 
     continuous_features = [x for x in set(range(len(x1))).difference(categorical_features)]
     x1_categorical, x2_categorical = x1[categorical_features].reshape(1, -1), x2[categorical_features].reshape(1, -1)
     x1_continuous, x2_continuous = x1[continuous_features].reshape(1, -1), x2[continuous_features].reshape(1, -1)
@@ -71,7 +72,8 @@ def generate_inside_ball(center, segment, n, feature_variance=None):
             z[:,feature] = np.random.normal(0, feature_variance[feature], n)
     else:
         z = np.random.normal(0, 1, (n, d))
-    # Draw uniformaly instances between the value of segment[0]**d and segment[1]**d with d the number of dimension of the instance to explain
+    # Draw uniformaly instances between the value of segment[0]**d and segment[1]**d with 
+    # d the number of dimension of the instance to explain
     u = np.random.uniform(segment[0]**d, segment[1]**d, n)
     r = u**(1/float(d))
     z = np.array([a * b / c for a, b, c in zip(z, r,  norm(z))])
@@ -92,13 +94,14 @@ def generate_categoric_inside_ball(center, segment, percentage_distribution, n, 
           categorical_values: Array of arrays containing the values for each categorical feature
           feature_variance: Array of variance for each continuous feature 
           probability_categorical_feature: Distribution probability for each categorical features of each values 
-          libfolding: If set to True generate randomly instances and convert for categorical features the categorical values in probability distribution values
+          libfolding: If set to True generate randomly instances and convert for categorical features 
+                        the categorical values in probability distribution values
     Return: Matrix of n generated instances perturbed randomly around center in the area of the segment based on the data distribution  
     """
     def norm(v):
         return np.linalg.norm(v, ord=2, axis=1)
 
-    def perturb_continuous_features(continuous_features, n, feature_variance, segment, center, to_return):
+    def perturb_continuous_features(continuous_features, n, feature_variance, segment, center, matrix_perturb_instances):
         """
         Perturb each continuous features of the n instances around center in the area of a sphere of radius equals to segment
         Return a matrix of n instances of d dimension perturbed based on the distribution of the dataset
@@ -111,7 +114,8 @@ def generate_categoric_inside_ball(center, segment, percentage_distribution, n, 
                 z[:,feature] = np.random.normal(0, feature_variance[feature], n)
         else:
             z = np.random.normal(0, 1, (n, d))
-        # Draw uniformaly instances between the value of segment[0]**d and segment[1]**d with d the number of dimension of the instance to explain
+        # Draw uniformaly instances between the value of segment[0]**d and segment[1]**d with 
+        # d the number of dimension of the instance to explain
         u = np.random.uniform(segment[0]**d, segment[1]**d, n)
         r = u**(1/float(d))
         z = np.array([a * b / c for a, b, c in zip(z, r,  norm(z))])
@@ -120,26 +124,27 @@ def generate_categoric_inside_ball(center, segment, percentage_distribution, n, 
             to_add[:,continuous] = center[continuous]
         z = z + to_add[:,continuous_features]
         for nb, continuous in enumerate(continuous_features):
-            to_return[:,continuous] = z[:,nb].ravel()
-        return to_return
+            matrix_perturb_instances[:,continuous] = z[:,nb].ravel()
+        return matrix_perturb_instances
     
     if segment[1] > 1:
         print("Il y a un problème puisque la distance est supérieure à 1")
     if percentage_distribution > 100:
         print("il y a un problème puisque le pourcentage de distribution est supérieur à 100")
 
-    to_return = np.zeros((n, len(center)))
+    matrix_perturb_instances = np.zeros((n, len(center)))
     for i in range(len(categorical_features)):
-        # value_libfolding generates n instances between 0 and percentage distribution (probabilities values inferior to "percentage_distribution")
+        # value_libfolding generates n instances between 0 and percentage distribution 
+        # (probabilities values inferior to "percentage_distribution")
         value_libfolding = np.random.uniform(0, percentage_distribution, n)
         # add for each categorical feature these values to be considered as a probability 
-        to_return[:, categorical_features[i]] = value_libfolding
+        matrix_perturb_instances[:, categorical_features[i]] = value_libfolding
 
     if libfolding:
-        to_return_libfolding = to_return.copy()
+        matrix_perturb_instances_libfolding = matrix_perturb_instances.copy()
     for nb_categorical_features, categorical_feature in enumerate(categorical_features):
         value_target_instance = center[categorical_feature]
-        for nb_instance, artificial_instance in enumerate(to_return):
+        for nb_instance, artificial_instance in enumerate(matrix_perturb_instances):
                 # if a random number is superior to the probability of the categorical feature for artificial instance
                 # we do not modify its value and kept the value of the target instance
                 # otherwise we generate based on the probability of distribution from the dataset one trial
@@ -147,16 +152,19 @@ def generate_categoric_inside_ball(center, segment, percentage_distribution, n, 
                 if random() < artificial_instance[categorical_feature]:
                     probability_repartition = multinomial.rvs(n=1, p=probability_categorical_feature[nb_categorical_features], size=1)[0]
                     categorical_value = categorical_values[nb_categorical_features][np.where(probability_repartition==1)[0][0]]
-                    to_return[nb_instance][categorical_feature] = categorical_value
+                    matrix_perturb_instances[nb_instance][categorical_feature] = categorical_value
                 else:
-                    to_return[nb_instance][categorical_feature] = value_target_instance
+                    matrix_perturb_instances[nb_instance][categorical_feature] = value_target_instance
     #np.set_printoptions(formatter={'float': '{:g}'.format})
     
-    to_return = perturb_continuous_features(continuous_features, n, feature_variance, segment, center, to_return)
+    matrix_perturb_instances = perturb_continuous_features(continuous_features, n, feature_variance, 
+                                                            segment, center, matrix_perturb_instances)
     if libfolding:
-        to_return_libfolding = perturb_continuous_features(continuous_features, n, feature_variance, segment, center, to_return_libfolding)
+        matrix_perturb_instances_libfolding = perturb_continuous_features(continuous_features, n, 
+                                                                feature_variance, segment, center, 
+                                                                matrix_perturb_instances_libfolding)
     
     if libfolding:
-        return to_return, to_return_libfolding
+        return matrix_perturb_instances, matrix_perturb_instances_libfolding
     else:
-        return to_return
+        return matrix_perturb_instances

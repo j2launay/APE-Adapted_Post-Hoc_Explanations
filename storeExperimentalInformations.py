@@ -58,6 +58,10 @@ class store_experimental_informations(object):
         self.pd_all_models_recall = pd.DataFrame(columns=interpretability_name)
         self.pd_all_models_distance = pd.DataFrame(columns=interpretability_name)
         self.pd_all_models_lime_ls = pd.DataFrame(columns=interpretability_name)
+        self.pd_all_models_degrees = pd.DataFrame(columns=interpretability_name)
+        self.pd_all_models_kendall = pd.DataFrame(columns=interpretability_name)
+        self.pd_all_models_top_k = pd.DataFrame(columns=interpretability_name)
+        self.pd_all_models_counterfactual_in_anchor = pd.DataFrame(columns=interpretability_name)
 
     def initialize_per_models(self):
         self.precision = {}
@@ -73,6 +77,9 @@ class store_experimental_informations(object):
         self.pd_recall = pd.DataFrame(columns=self.interpretability_name)
         self.pd_average_distance = pd.DataFrame(columns=self.interpretability_name)
         self.pd_lime_ls = pd.DataFrame(columns=self.interpretability_name)
+        self.pd_degrees = pd.DataFrame(columns=self.interpretability_name)
+        self.pd_kendall = pd.DataFrame(columns=self.interpretability_name)
+        self.pd_counterfactual_in_anchor = pd.DataFrame(columns=self.interpretability_name)
         for interpretability in self.interpretability_name:
             self.precision[interpretability] = []
             self.coverage[interpretability] = []
@@ -135,10 +142,9 @@ class store_experimental_informations(object):
             self.pd_precision.to_csv(filename + 'precision.csv', index=False)
             self.pd_coverage.to_csv(filename + 'coverage.csv', index=False)
             self.pd_f1.to_csv(filename + 'f1.csv', index=False)
-            if nb_model == self.nb_models:
-                self.pd_all_models_precision.to_csv(filename_all + 'precisions.csv', index=False)
-                self.pd_all_models_coverage.to_csv(filename_all + 'coverages.csv', index=False)
-                self.pd_all_models_f1s.to_csv(filename_all + 'f1s.csv', index=False)
+            self.pd_all_models_precision.to_csv(filename_all + 'precision.csv', index=False)
+            self.pd_all_models_coverage.to_csv(filename_all + 'coverage.csv', index=False)
+            self.pd_all_models_f1s.to_csv(filename_all + 'f1.csv', index=False)
         
         if not self.multimodal == []:
             self.final_multimodal = self.multimodal/nb_instance
@@ -149,21 +155,36 @@ class store_experimental_informations(object):
             self.pd_stability_features.to_csv(filename + 'stability_feature.csv', index=False)
             self.pd_all_models_stability = self.pd_all_models_stability.append(self.pd_stability)
             self.pd_stability.to_csv(filename + 'stability.csv', index=False)
-            if nb_model == self.nb_models:
-                 self.pd_all_models_stability_features.to_csv(filename_all + 'stability_features.csv', index=False)
-                 self.pd_all_models_stability.to_csv(filename_all + 'stability.csv', index=False)
+            self.pd_all_models_stability_features.to_csv(filename_all + 'stability_feature.csv', index=False)
+            self.pd_all_models_stability.to_csv(filename_all + 'stability.csv', index=False)
 
         if not self.pd_average_distance.empty:
             self.pd_all_models_distance = self.pd_all_models_distance.append(self.pd_average_distance)
             self.pd_average_distance.to_csv(filename + 'average_distance.csv', index=False)
-            if nb_model == self.nb_models:
-                self.pd_all_models_distance.to_csv(filename_all + 'distance.csv', index=False)
+            self.pd_all_models_distance.to_csv(filename_all + 'average_distance.csv', index=False)
         
         if not self.pd_lime_ls.empty:
             self.pd_all_models_lime_ls = self.pd_all_models_lime_ls.append(self.pd_lime_ls)
             self.pd_lime_ls.to_csv(filename + 'lime_vs_ls.csv', index=False)
-            if nb_model == self.nb_models:
-                self.pd_all_models_lime_ls.to_csv(filename_all + 'lime_ls.csv', index=False)
+            self.pd_all_models_lime_ls.to_csv(filename_all + 'lime_vs_ls.csv', index=False)
+
+        if not self.pd_degrees.empty:
+            self.pd_all_models_degrees = self.pd_all_models_degrees.append(self.pd_degrees)
+            self.pd_degrees.to_csv(filename + "degrees.csv", index=False)
+            self.pd_all_models_degrees.to_csv(filename_all + "degrees.csv", index=False)
+
+        if not self.pd_kendall.empty:
+            self.pd_all_models_kendall = self.pd_all_models_kendall.append(self.pd_kendall)
+            self.pd_kendall.to_csv(filename + "kendall.csv", index=False)
+            self.pd_all_models_kendall.to_csv(filename_all + "kendall.csv", index=False)
+            
+        if not self.pd_all_models_top_k.empty:
+            self.pd_all_models_top_k.to_csv(filename_all + "mean_top_k.csv", index=False)
+
+        if not self.pd_counterfactual_in_anchor.empty:
+            self.pd_all_models_counterfactual_in_anchor = self.pd_all_models_counterfactual_in_anchor.append(self.pd_counterfactual_in_anchor)
+            self.pd_counterfactual_in_anchor.to_csv(filename + 'counterfactual_in_anchor.csv', index=False)
+            self.pd_all_models_counterfactual_in_anchor.to_csv(filename_all + 'counterfactual_in_anchor.csv', index=False)
         
     def store_user_experiments_information_instance(self, recalls):
         """
@@ -195,13 +216,10 @@ class store_experimental_informations(object):
         self.pd_all_models_recall = self.pd_all_models_recall.append(self.pd_recall)
         if lime:
             name_filename = 'recall_lime.csv'
-            name_filename_models = 'recalls_lime.csv'
         else:
             name_filename = 'recall.csv'
-            name_filename_models = 'recalls.csv'
         self.pd_recall.to_csv(filename + name_filename, index=False)
-        if nb_model == self.nb_models:
-            self.pd_all_models_recall.to_csv(filename_all + name_filename_models, index=False)
+        self.pd_all_models_recall.to_csv(filename_all + name_filename, index=False)
 
     def store_stability_information_instance(self, stability_score, stability_features_score):
         self.pd_stability = self.pd_stability.append(pd.DataFrame([stability_score], columns=self.interpretability_name))
@@ -214,3 +232,19 @@ class store_experimental_informations(object):
     def store_lime_vs_local_surrogate(self, k_closest_lime, k_closest_ls, radius):
         k_closest = np.array([[radius, k_closest_lime, k_closest_ls]])
         self.pd_lime_ls = self.pd_lime_ls.append(pd.DataFrame(k_closest, columns=self.interpretability_name))
+    
+    def store_degrees(self, degrees):
+        degrees = np.array([degrees])
+        self.pd_degrees = self.pd_degrees.append(pd.DataFrame(degrees, columns=self.interpretability_name))
+    
+    def store_kendall(self, kendall):
+        kendall = np.array([kendall])
+        self.pd_kendall = self.pd_kendall.append(pd.DataFrame(kendall, columns=self.interpretability_name))
+
+    def store_mean_top_k(self, mean_top):
+        mean_top = np.array([mean_top])
+        self.pd_all_models_top_k = self.pd_all_models_top_k.append(pd.DataFrame(mean_top, columns=["hit-1", "hit-2", "hit-3", "hit-4", "hit-5"]))
+
+    def store_counterfactual_in_anchor(self, counterfactual_in_anchor):
+        counterfactual_in_anchor = np.array([counterfactual_in_anchor])
+        self.pd_counterfactual_in_anchor = self.pd_counterfactual_in_anchor.append(pd.DataFrame(counterfactual_in_anchor, columns=self.interpretability_name))

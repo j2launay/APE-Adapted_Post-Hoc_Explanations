@@ -90,16 +90,14 @@ if __name__ == "__main__":
             for instance_to_explain in x_test:
                 if cnt == max_instance_to_explain:
                     break
-                #print()
-                #print()
                 print("### Instance number:", cnt + 1, "over", max_instance_to_explain)
                 print("### Models ", nb_model + 1, "over", len(models))
                 print("instance to explain:", instance_to_explain)
                 
                 average_distance, all_average_distance, average_distance_spheres, all_average_distance_spheres = explainer.explain_instance(instance_to_explain, 
                                                             growing_method=growing_method, k_closest=True)
-                print("average distance for GF", average_distance)
-                print("average distance for GS", average_distance_spheres)
+                #print("average distance for GF", average_distance)
+                #print("average distance for GS", average_distance_spheres)
                 if average_distance != average_distance_spheres:
                     print("GF", "better" if average_distance < average_distance_spheres else "worse", "than GS")
                 if graph: experimental_informations.store_average_distance_instance(average_distance, average_distance_spheres)
@@ -110,64 +108,5 @@ if __name__ == "__main__":
             else:
                 filename="./results/"+dataset_name+"/"+model_name+"/"+str(threshold_interpretability)+"/"
                 filename_all="./results/"+dataset_name+"/"+str(threshold_interpretability)+"/"
-            if graph: experimental_informations.store_experiments_information(max_instance_to_explain, nb_model, filename=filename, filename_all=filename_all)
-            """
-            if graph:
-                plt.show(block=False)
-                plt.pause(1)
-                plt.close('all')
-                color = ['black', 'red', 'green', 'blue', 'cyan', 'yellow']
-                
-                graph_coverage = baseGraph.BaseGraph(title="Results of coverage for LS, APE and Anchors ", y_label="Coverage", 
-                                        model=model_name, accuracy=score(x_test, y_test), 
-                                        dataset=dataset_name, threshold=threshold_interpretability)
-                graph_coverage.show_coverage(model=interpretability_name, mean_coverage=experimental_informations.final_coverage, 
-                                        color=color[:len(interpretability_name)], title= label_graph + "coverage")
-                
-                graph_roc = baseGraph.BaseGraph(title="Results of accuracy score for LS, APE and Anchors", y_label="Precision", 
-                                        model=model_name, accuracy=score(x_test, y_test), 
-                                        dataset=dataset_name, threshold=threshold_interpretability)
-                graph_roc.show_coverage(model=interpretability_name, mean_coverage=experimental_informations.final_precision, 
-                                        color=color[:len(interpretability_name)], title= label_graph + "Precision")
-                
-                graph_f1 = baseGraph.BaseGraph(title="Results of F1 score for LS, APE and Anchors", y_label="F1 score", 
-                                        model=model_name, accuracy=score(x_test, y_test), 
-                                        dataset=dataset_name, threshold=threshold_interpretability)
-                graph_f1.show_coverage(model=interpretability_name, mean_coverage=experimental_informations.final_f1, 
-                                        color=color[:len(interpretability_name)], title= label_graph + "f1")
-                
-        if len(models) > 1 and graph:
-            # In case of multiple models we compare results for each model
-            color, bars, y_pos = prepare_legends(experimental_informations.final_coverages, models, interpretability_name)
-            plt.show(block=False)
-            plt.pause(1)
-            plt.close('all')
-            graph_models_coverage = baseGraph.BaseGraph(title="Results of coverage for LS, APE and Anchors on multiple models", y_label="Coverage", 
-                                        model=model_name, accuracy=score(x_test, y_test), 
-                                        dataset=dataset_name, threshold=threshold_interpretability)
-            graph_models_coverage.show_multiple_models(models_name=models_name, interpretability_name=interpretability_name, 
-                                        mean=experimental_informations.final_coverages, color=color, 
-                                        title= label_graph + "coverage", bars=bars, y_pos=y_pos)
-
-            graph_models_precision = baseGraph.BaseGraph(title="Results of precision for LS, APE and Anchors on multiple models", y_label="Precision", 
-                                        model=model_name, accuracy=score(x_test, y_test), 
-                                        dataset=dataset_name, threshold=threshold_interpretability)
-            graph_models_precision.show_multiple_models(models_name=models_name, interpretability_name=interpretability_name, 
-                                        mean=experimental_informations.final_precisions, color=color, 
-                                        title= label_graph + "precision", bars=bars, y_pos=y_pos)
-            
-            graph_models_f1 = baseGraph.BaseGraph(title="Results of F1 score for LS, APE and Anchors on multiple models", y_label="F1", 
-                                        model=model_name, accuracy=score(x_test, y_test), 
-                                        dataset=dataset_name, threshold=threshold_interpretability)
-            graph_models_f1.show_multiple_models(models_name=models_name, interpretability_name=interpretability_name, 
-                                        mean=experimental_informations.final_f1s, color=color, 
-                                        title= label_graph + "F1 score", bars=bars, y_pos=y_pos)
-
-            y_pos = range(len(interpretability_name))
-            graph_models_multimodal = baseGraph.BaseGraph(title="Proportion of times APE returns a multimodal explanation over multiple models", y_label="Multimodal",
-                                        model=model_name, accuracy=score(x_test, y_test),
-                                        dataset=dataset_name, threshold=threshold_interpretability)
-            graph_models_multimodal.show_proportion_multimodal(model=models_name, 
-                                        proportions_multimodal=experimental_informations.final_multimodals, 
-                                        color=color[:len(models)], title= label_graph + "Proportion of Multimodal")
-            """
+            if graph: experimental_informations.store_experiments_information(max_instance_to_explain, nb_model, 
+                                                                        filename=filename, filename_all=filename_all)
