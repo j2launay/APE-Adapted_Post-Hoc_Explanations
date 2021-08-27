@@ -119,7 +119,7 @@ def generate_dataset(dataset_name, multiclass=False):
         multiclass=True
     
     elif "blob" in dataset_name:
-        X, y = make_blobs(1000, n_features=2, random_state=0, centers=2)
+        X, y = make_blobs(1000, n_features=2, random_state=0, centers=2, cluster_std=1)
         class_names = ['class ' + str(Y)  for Y in range(len(set(y)))]
         multiclass=False
     
@@ -183,7 +183,7 @@ def generate_dataset(dataset_name, multiclass=False):
     else:
         # By default the dataset chosen is generate_moons
         dataset_name = "generate_moons"
-        X, y = make_moons(1000, noise=0.6)
+        X, y = make_moons(2000, noise=0.2)
         class_names = ['class ' + str(Y)  for Y in range(len(set(y)))]
     features = [i for i in range(len(X[0]))]
     continuous_features = [x for x in features if x not in categorical_features]

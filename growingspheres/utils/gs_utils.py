@@ -7,16 +7,14 @@ from sklearn.metrics.pairwise import pairwise_distances
 from random import randrange, randint, choices, uniform, random
 from scipy.stats import multinomial
 
-def distances(x, y, train_data, max_feature, min_feature, categorical_features=[]):
-    continuous_features = [x for x in set(range(len(x))).difference(categorical_features)]
-    x_categorical, y_categorical = x[categorical_features], y[categorical_features]
+def distances(x, y, ape):
+    continuous_features = [x for x in set(range(len(x))).difference(ape.categorical_features)]
+    x_categorical, y_categorical = x[ape.categorical_features], y[ape.categorical_features]
     x_continuous, y_continuous = x[continuous_features], y[continuous_features]
-    #print("x", x)
-    #print("y", y)
     same_coordinates_categorical = x_categorical.shape[0] - sum(x_categorical == y_categorical)
     distance = 0
     for nb_feature in range(x_continuous.shape[0]):
-        distance += abs(x_continuous[nb_feature] - y_continuous[nb_feature])/(max_feature[nb_feature] - min_feature[nb_feature])
+        distance += abs(x_continuous[nb_feature] - y_continuous[nb_feature])/(ape.max_features[nb_feature] - ape.min_features[nb_feature])
     distance = distance + same_coordinates_categorical
     distance = distance/x.shape[0]
     return distance
@@ -52,7 +50,7 @@ def get_distances(x1, x2, metrics=None, categorical_features=[]):
                }
     return out_dict        
 
-def generate_inside_ball(center, segment, n, feature_variance=None):
+def generate_inside_ball(center, segment, n):
     """
     Args:
         "center" corresponds to the target instance to explain
@@ -61,18 +59,13 @@ def generate_inside_ball(center, segment, n, feature_variance=None):
         feature_variance: Array of variance for each continuous feature
     """
     def norm(v):
-        v= np.linalg.norm(v, ord=2, axis=1)
+        # For Thibault Laugel
+        v = np.linalg.norm(v, ord=2, axis=1)
         return v
     # Just for clarity of display
     d = center.shape[0]
-    z = np.zeros((n,d))
-    if feature_variance is not None:
-        for feature in range(d):
-            # Modify the generation of artificial instance depending on the variance of each feature
-            z[:,feature] = np.random.normal(0, feature_variance[feature], n)
-    else:
-        z = np.random.normal(0, 1, (n, d))
-    # Draw uniformaly instances between the value of segment[0]**d and segment[1]**d with 
+    z = np.random.normal(0, 1, (n, d))
+    # Draw uniformaly instances between the value of s egment[0]**d and segment[1]**d with 
     # d the number of dimension of the instance to explain
     u = np.random.uniform(segment[0]**d, segment[1]**d, n)
     r = u**(1/float(d))
@@ -80,8 +73,41 @@ def generate_inside_ball(center, segment, n, feature_variance=None):
     z = z + center
     return z
 
+def generate_inside_field(center, segment, n, max_features, min_features, feature_variance):
+    """
+    Args:
+        "center" corresponds to the target instance to explain
+        Segment corresponds to the size of the hypersphere
+        n corresponds to the number of instances generated
+        feature_variance: Array of variance for each continuous feature
+    """
+    #print("segment", segment)
+    if segment[0] == 1:
+        print("IL Y A UN PROBLEME PUISQUE LE RAYON EST DE 1", segment, center, feature_variance)
+        generated_instances += 2
+    d = center.shape[0]
+    generated_instances = np.zeros((n,d))
+    for feature, (min_feature, max_feature) in enumerate(zip(min_features, max_features)):
+        range_feature = max_feature - min_feature
+        # Modify the generation of artificial instance depending on the variance of each feature
+        y = - segment[0] * range_feature
+        z = segment[1] * range_feature
+        variance = feature_variance[feature] * segment[1]
+        k = (12 * variance)**0.5
+        a1 = min(y, z - k)
+        b1 = a1 + k
+        #a2 = min(y, z + k)
+        #b2 = a2 - k
+        #print("k, a1, b1", variance, a1, b1)
+        nb_instances = int (n / 2)
+        generated_instances[:nb_instances, feature] = np.random.uniform(a1, b1, nb_instances)
+        generated_instances[nb_instances:, feature] = np.random.uniform(-a1, -b1, n-nb_instances)
+        np.random.shuffle(generated_instances[:,feature])
+    generated_instances += center
+    return generated_instances
+
 def generate_categoric_inside_ball(center, segment, percentage_distribution, n, continuous_features, categorical_features, 
-                            categorical_values, feature_variance=None, probability_categorical_feature=None, libfolding=False):
+                            categorical_values, min_features, max_features, feature_variance, probability_categorical_feature=None, libfolding=False):
     """
     Generate randomly instances inside a field based on the variance of each continuous feature and 
     the maximum of distribution probability of changing a value for categorical feature
@@ -107,29 +133,30 @@ def generate_categoric_inside_ball(center, segment, percentage_distribution, n, 
         Return a matrix of n instances of d dimension perturbed based on the distribution of the dataset
         """
         d = len(continuous_features)
-        z = np.zeros((n,d))
-        if feature_variance is not None:
-            for feature in range(d):
-                # Modify the generation of artificial instance depending on the variance of each feature
-                z[:,feature] = np.random.normal(0, feature_variance[feature], n)
-        else:
-            z = np.random.normal(0, 1, (n, d))
-        # Draw uniformaly instances between the value of segment[0]**d and segment[1]**d with 
-        # d the number of dimension of the instance to explain
-        u = np.random.uniform(segment[0]**d, segment[1]**d, n)
-        r = u**(1/float(d))
-        z = np.array([a * b / c for a, b, c in zip(z, r,  norm(z))])
-        to_add = np.zeros((n, len(center)))
-        for continuous in continuous_features:
-            to_add[:,continuous] = center[continuous]
-        z = z + to_add[:,continuous_features]
+        generated_instances = np.zeros((n,d))
+        for feature, (min_feature, max_feature) in enumerate(zip(min_features, max_features)):
+            range_feature = max_feature - min_feature
+            # Modify the generation of artificial instance depending on the variance of each feature
+            y = - segment[0] * range_feature
+            z = segment[1] * range_feature
+            variance = feature_variance[feature] * segment[1]
+            k = (12 * variance)**0.5
+            a1 = min(y, z - k)
+            b1 = a1 + k
+            nb_instances = int (n / 2)
+            generated_instances[:nb_instances, feature] = np.random.uniform(a1, b1, nb_instances)
+            generated_instances[nb_instances:, feature] = np.random.uniform(-a1, -b1, n-nb_instances)
+            np.random.shuffle(generated_instances[:,feature])
+        generated_instances += center[continuous_features]
         for nb, continuous in enumerate(continuous_features):
-            matrix_perturb_instances[:,continuous] = z[:,nb].ravel()
+            matrix_perturb_instances[:,continuous] = generated_instances[:,nb].ravel()
         return matrix_perturb_instances
     
     if segment[1] > 1:
         print("Il y a un problème puisque la distance est supérieure à 1")
+        segment[1] = 1
     if percentage_distribution > 100:
+        percentage_distribution = 100
         print("il y a un problème puisque le pourcentage de distribution est supérieur à 100")
 
     matrix_perturb_instances = np.zeros((n, len(center)))
@@ -163,7 +190,7 @@ def generate_categoric_inside_ball(center, segment, percentage_distribution, n, 
         matrix_perturb_instances_libfolding = perturb_continuous_features(continuous_features, n, 
                                                                 feature_variance, segment, center, 
                                                                 matrix_perturb_instances_libfolding)
-    
+
     if libfolding:
         return matrix_perturb_instances, matrix_perturb_instances_libfolding
     else:

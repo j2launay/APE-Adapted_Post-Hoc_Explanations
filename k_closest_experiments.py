@@ -28,7 +28,7 @@ if __name__ == "__main__":
                 #Sequential(),
                 VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('rc', RidgeClassifier())], voting="hard"),
                 MLPClassifier(random_state=1)]
-    #models = [RandomForestClassifier(n_estimators=20), MLPClassifier(random_state=1), Sequential()]
+    #models = [RandomForestClassifier(n_estimators=20), MLPClassifier(random_state=1)]
 
     # Number of instances explained by each model on each dataset
     max_instance_to_explain = 50
@@ -57,8 +57,14 @@ if __name__ == "__main__":
         # Store dataset inside x and y (x data and y labels), with aditional information
         x, y, class_names, regression, multiclass, continuous_features, categorical_features, categorical_values, categorical_names = generate_dataset(dataset_name)
         for nb_model, model in enumerate(models):
-            if graph: experimental_informations.initialize_per_models()
             model_name = type(model).__name__
+            if growing_sphere:
+                filename = "./results/"+dataset_name+"/"+model_name+"/growing_spheres/"+str(threshold_interpretability)+"/"
+                filename_all = "./results/"+dataset_name+"/growing_spheres/"+str(threshold_interpretability)+"/"
+            else:
+                filename="./results/"+dataset_name+"/"+model_name+"/"+str(threshold_interpretability)+"/"
+                filename_all="./results/"+dataset_name+"/"+str(threshold_interpretability)+"/"
+            if graph: experimental_informations.initialize_per_models(filename)
             models_name.append(model_name)
             # Split the dataset inside train and test set (50% each set)
             dataset, black_box, x_train, x_test, y_train, y_test = preparing_dataset(x, y, dataset_name, model)
@@ -94,19 +100,20 @@ if __name__ == "__main__":
                 print("### Models ", nb_model + 1, "over", len(models))
                 print("instance to explain:", instance_to_explain)
                 
-                average_distance, all_average_distance, average_distance_spheres, all_average_distance_spheres = explainer.explain_instance(instance_to_explain, 
-                                                            growing_method=growing_method, k_closest=True)
+                try:
+                    average_distance, all_average_distance, average_distance_spheres, all_average_distance_spheres = explainer.explain_instance(instance_to_explain, 
+                                                            growing_method=growing_method, k_closest=1)
+                except Exception as inst:
+                    print(inst)
+                    
                 #print("average distance for GF", average_distance)
                 #print("average distance for GS", average_distance_spheres)
-                if average_distance != average_distance_spheres:
-                    print("GF", "better" if average_distance < average_distance_spheres else "worse", "than GS")
-                if graph: experimental_informations.store_average_distance_instance(average_distance, average_distance_spheres)
-                cnt += 1
-            if growing_sphere:
-                filename = "./results/"+dataset_name+"/"+model_name+"/growing_spheres/"+str(threshold_interpretability)+"/"
-                filename_all = "./results/"+dataset_name+"/growing_spheres/"+str(threshold_interpretability)+"/"
-            else:
-                filename="./results/"+dataset_name+"/"+model_name+"/"+str(threshold_interpretability)+"/"
-                filename_all="./results/"+dataset_name+"/"+str(threshold_interpretability)+"/"
+                try:
+                    if average_distance != average_distance_spheres:
+                        print("GF", "better" if average_distance < average_distance_spheres else "worse", "than GS")
+                    if graph: experimental_informations.store_average_distance_instance(average_distance, average_distance_spheres)
+                    cnt += 1
+                except Exception as inst:
+                    print(inst)
             if graph: experimental_informations.store_experiments_information(max_instance_to_explain, nb_model, 
-                                                                        filename=filename, filename_all=filename_all)
+                                                                        filename_all=filename_all)

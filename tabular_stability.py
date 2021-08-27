@@ -16,7 +16,7 @@ import pickle
 import pyfolding as pf
 #from keras.models import Sequential
 #from keras.layers import Dense
-from growingspheres.utils.gs_utils import generate_inside_ball, generate_categoric_inside_ball, distances, get_distances
+from growingspheres.utils.gs_utils import generate_inside_field, generate_categoric_inside_ball, distances, get_distances
 
 def get_farthest_distance(instance, train_data, categorical_features, metric='euclidean'):
     farthest_distance = 0
@@ -24,7 +24,7 @@ def get_farthest_distance(instance, train_data, categorical_features, metric='eu
         # get_distance is similar to pairwise distance (i.e: it is the same results for euclidean distance) 
         # but it adds a sparsity distance computation (i.e: number of same values)
         if 'manhattan' in metric:
-            farthest_distance_now = distances(training_instance, instance, train_data, explainer.max_features, explainer.min_features, categorical_features)
+            farthest_distance_now = distances(training_instance, instance, explainer)
         else:
             farthest_distance_now = get_distances(training_instance, instance, categorical_features=categorical_features)[metric]
         if farthest_distance_now > farthest_distance:
@@ -44,6 +44,7 @@ if __name__ == "__main__":
                 tree.DecisionTreeClassifier(), 
                 #RidgeClassifier(), 
                 MLPClassifier(random_state=1)]
+    #models=[RandomForestClassifier(n_estimators=20), LogisticRegression()]
     # Number of instances explained by each model on each dataset
     max_instance_to_explain = 50
     # Number of perturbed instances around the instances to explain for which we compute the test of unimodality
@@ -59,16 +60,22 @@ if __name__ == "__main__":
     threshold_interpretability = 0.99
     linear_models_name = ['local surrogate', 'lime extending', 'lime regression', 'lime not binarize', 'lime traditional']
     interpretability_name = ['stability score']
+    stability_name = ['APE', "Local Surrogate", "Anchors"]
     #interpretability_name = ['ls log reg', 'ls raw data']
     # Initialize all the variable needed to store the result in graph
-    if graph: experimental_informations = store_experimental_informations(len(models), len(interpretability_name), interpretability_name, len(models))
+    if graph: 
+        experimental_informations = store_experimental_informations(len(models), len(interpretability_name), interpretability_name, len(models))
+        stability_informations = store_experimental_informations(len(models), len(stability_name), stability_name, len(models))
     for dataset_name in dataset_names:
         models_name = []
         # Store dataset inside x and y (x data and y labels), with aditional information
         x, y, class_names, regression, multiclass, continuous_features, categorical_features, categorical_values, categorical_names = generate_dataset(dataset_name)
         for nb_model, model in enumerate(models):
-            if graph: experimental_informations.initialize_per_models()
             model_name = type(model).__name__
+            filename = "./results/"+dataset_name+"/"+model_name+"/"+str(threshold_interpretability)+"/"
+            if graph: 
+                experimental_informations.initialize_per_models(filename)
+                stability_informations.initialize_per_models(filename)
             models_name.append(model_name)
             # Split the dataset inside train and test set (50% each set)
             dataset, black_box, x_train, x_test, y_train, y_test = preparing_dataset(x, y, dataset_name, model)
@@ -104,39 +111,47 @@ if __name__ == "__main__":
                 print("### Models ", nb_model + 1, "over", len(models))
                 print("instance to explain:", instance_to_explain)
 
-                msi, csi, vsi = explainer.explain_instance(instance_to_explain, lime_stability=True, model_stability_index=True)
-                print("msi, csi, vsi", msi, csi, vsi)
-                multimodal_result, original_features_employed = explainer.explain_instance(instance_to_explain, stability=True)
-                farthest_distance = get_farthest_distance(instance_to_explain, x_train, categorical_features, metric='manhattan')
-                if verbose:
-                    print("distance la plus éloignée", farthest_distance)
-                    print('features employed originaly', original_features_employed, "original multimodal", multimodal_result)
-                if categorical_features != []:
-                    perturb_instances, _ = generate_categoric_inside_ball(instance_to_explain, (0, farthest_distance/ratio_radius), (int) (100/ratio_radius), 
-                                                                        number_of_perturb_instances, continuous_features, categorical_features, 
-                                                                        categorical_values, feature_variance=explainer.feature_variance, 
-                                                                        probability_categorical_feature=explainer.probability_categorical_feature, 
-                                                                        libfolding=True)
-                else:
-                    perturb_instances = generate_inside_ball(instance_to_explain, (0, farthest_distance/ratio_radius), number_of_perturb_instances, feature_variance=explainer.feature_variance)
-
-                # Test the stability error
-                stability_results = 0
-                nb_identical_features= 0
-                for instance in perturb_instances:
-                    multimodal, features_employed = explainer.explain_instance(instance, stability=True)
-                    nb_identical_features += len(set(features_employed) & set(original_features_employed))
-                    if multimodal_result == multimodal:
-                        stability_results += 1
+                #msi, csi_ls, vsi_ls, vsi_anchors = explainer.explain_instance(instance_to_explain, lime_stability=True, model_stability_index=True)
+                try:
+                    msi, csi, vsi = explainer.explain_instance(instance_to_explain, lime_stability=True, model_stability_index=True)
+                    print("msi, csi, vsi", msi, csi, vsi)
+                    if graph: stability_informations.store_stability_coefficient_information_instance(msi, csi, vsi)
+                    multimodal_result, original_features_employed = explainer.explain_instance(instance_to_explain, stability=True)
+                    farthest_distance = get_farthest_distance(instance_to_explain, x_train, categorical_features, metric='manhattan')
                     if verbose:
-                        print("features employed by APE", features_employed, "multimodal result", multimodal)
-                stability_results = stability_results/number_of_perturb_instances
-                identical_features_score = nb_identical_features / (len(original_features_employed) * number_of_perturb_instances)
-                if verbose:
-                    print("proportion of identical features", identical_features_score)
-                    print("stability score", stability_results)
-                if graph: experimental_informations.store_stability_information_instance(stability_results, identical_features_score)
-                cnt += 1
-            filename = "./results/"+dataset_name+"/"+model_name+"/"+str(threshold_interpretability)+"/"
+                        print("distance la plus éloignée", farthest_distance)
+                        print('features employed originaly', original_features_employed, "original multimodal", multimodal_result)
+                    if categorical_features != []:
+                        perturb_instances, _ = generate_categoric_inside_ball(instance_to_explain, (0, farthest_distance/ratio_radius), (int) (100/ratio_radius), 
+                                                                            number_of_perturb_instances, continuous_features, categorical_features, 
+                                                                            categorical_values, feature_variance=explainer.feature_variance, 
+                                                                            probability_categorical_feature=explainer.probability_categorical_feature, 
+                                                                            libfolding=True, min_features=explainer.min_features,
+                                                                            max_features=explainer.max_features)
+                    else:
+                        perturb_instances = generate_inside_field(instance_to_explain, (0, farthest_distance/ratio_radius), number_of_perturb_instances, feature_variance=explainer.feature_variance)
+
+                    # Test the stability error
+                    stability_results = 0
+                    nb_identical_features= 0
+                    for instance in perturb_instances:
+                        multimodal, features_employed = explainer.explain_instance(instance, stability=True)
+                        nb_identical_features += len(set(features_employed) & set(original_features_employed))
+                        if multimodal_result == multimodal:
+                            stability_results += 1
+                        if verbose:
+                            print("features employed by APE", features_employed, "multimodal result", multimodal)
+                    stability_results = stability_results/number_of_perturb_instances
+                    identical_features_score = nb_identical_features / (len(original_features_employed) * number_of_perturb_instances)
+                    if verbose:
+                        print("proportion of identical features", identical_features_score)
+                        print("stability score", stability_results)
+                    if graph: experimental_informations.store_stability_information_instance(stability_results, identical_features_score)
+                    cnt += 1
+                except Exception as inst:
+                    print(inst)
+
             filename_all = "./results/"+dataset_name+"/"+str(threshold_interpretability)+"/"
-            if graph: experimental_informations.store_experiments_information(max_instance_to_explain, nb_model, filename=filename, filename_all=filename_all)
+            if graph: 
+                experimental_informations.store_experiments_information(max_instance_to_explain, nb_model, filename_all=filename_all)
+                stability_informations.store_experiments_information(max_instance_to_explain, nb_model, filename_all=filename_all)

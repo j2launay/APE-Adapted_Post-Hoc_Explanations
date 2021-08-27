@@ -151,9 +151,17 @@ class LimeBase(object):
         """
 
         weights = self.kernel_fn(distances)
-        if model_regressor is not None:
+        if model_regressor is not None and neighborhood_labels.ndim == 1:
             logistic = True
             labels_column = neighborhood_labels
+        elif model_regressor is not None:
+            logistic = False
+            labels_column = []
+            for neighborhood_label in neighborhood_labels[:,label]:
+                if neighborhood_label > 0.5:
+                    labels_column.append(label)
+                else:
+                    labels_column.append(1-label)
         else:
             logistic = False
             labels_column = neighborhood_labels[:, label]

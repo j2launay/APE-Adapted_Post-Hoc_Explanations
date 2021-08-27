@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from .utils.gs_utils import generate_inside_ball, generate_categoric_inside_ball, distances, get_distances
+from .utils.gs_utils import generate_inside_field, generate_categoric_inside_ball, distances, get_distances
 from itertools import combinations
 import numpy as np
 from sklearn.metrics.pairwise import pairwise_distances
@@ -34,7 +34,9 @@ class GrowingFields:
                 feature_variance=None,
                 farthest_distance_training_dataset=None,
                 probability_categorical_feature=None,
-                min_counterfactual_in_sphere=0
+                min_counterfactual_in_sphere=0,
+                max_features=[],
+                min_features=[]
                 ):
         """
         Args: obs_to_interprete: Raw instance for which we generate a counterfactual explanation
@@ -76,6 +78,8 @@ class GrowingFields:
         self.farthest_distance_training_dataset = farthest_distance_training_dataset
         self.probability_categorical_feature = probability_categorical_feature
         self.min_counterfactual_in_sphere = min_counterfactual_in_sphere
+        self.max_features = max_features
+        self.min_features = min_features
         
         if int(self.y_obs) != self.y_obs:
             raise ValueError("Prediction function should return a class (integer)")
@@ -116,10 +120,12 @@ class GrowingFields:
                 print("Exploring...")
             step_ = (self.dicrease_radius - 1) * radius_/2.0
             
-            while n_ennemies_ <= self.min_counterfactual_in_sphere/2:
+            while n_ennemies_ <= self.min_counterfactual_in_sphere:
+                #print("n ennemies", n_ennemies_)
+                #print("min counterfactual in sphere", self.min_counterfactual_in_sphere)
                 layer = self.ennemies_in_layer_((radius_, radius_ + step_), self.caps, self.n_in_layer)
                 n_ennemies_ = layer.shape[0]
-                radius_ = radius_ + step_
+                radius_ = min(1, radius_ + step_)
         if self.verbose == True:
             print("Final radius: ", (radius_ - step_, radius_))
             print("Final number of ennemies: ", n_ennemies_)
@@ -128,7 +134,8 @@ class GrowingFields:
     
     def ennemies_in_layer_(self, segment, caps=None, n=1000, reducing_sphere=False):
         """
-        Basis for GS: generates a hypersphere layer, labels it with the blackbox and returns the instances that are predicted to belong to the target class.
+        Basis for GS: generates a hypersphere layer, labels it with the blackbox 
+        and returns the instances that are predicted to belong to the target class.
         """
         if self.categorical_features != []:
             # If there are categorical features we must have a maximum distribution probability for changing the values of categorical feature for artificial instances
@@ -140,9 +147,11 @@ class GrowingFields:
             layer = generate_categoric_inside_ball(center= self.obs_to_interprete, segment=segment, n=n, percentage_distribution=percentage_distribution,
                                             continuous_features=self.continuous_features, categorical_features=self.categorical_features, 
                                             categorical_values=self.categorical_values, feature_variance= self.feature_variance,
-                                            probability_categorical_feature=self.probability_categorical_feature)
+                                            probability_categorical_feature=self.probability_categorical_feature,
+                                            min_features=self.min_features, max_features=self.max_features)
         else:
-            layer = generate_inside_ball(self.obs_to_interprete, segment, n, feature_variance=self.feature_variance)
+            layer = generate_inside_field(self.obs_to_interprete, segment, n, feature_variance=self.feature_variance, 
+                                        max_features=self.max_features, min_features=self.min_features)
         
         #cap here: not optimal
         if caps != None:

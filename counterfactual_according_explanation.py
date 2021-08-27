@@ -54,7 +54,7 @@ if __name__ == "__main__":
     # Store results inside graph if set to True
     graph = True
     verbose = False
-    growing_sphere = True
+    growing_sphere = False
     if growing_sphere:
         label_graph = "growing_spheres"
         growing_method = "GS"
@@ -77,11 +77,17 @@ if __name__ == "__main__":
         # Store dataset inside x and y (x data and y labels), with aditional information
         x, y, class_names, regression, multiclass, continuous_features, categorical_features, categorical_values, categorical_names = generate_dataset(dataset_name)
         for nb_model, model in enumerate(models):
-            if graph: 
-                experimental_informations_degrees.initialize_per_models()
-                experimental_informations_kendall.initialize_per_models()
-                experimental_informations_anchor.initialize_per_models()
             model_name = type(model).__name__
+            if growing_sphere:
+                filename = "./results/"+dataset_name+"/"+model_name+"/growing_spheres/"+str(threshold_interpretability)+"/"
+                filename_all = "./results/"+dataset_name+"/growing_spheres/"+str(threshold_interpretability)+"/"
+            else:
+                filename="./results/"+dataset_name+"/"+model_name+"/"+str(threshold_interpretability)+"/"
+                filename_all="./results/"+dataset_name+"/"+str(threshold_interpretability)+"/"
+            if graph: 
+                experimental_informations_degrees.initialize_per_models(filename)
+                experimental_informations_kendall.initialize_per_models(filename)
+                experimental_informations_anchor.initialize_per_models(filename)
             models_name.append(model_name)
             # Split the dataset inside train and test set (50% each set)
             dataset, black_box, x_train, x_test, y_train, y_test = preparing_dataset(x, y, dataset_name, model)
@@ -118,80 +124,93 @@ if __name__ == "__main__":
                 print("### Instance number:", cnt + 1, "over", max_instance_to_explain)
                 print("### Models ", nb_model + 1, "over", len(models))
                 #print("instance to explain:", instance_to_explain)
-                farthest_distance = get_farthest_distance(instance_to_explain, x_train, categorical_features, metric='manhattan')
+                try:
+                    farthest_distance = get_farthest_distance(instance_to_explain, x_train, categorical_features, metric='manhattan')
+                    print("farthest distance", farthest_distance)
+                    growing_fields = cf.CounterfactualExplanation(instance_to_explain, predict, method=growing_method, target_class=None, 
+                                        continuous_features=continuous_features, categorical_features=categorical_features, categorical_values=categorical_values)
+                    growing_fields.fit(verbose=verbose, feature_variance=explainer.feature_variance, farthest_distance_training_dataset=farthest_distance, 
+                                        probability_categorical_feature=explainer.probability_categorical_feature, min_counterfactual_in_sphere=explainer.nb_min_instance_per_class_in_sphere)
+                    closest_counterfactual = growing_fields.enemy
+                    print("closest counterfactual", closest_counterfactual)
+                    direction_vector = instance_to_explain - closest_counterfactual
+                    #print("closest counterfactual", closest_counterfactual)
+                    #print('direction vector', direction_vector)
+                    explainer.target_class = model.predict(instance_to_explain.reshape(1, -1))[0]
+                    position_instances_in_sphere, nb_training_instance_in_sphere = explainer.instances_from_dataset_inside_sphere(growing_fields.enemy, 
+                                                                                                                    growing_fields.radius, x_train)
+                    print("position in sphere", position_instances_in_sphere[:10])
+                    instances_in_sphere, _, _, _ = explainer.generate_instances_inside_sphere(growing_fields.radius, 
+                                                        growing_fields.enemy,  x_test, farthest_distance, 
+                                                        explainer.nb_min_instance_per_class_in_sphere,
+                                                        position_instances_in_sphere, nb_training_instance_in_sphere)
+                    print("instances in sphere", instances_in_sphere)                
+                    ls_raw_data = explainer.lime_explainer.explain_instance_training_dataset(closest_counterfactual, black_box.predict_proba, 
+                                                                    num_features=nb_feature_linear_explanation, instances_in_sphere = instances_in_sphere)
+                    print("interpretability method")
+                    anchors = explainer.anchor_explainer.explain_instance(instance_to_explain, explainer.black_box_predict, 
+                                        threshold=explainer.threshold_precision, 
+                                        delta=0.1, tau=0.15, batch_size=100, max_anchor_size=None, 
+                                        stop_on_first=False, desired_label=None, beam_size=4)
+                    target_prediction = np.array(black_box.predict_proba(instance_to_explain.reshape(1, -1)))
+                    target_class = np.argmax(target_prediction)
+                    new_dataset = np.insert(x_test, 0, np.array(closest_counterfactual), 0)
+                    rules, pandas_frame = explainer.generate_rule_and_data_for_anchors(anchors.names(), target_class, new_dataset)
+                    instances_in_anchors = explainer.get_base_model_data(rules, pandas_frame)
+                    test = (instances_in_anchors == np.array(closest_counterfactual)).all(1).any()
+                    if not test:
+                        #print("YEAH C'EST SIMPLE LE COUNTERFACTUAL N'EST PAS DANS L'ANCHOR")
+                        counterfactual_in_anchors = 1
+                    else:
+                        #print("BOUH :'(")
+                        counterfactual_in_anchors = 0
 
-                growing_fields = cf.CounterfactualExplanation(instance_to_explain, predict, method=growing_method, target_class=None, 
-                                    continuous_features=continuous_features, categorical_features=categorical_features, categorical_values=categorical_values)
-                growing_fields.fit(verbose=verbose, feature_variance=explainer.feature_variance, farthest_distance_training_dataset=farthest_distance, 
-                                    probability_categorical_feature=explainer.probability_categorical_feature, min_counterfactual_in_sphere=explainer.nb_min_instance_per_class_in_sphere)
-                closest_counterfactual = growing_fields.enemy
-                direction_vector = instance_to_explain - closest_counterfactual
-                #print("closest counterfactual", closest_counterfactual)
-                #print('direction vector', direction_vector)
-                ls_raw_data = explainer.lime_explainer.explain_instance_training_dataset(closest_counterfactual, black_box.predict_proba, 
-                                                                num_features=nb_feature_linear_explanation)
-                
-                anchors = explainer.anchor_explainer.explain_instance(instance_to_explain, explainer.black_box_predict, 
-                                    threshold=explainer.threshold_precision, 
-                                    delta=0.1, tau=0.15, batch_size=100, max_anchor_size=None, 
-                                    stop_on_first=False, desired_label=None, beam_size=4)
-                target_prediction = np.array(black_box.predict_proba(instance_to_explain.reshape(1, -1)))
-                target_class = np.argmax(target_prediction)
-                new_dataset = np.insert(x_test, 0, np.array(closest_counterfactual), 0)
-                rules, pandas_frame = explainer.generate_rule_and_data_for_anchors(anchors.names(), target_class, new_dataset)
-                instances_in_anchors = explainer.get_base_model_data(rules, pandas_frame)
-                test = (instances_in_anchors == np.array(closest_counterfactual)).all(1).any()
-                if not test:
-                    #print("YEAH C'EST SIMPLE LE COUNTERFACTUAL N'EST PAS DANS L'ANCHOR")
-                    counterfactual_in_anchors = 1
-                else:
-                    #print("BOUH :'(")
-                    counterfactual_in_anchors = 0
-
-                impact_vector = np.zeros(len(closest_counterfactual))
-                for nb, explanation in enumerate(ls_raw_data.as_list()):
-                    for nb_feature, element in enumerate(dataset.feature_names):
-                        split_x = explanation[0].split(element)
-                        if len(split_x) > 1:
-                            impact_vector[nb_feature] = explanation[1]
-                
-                impact_vector = -np.asarray(impact_vector)
-                nb_feature_to_compare = min(len(np.where([x != 0 for x in direction_vector])[0]), len(np.where([x < 0  for x in impact_vector])[0]))
-                top_k_impact_vector = impact_vector.argsort()[-nb_feature_to_compare:][::-1]
-                top_k_direction_vector = direction_vector.argsort()[-nb_feature_to_compare:][::-1]
-                sum_same = 0
-                hit_k = [-1]*nb_feature_linear_explanation
-                for nb, feature in enumerate(top_k_impact_vector[:5]):
-                    if feature == top_k_direction_vector[nb]:
-                        sum_same += 1
-                    mean_top_k[nb] = mean_top_k[nb] + sum_same
-                    nb_top_k[nb] += 1
-                    hit_k[nb] = sum_same
-                
-                #print("explication de LIME", ls_raw_data.as_list())
-                unit_vector_1 = direction_vector / np.linalg.norm(direction_vector)
-                unit_vector_2 = impact_vector / np.linalg.norm(impact_vector)
-                dot_product = np.dot(unit_vector_1, unit_vector_2)
-                angle = np.arccos(dot_product)
-                #print("angle", np.degrees(angle))
-                tau, p_value = stats.kendalltau(top_k_impact_vector, top_k_direction_vector)
-                if graph: 
-                    experimental_informations_degrees.store_degrees([direction_vector, impact_vector, angle])
-                    experimental_informations_kendall.store_kendall([top_k_direction_vector, top_k_impact_vector, tau] + hit_k)
-                    experimental_informations_anchor.store_counterfactual_in_anchor([anchors.names(), closest_counterfactual, counterfactual_in_anchors])
-                cnt += 1
-            #print("top k mean", mean_top_k)
-            #print("nb top k", nb_top_k)
-            print(mean_top_k / nb_top_k)
-            if graph: experimental_informations_kendall.store_mean_top_k(mean_top_k/nb_top_k)
-            if growing_sphere:
-                filename = "./results/"+dataset_name+"/"+model_name+"/growing_spheres/"+str(threshold_interpretability)+"/"
-                filename_all = "./results/"+dataset_name+"/growing_spheres/"+str(threshold_interpretability)+"/"
-            else:
-                filename="./results/"+dataset_name+"/"+model_name+"/"+str(threshold_interpretability)+"/"
-                filename_all="./results/"+dataset_name+"/"+str(threshold_interpretability)+"/"
+                    impact_vector = np.zeros(len(closest_counterfactual))
+                    for nb, explanation in enumerate(ls_raw_data.as_list()):
+                        for nb_feature, element in enumerate(dataset.feature_names):
+                            split_x = explanation[0].split(element)
+                            if len(split_x) > 1:
+                                impact_vector[nb_feature] = explanation[1]
+                    
+                    impact_vector = -np.asarray(impact_vector)
+                    #print("impact vector", impact_vector)
+                    nb_feature_to_compare = min(len(np.where([x != 0 for x in direction_vector])[0]), len(np.where([x > 0  for x in impact_vector])[0]))
+                    top_k_impact_vector = impact_vector.argsort()[nb_feature_to_compare:][::-1]
+                    top_k_direction_vector = direction_vector.argsort()[nb_feature_to_compare:][::-1]
+                    print("top k impact vector", top_k_impact_vector)
+                    print("top k direction vector", top_k_direction_vector)
+                    sum_same = 0
+                    hit_k = [-1]*nb_feature_linear_explanation
+                    for nb, feature in enumerate(top_k_impact_vector[:5]):
+                        if feature in top_k_direction_vector[:nb]:
+                            print("TEST", feature, "from", top_k_impact_vector[:nb])
+                            print("in", top_k_direction_vector)
+                            print()
+                            sum_same += 1
+                        mean_top_k[nb] = mean_top_k[nb] + sum_same
+                        nb_top_k[nb] += 1
+                        hit_k[nb] = sum_same
+                    
+                    #print("explication de LIME", ls_raw_data.as_list())
+                    unit_vector_1 = direction_vector / np.linalg.norm(direction_vector)
+                    unit_vector_2 = impact_vector / np.linalg.norm(impact_vector)
+                    dot_product = np.dot(unit_vector_1, unit_vector_2)
+                    angle = np.arccos(dot_product)
+                    #print("angle", np.degrees(angle))
+                    tau, p_value = stats.kendalltau(top_k_impact_vector, top_k_direction_vector)
+                    if graph: 
+                        experimental_informations_degrees.store_degrees([direction_vector, impact_vector, angle])
+                        experimental_informations_kendall.store_kendall([top_k_direction_vector, top_k_impact_vector, tau] + hit_k)
+                        experimental_informations_anchor.store_counterfactual_in_anchor([anchors.names(), closest_counterfactual, counterfactual_in_anchors])
+                        #print("top k mean", mean_top_k)
+                        #print("nb top k", nb_top_k)
+                        print(mean_top_k / nb_top_k)
+                        if graph: experimental_informations_kendall.store_mean_top_k(mean_top_k/nb_top_k)
+                    cnt += 1
+                except Exception as inst:
+                    print(inst)
 
             if graph: 
-                experimental_informations_degrees.store_experiments_information(max_instance_to_explain, nb_model, filename=filename, filename_all=filename_all)
-                experimental_informations_kendall.store_experiments_information(max_instance_to_explain, nb_model, filename=filename, filename_all=filename_all)
-                experimental_informations_anchor.store_experiments_information(max_instance_to_explain, nb_model, filename=filename, filename_all=filename_all)
+                experimental_informations_degrees.store_experiments_information(max_instance_to_explain, nb_model, filename_all=filename_all)
+                experimental_informations_kendall.store_experiments_information(max_instance_to_explain, nb_model, filename_all=filename_all)
+                experimental_informations_anchor.store_experiments_information(max_instance_to_explain, nb_model, filename_all=filename_all)

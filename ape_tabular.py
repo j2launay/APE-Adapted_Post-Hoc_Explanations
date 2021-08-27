@@ -12,10 +12,12 @@ from yellowbrick.cluster import KElbowVisualizer
 from anchors import utils, anchor_tabular, anchor_base, limes
 from anchors.limes.utils_stability import compute_WLS_stdevs, refactor_confints_todict, compare_confints
 from growingspheres import counterfactuals as cf
-from growingspheres.utils.gs_utils import generate_inside_ball, generate_categoric_inside_ball, distances, get_distances
+from growingspheres.utils.gs_utils import generate_inside_field, generate_categoric_inside_ball, distances, get_distances
 from ape_tabular_experiments import compute_all_explanation_method_precision, simulate_user_experiments, compute_local_surrogate_precision_coverage, ape_illustrative_results, simulate_user_experiments_lime_ls
 import pyfolding as pf
 from sklearn.metrics import precision_score
+from sklearn.neighbors import NearestNeighbors
+import time
 
 class ApeTabularExplainer(object):
     """
@@ -27,7 +29,7 @@ class ApeTabularExplainer(object):
                 categorical_values = None, feature_names=None, discretizer="MDLP", 
                 nb_min_instance_in_sphere=800, threshold_precision=0.95, 
                 nb_min_instance_per_class_in_sphere=100, verbose=False, 
-                categorical_names=None):
+                categorical_names=None, linear_separability_index=0.99):
         train_data, test_data = train_test_split(train_data, test_size=0.4, random_state=42)
         self.train_data = train_data
         self.test_data = test_data
@@ -47,6 +49,7 @@ class ApeTabularExplainer(object):
         self.threshold_precision = threshold_precision
         self.nb_min_instance_per_class_in_sphere = nb_min_instance_per_class_in_sphere
         self.verbose = verbose
+        self.linear_separability_index = linear_separability_index
         self.black_box_labels = black_box_predict(self.train_data)
         if self.verbose: print("Setting interpretability methods")
         self.anchor_explainer = anchor_tabular.AnchorTabularExplainer(class_names, feature_names, train_data, 
@@ -186,10 +189,14 @@ class ApeTabularExplainer(object):
                     generated_artificial_instances = generate_categoric_inside_ball(target_instance, (0, farthest_distance), 1,
                                                             int (cnt*nb_instances_in_sphere), 
                                                             self.continuous_features, self.categorical_features, self.categorical_values,
-                                                            feature_variance=self.feature_variance, probability_categorical_feature=self.probability_categorical_feature)
+                                                            feature_variance=self.feature_variance, 
+                                                            probability_categorical_feature=self.probability_categorical_feature,
+                                                            min_features=self.min_features, max_features=self.max_features)
                 else:
-                    generated_artificial_instances = generate_inside_ball(target_instance, (0, farthest_distance), 
-                                                        int (cnt*nb_instances_in_sphere), feature_variance=self.feature_variance)
+                    generated_artificial_instances = generate_inside_field(target_instance, (0, farthest_distance), 
+                                                        int (cnt*nb_instances_in_sphere), feature_variance=self.feature_variance,
+                                                        max_features=self.max_features, min_features=self.min_features)
+                                                        #max_features=self.max_features, min_features=self.min_features)
             except OverflowError:
                     print("over flow error")
             artificial_instances_pandas_frame = self.transform_data_into_data_frame(generated_artificial_instances)
@@ -225,44 +232,62 @@ class ApeTabularExplainer(object):
         Return: Indicate whether the counterfactual find in the hyper field are unimodal or multimodal 
                 and compute the clusters centers in case of multimodal data 
         """
-        try:
-            results = pf.FTU(counterfactual_libfolding, routine="python") if counterfactual_libfolding is not None else pf.FTU(counterfactual_in_sphere, routine="python")
-            self.multimodal_results = results.folding_statistics<1
-            if self.multimodal_results:
-                # If counterfactual instances are multimodal we compute the clusters center 
-                visualizer = KElbowVisualizer(KMeans(), k=(1,8))
-                x_elbow = np.array(counterfactual_in_sphere)
-                visualizer.fit(x_elbow)
-                n_clusters = visualizer.elbow_value_
-                if n_clusters is not None:
-                    if self.verbose: print("n CLUSTERS ", n_clusters)
-                    kmeans = KMeans(n_clusters=n_clusters)
-                    kmeans.fit(counterfactual_in_sphere)
-                    self.clusters_centers = kmeans.cluster_centers_
-                    if self.verbose: print("Mean center of clusters from KMEANS ", self.clusters_centers)
-            else:
-                # If counterfactual instances are unimodal we test a linear separability problem
-                tree_closest_neighborhood = scipy.spatial.cKDTree(instances_in_sphere)
-                mean = 0
-                target_class = self.black_box_predict(counterfactual_in_sphere[0].reshape(1, -1)) 
-                for item in counterfactual_in_sphere:
-                    the_result = tree_closest_neighborhood.query(item, k=2)
-                    try:
-                        if self.black_box_predict(instances_in_sphere[the_result[1][1]].reshape(1, -1)) == target_class:
-                            mean+=1   
-                    except:
-                        print("problem in the search of the closest neighborhood", the_result)     
-                mean /= len(counterfactual_in_sphere)
-                if self.verbose: print("Value of the linear separability test:", mean)
-                # We indicate that data are multimodal if the test of linear separability is inferior to the threshold precision
-                # of the interpretability methods 
-                self.multimodal_results = mean < self.threshold_precision 
+        #try:
+        start_time = time.time()
+        results = pf.FTU(counterfactual_libfolding, routine="python") if counterfactual_libfolding is not None else pf.FTU(counterfactual_in_sphere, routine="python")
+        #print("--- %s seconds --- to compute the unimodality test" % (time.time() - start_time))
+        start_time = time.time()
+        self.multimodal_results = results.folding_statistics<1
+        #print(self.multimodal_results)
+        if self.multimodal_results:
+            # If counterfactual instances are multimodal we compute the clusters center 
+            visualizer = KElbowVisualizer(KMeans(), k=(1,8))
+            x_elbow = np.array(counterfactual_in_sphere)
+            visualizer.fit(x_elbow)
+            n_clusters = visualizer.elbow_value_
+            if n_clusters is not None:
+                if self.verbose: print("n CLUSTERS ", n_clusters)
+                kmeans = KMeans(n_clusters=n_clusters)
+                kmeans.fit(counterfactual_in_sphere)
+                self.clusters_centers = kmeans.cluster_centers_
+                if self.verbose: print("Mean center of clusters from KMEANS ", self.clusters_centers)
+          #print("--- %s seconds --- to compute clusters center" % (time.time() - start_time))
+            #start_time = time.time()
+        else:
+            # If counterfactual instances are unimodal we test a linear separability problem
+          #print("nb instances in hyper field", len(instances_in_sphere))
+            start_time = time.time()
+            neigh = NearestNeighbors(n_neighbors=2, algorithm='ball_tree', metric=distances, metric_params={"ape": self})
+            neigh.fit(instances_in_sphere, self.black_box_predict(instances_in_sphere))
+          #print("--- %s seconds to fit the KNN ---" % (time.time() - start_time))
+            start_time = time.time()
+            #tree_closest_neighborhood = scipy.spatial.cKDTree(instances_in_sphere)
+            #print("--- %s seconds ---" % (time.time() - start_time))
 
-            if self.verbose: print("The libfolding test indicates that data are ", "multimodal." if self.multimodal_results else "unimodal.")
-            return True
-        except ValueError:
-            print("There is an error in the libfolding code for unimodal testing.")
-            return False
+            mean = 0
+            target_class = self.black_box_predict(counterfactual_in_sphere[0].reshape(1, -1)) 
+          #print("counterfactual in the hyper field", len(counterfactual_in_sphere))
+            for item in counterfactual_in_sphere[:500]:
+                #the_result = tree_closest_neighborhood.query(item, k=2)
+                #print("the result tree", the_result)
+                _, the_result = neigh.kneighbors(item.reshape(1, -1), 2)
+                try:
+                    if self.black_box_predict(instances_in_sphere[the_result[0][1]].reshape(1, -1)) == target_class:
+                        mean+=1
+                except Exception as inst:
+                    print(inst)
+                    print("problem in the search of the closest neighborhood", the_result)     
+            mean /= len(counterfactual_in_sphere[:500])
+          #print("--- %s seconds to compute the linear separability test ---" % (time.time() - start_time))
+            start_time = time.time()
+            if self.verbose: print("Value of the linear separability test:", mean)
+            # We indicate that data are multimodal if the test of linear separability is inferior to the threshold precision
+            # of the interpretability methods 
+            self.multimodal_results = mean < self.linear_separability_index 
+          #print("multimodal results:", self.multimodal_results)
+        if self.verbose: print("The libfolding test indicates that data are ", "multimodal." if self.multimodal_results else "unimodal.")
+        return True
+
 
     def instances_from_dataset_inside_sphere(self, closest_counterfactual, radius, dataset):
         """
@@ -277,7 +302,7 @@ class ApeTabularExplainer(object):
         for position, instance_data in enumerate(dataset):
             #if get_distances(closest_counterfactual, instance_data, categorical_features=self.categorical_features)["euclidean"] < radius:
             #x, y, dataset, max_feature, min_feature, categorical_features=[]
-            if distances(closest_counterfactual, instance_data, dataset, self.max_features, self.min_features, categorical_features=self.categorical_features) < radius:
+            if distances(closest_counterfactual, instance_data, self) < radius:
                 position_instances_in_sphere.append(position)
                 nb_instance_from_dataset_in_sphere += 1
         if self.verbose: print("nb original instances from the training dataset in the hypersphere : ", nb_instance_from_dataset_in_sphere)
@@ -313,7 +338,18 @@ class ApeTabularExplainer(object):
         percentage_distribution = radius/farthest_distance*100
         if len(self.categorical_features) > 1 and self.verbose: 
             print("growing sphere radius", np.round(radius, decimals=3), "percentage of categorical feature changing:", percentage_distribution)
-        while nb_different_outcome < min_instance_per_class or nb_same_outcome < min_instance_per_class: 
+        start_time = time.time()
+        while nb_different_outcome < min_instance_per_class or nb_same_outcome < min_instance_per_class:
+            percentage_distribution = radius/farthest_distance*100
+            if (time.time() - start_time) > 2:
+              #print("--- %s seconds ---" % (time.time() - start_time))
+              #print("nb same outcome", nb_same_outcome)
+              #print("nb different outcome", nb_different_outcome)
+              #print("radius", radius)
+              #print("libfolding", libfolding)
+              #print("percentage cateforcia", percentage_distribution) 
+                radius += 0.005
+                start_time = time.time()
             if ((nb_different_outcome + nb_same_outcome > 10000) and lime_ls):
                 break
             # While there is not enough instances from each class
@@ -327,17 +363,20 @@ class ApeTabularExplainer(object):
                                                             self.continuous_features, self.categorical_features, self.categorical_values, 
                                                             feature_variance=self.feature_variance, 
                                                             probability_categorical_feature=self.probability_categorical_feature, 
-                                                            libfolding=libfolding)
+                                                            libfolding=libfolding, min_features=self.min_features,
+                                                            max_features=self.max_features)
                 elif len(self.categorical_features) > 1:
                     generated_instances_inside_sphere = generate_categoric_inside_ball(closest_counterfactual, (0, radius), percentage_distribution,
                                                             max(1, int (self.nb_min_instance_in_sphere - nb_training_instance_in_sphere)), 
                                                             self.continuous_features, self.categorical_features, 
                                                             self.categorical_values, feature_variance=self.feature_variance,
-                                                            probability_categorical_feature=self.probability_categorical_feature)
+                                                            probability_categorical_feature=self.probability_categorical_feature,
+                                                            min_features=self.min_features, max_features=self.max_features)
                 else:
-                    generated_instances_inside_sphere = generate_inside_ball(closest_counterfactual, (0, radius), 
+                    generated_instances_inside_sphere = generate_inside_field(closest_counterfactual, (0, radius), 
                                                         max(1, int (self.nb_min_instance_in_sphere - nb_training_instance_in_sphere)), 
-                                                        feature_variance=self.feature_variance)
+                                                        feature_variance=self.feature_variance, 
+                                                        min_features=self.min_features, max_features=self.max_features)
             except OverflowError:
                     print("over flow error")
 
@@ -349,7 +388,8 @@ class ApeTabularExplainer(object):
                                                             self.continuous_features, self.categorical_features, self.categorical_values, 
                                                             feature_variance=self.feature_variance, 
                                                             probability_categorical_feature=self.probability_categorical_feature, 
-                                                            libfolding=libfolding)
+                                                            libfolding=libfolding, min_features=self.min_features,
+                                                            max_features=self.max_features)
                 else:
                     generated_libfolding = generate_categoric_inside_ball(closest_counterfactual, (0, radius), 
                                                             percentage_distribution, 
@@ -357,7 +397,8 @@ class ApeTabularExplainer(object):
                                                             self.continuous_features, self.categorical_features, self.categorical_values, 
                                                             feature_variance=self.feature_variance, 
                                                             probability_categorical_feature=self.probability_categorical_feature, 
-                                                            libfolding=libfolding)
+                                                            libfolding=libfolding, min_features=self.min_features,
+                                                            max_features=self.max_features)
                 try:
                     generated_instances_inside_sphere_libfolding = np.append(generated_instances_inside_sphere_libfolding, generated_libfolding, axis=0)
                 except ValueError:
@@ -436,22 +477,32 @@ class ApeTabularExplainer(object):
               farthest_distance: distance from the target instance to the farthest instance from the training data
               percentage_distribution: Percentage of instances whose categorical values will be change (radius of the field for categorical data)
               nb_instance_train_data_label_as_target: Number of instances from the training data that are classify as the target instance
-        Return: Anchor's precision, Anchors's coverage, Anchors's f1 and Anchor's explanation 
+        Return: Anchor's precision, Anchors's coverage, Anchors's f2 and Anchor's explanation 
         """
         # In case of multimodal data we generate rule based explanation
         anchor_exp = self.anchor_explainer.explain_instance(instance, self.black_box_predict, threshold=self.threshold_precision, 
                                     delta=0.1, tau=0.15, batch_size=100, max_anchor_size=None, 
                                     stop_on_first=False, desired_label=None, beam_size=4)
         # Generate rules and data frame for applying anchors on training data
-        rules, testing_instances_pandas_frame = self.generate_rule_and_data_for_anchors(anchor_exp.names(), self.target_class, self.test_data)
-        # Apply anchors and returns his assiciated coverage and precision 
-        testing_instances_in_anchor = self.get_base_model_data(rules, testing_instances_pandas_frame)
 
+        rules, testing_instances_pandas_frame = self.generate_rule_and_data_for_anchors(anchor_exp.names(), self.target_class, self.test_data)
+        # Apply anchors and returns instances from testing instances pandas frame with corresponding labels 
+        labels_test_instances = self.black_box_predict(self.test_data)
+        testing_instances_pandas_frame = pd.concat([testing_instances_pandas_frame, pd.DataFrame(labels_test_instances, columns=["label"])], axis=1)
+
+        testing_instances_in_anchor = self.get_base_model_data(rules, testing_instances_pandas_frame)
+        
+        index_coverage_anchors = np.where([x == self.target_class for x in testing_instances_in_anchor['label']])
+        nb_instances_covered_by_rule = len(index_coverage_anchors[0])
         # Computes the number of instances from the training set that are classified as the target instance and validate the anchor rules.
+        labels_instance_test_data = self.black_box_predict(self.test_data)
         index_instances_test_data_labels_as_target = np.where([x == self.target_class for x in labels_instance_test_data])
+        test_coverage = nb_instances_covered_by_rule/len(index_instances_test_data_labels_as_target[0])
         instances_from_index = self.test_data[index_instances_test_data_labels_as_target]
+        testing_instances_in_anchor = testing_instances_in_anchor.drop(columns=['label'])
         coverage_testing_instances_in_anchor = testing_instances_in_anchor.copy()
         nb_test_instances_in_anchor = 0
+        
         for instance_index in instances_from_index:
             matches = coverage_testing_instances_in_anchor[(coverage_testing_instances_in_anchor==instance_index).all(axis=1)]
             if len(matches)>0:
@@ -462,12 +513,27 @@ class ApeTabularExplainer(object):
                                                 rules, farthest_distance, percentage_distribution)
         labels_in_anchor = self.black_box_predict(instances_in_anchor)
         anchor_coverage = nb_test_instances_in_anchor/nb_instance_test_data_label_as_target
+        if anchor_coverage != test_coverage:
+          #print()
+          #print()
+          #print()
+          #print("testing instances pandas frame befors applying", testing_instances_pandas_frame)
+          #print("testing instances in anchor", testing_instances_in_anchor)
+          #print("target class", self.target_class)
+          #print("il y a ", nb_instances_covered_by_rule, "instances from target class validating the rules")
+          #print("over", len(index_instances_test_data_labels_as_target[0]), "instances from the test set from the target class")
+          #print("coverage", test_coverage)
+          #print("anchor coverage", anchor_coverage)
+          #print()
+          #print()
+          #print()
         anchor_precision = sum(labels_in_anchor == self.target_class)/len(labels_in_anchor)
-        f1_anchor = (anchor_coverage+anchor_precision)/2
-        return anchor_precision, anchor_coverage, f1_anchor, anchor_exp.names()
+        f2_anchor = (anchor_coverage+2*anchor_precision)/3
+        return anchor_precision, anchor_coverage, f2_anchor, anchor_exp.names()
 
-    def compute_lime_extending_precision_coverage(self, train_instances_in_sphere, labels_in_sphere, growing_sphere, nb_features_employed,
-                                                farthest_distance, dicrease_radius, nb_instance_test_data_label_as_target):
+    def compute_lime_extending_precision_coverage(self, train_instances_in_sphere, instance_to_explain, labels_in_sphere, 
+                                                growing_sphere, nb_features_employed, farthest_distance, dicrease_radius, 
+                                                nb_instance_test_data_label_as_target):
         """ 
         Lime explanation and computation of precision inside the initial hypersphere
         Args: instances_in_sphere: Set of instances that are present in the hyper field
@@ -487,6 +553,7 @@ class ApeTabularExplainer(object):
                                                                     num_features=nb_features_employed, model_regressor = LogisticRegression(), 
                                                                     instances_in_sphere=train_instances_in_sphere)
         prediction_inside_sphere = self.modify_instance_for_linear_model(ls_raw_data, test_instances_in_sphere)
+        #print("TEST prediction inside sphere", prediction_inside_sphere)
         # Initialize the precision of Local Surrogate
         #precision_ls_raw_data = sum(test_labels_in_sphere == prediction_inside_sphere)/len(prediction_inside_sphere)
         #print("precision ls", precision_ls_raw_data)
@@ -494,13 +561,15 @@ class ApeTabularExplainer(object):
         #print("average precision", precision_ls_raw_data)
         radius = growing_sphere.radius
         final_precision = 0
+
         while precision_ls_raw_data > self.threshold_precision and radius < farthest_distance:
+          #print("EXTENDING the hypersphere")
             """ Extending the hypersphere radius until the precision inside the hypersphere is lower than the threshold 
             and the radius of the hyper sphere is not longer than the distances to the farthest instance from the dataset """
             final_precision = precision_ls_raw_data
             last_radius = radius
             # Extend the size of the sphere as Laugel et al. in Growing Sphere
-            radius += (dicrease_radius - 1) * radius/5.0
+            radius += 0.005
             position_training_instances_in_sphere, nb_training_instance_in_sphere = self.instances_from_dataset_inside_sphere(self.closest_counterfactual, 
                                                                                                                 radius, self.train_data)
             train_instances_in_sphere, labels_in_sphere, percentage_distribution, _ = self.generate_instances_inside_sphere(radius, self.closest_counterfactual, self.train_data,
@@ -517,20 +586,64 @@ class ApeTabularExplainer(object):
                                                                     instances_in_sphere=train_instances_in_sphere)
             prediction_inside_sphere = self.modify_instance_for_linear_model(ls_raw_data, test_instances_in_sphere)
             precision_ls_raw_data = self.compute_linear_regression_precision(prediction_inside_sphere, test_labels_in_sphere)
-        if final_precision > precision_ls_raw_data:
+          #print("precision after extending the sphere", precision_ls_raw_data)
+          #print("radius", radius)
+        if final_precision > precision_ls_raw_data and precision_ls_raw_data < self.threshold_precision:
             precision_ls_raw_data = final_precision
             radius = last_radius
         
+        start_time = time.time()
+      #print("timing", start_time)
         position_testing_instances_in_sphere, nb_testing_instance_in_sphere = self.instances_from_dataset_inside_sphere(self.closest_counterfactual, 
                                                                                                             radius, self.test_data)
         # Compute the number of training data that are classify by the black box model as the target instance and the labels of training data instance
         nb_testing_instance_in_sphere_label_as_target, labels_testing_instance_in_sphere = self.compute_labels_inside_sphere(nb_testing_instance_in_sphere, 
                                                                                                                                 position_testing_instances_in_sphere,
                                                                                                                                 self.test_data)
-        """ computation of the coverage inside the sphere for linear model on training data """        
-        lime_extending_coverage = nb_testing_instance_in_sphere_label_as_target/nb_instance_test_data_label_as_target
-        f1_lime_extending = (precision_ls_raw_data + lime_extending_coverage)/2
-        return precision_ls_raw_data, lime_extending_coverage, f1_lime_extending, ls_raw_data.as_list()
+      #print("il aura fallu %s secondes pour calculer la couverture à l'ancienne" % (time.time() - start_time))
+        start_time = time.time()
+        """ computation of the coverage inside the sphere for linear model on training data """
+        def compute_coverage(dataset, radius):
+            borne = []
+            #print("min features", self.min_features)
+            #print("max features", self.max_features)
+            for feature, (min_feature, max_feature) in enumerate(zip(self.min_features, self.max_features)):
+                range_feature = max_feature - min_feature
+                #print("range feature", range_feature)
+                # Modify the generation of artificial instance depending on the variance of each feature
+                y = 0
+                z = radius * range_feature
+                #print("z", z)
+                variance = self.feature_variance[feature] * radius
+                #print("variance", variance)
+                k = (12 * variance)**0.5
+                #print("k", k)
+                a1 = min(y, z - k)
+                b1 = a1 + k
+                #print("a1", a1)
+                #print("b1", b1)
+                borne.append(self.closest_counterfactual[self.continuous_features[feature]] + min(a1, b1, -a1, -b1))
+                borne.append(self.closest_counterfactual[self.continuous_features[feature]] + max(a1, b1, -a1, -b1))
+            #print("closest counterfactual", self.closest_counterfactual)
+            #print("borne", borne)
+            nb_instances_in_borne = 0
+            for instance in dataset:
+                borne_boolean = True
+                for nb, feature_value in enumerate(instance[self.continuous_features]):
+                    if borne_boolean and feature_value > borne[2*nb] and feature_value < borne[2*nb + 1]:
+                        continue
+                    else:
+                        borne_boolean = False
+                nb_instances_in_borne += 1 if borne_boolean else 0
+          #print("nb instances in borne", nb_instances_in_borne, "over", len(dataset))
+            return nb_instances_in_borne/len(dataset)
+
+        lime_extending_coverage = compute_coverage(self.test_data, radius)
+      #print("il aura fallu %s secondes pour calculer la couverture avec la nouvelle méthode" % (time.time() - start_time))
+        lime_old_extending_coverage = nb_testing_instance_in_sphere_label_as_target/nb_instance_test_data_label_as_target
+      #print("old coverage", lime_old_extending_coverage, "nb instances in field", nb_testing_instance_in_sphere_label_as_target)
+        f2_lime_extending = (2*precision_ls_raw_data + lime_extending_coverage)/3
+        return precision_ls_raw_data, lime_extending_coverage, f2_lime_extending, ls_raw_data.as_list(), radius
 
     def model_stability_index(self, instance, growing_method, opponent_class, n_instance_per_layer, first_radius, 
                             dicrease_radius, farthest_distance):
@@ -543,21 +656,15 @@ class ApeTabularExplainer(object):
                     farthest_distance_training_dataset=farthest_distance, 
                     probability_categorical_feature=self.probability_categorical_feature, 
                     min_counterfactual_in_sphere=self.nb_min_instance_per_class_in_sphere)
-        first_closest_counterfactual = growing_sphere.enemy
-
-        # After searching for the closest counterfactual, we take the closest from this point from the same class as the target instance to explain
-        second_growing_sphere = cf.CounterfactualExplanation(first_closest_counterfactual, self.black_box_predict, 
-                                                            method=growing_method, target_class=self.target_class, 
-                                                            continuous_features=self.continuous_features, 
-                                                            categorical_features=self.categorical_features, 
-                                                            categorical_values=self.categorical_values)
-        second_growing_sphere.fit(n_in_layer=n_instance_per_layer, first_radius=first_radius, 
-                                    dicrease_radius=dicrease_radius, sparse=True, 
-                                    verbose=self.verbose, feature_variance=self.feature_variance, 
-                                    farthest_distance_training_dataset=farthest_distance, 
-                                    probability_categorical_feature=self.probability_categorical_feature, 
-                                    min_counterfactual_in_sphere=self.nb_min_instance_per_class_in_sphere)
-        closest_counterfactual = second_growing_sphere.enemy            
+        closest_counterfactual = growing_sphere.enemy
+        farthest_distance_cf = 0
+        for training_instance in self.train_data:
+            # get_distances is similar to pairwise distance (i.e: it is the same results for euclidean distance) 
+            # but it adds a sparsity distance computation (i.e: number of same values) 
+            #farthest_distance_now = get_distances(training_instance, instance, categorical_features=self.categorical_features)["euclidean"]
+            farthest_distance_cf_now = distances(self.closest_counterfactual, training_instance, self)
+            if farthest_distance_cf_now > farthest_distance_cf:
+                farthest_distance_cf = farthest_distance_cf_now
         
         """ Generates or store instances in the area of the hyperfield and their corresponding labels """
         min_instance_per_class = self.nb_min_instance_per_class_in_sphere
@@ -565,7 +672,7 @@ class ApeTabularExplainer(object):
                                                                                                                 growing_sphere.radius, self.train_data)
 
         instances_in_sphere, labels_in_sphere, percentage_distribution, instances_in_sphere_libfolding = self.generate_instances_inside_sphere(growing_sphere.radius, 
-                                                                                                                closest_counterfactual, self.train_data, farthest_distance, 
+                                                                                                                closest_counterfactual, self.train_data, farthest_distance_cf, 
                                                                                                                 min_instance_per_class, position_instances_in_sphere, 
                                                                                                                 nb_training_instance_in_sphere, libfolding=True)
 
@@ -586,7 +693,7 @@ class ApeTabularExplainer(object):
             # While the libfolding test is not able to declare that data are multimodal or unimodal we extend the number of instances that are generated
             min_instance_per_class *= 1.5
             instances_in_sphere, labels_in_sphere, percentage_distribution, instances_in_sphere_libfolding = self.generate_instances_inside_sphere(growing_sphere.radius, 
-                                                                                                    closest_counterfactual, self.train_data, farthest_distance, 
+                                                                                                    closest_counterfactual, self.train_data, farthest_distance_cf, 
                                                                                                     min_instance_per_class, position_instances_in_sphere, 
                                                                                                     nb_training_instance_in_sphere, libfolding=True)
             
@@ -630,41 +737,42 @@ class ApeTabularExplainer(object):
                 Indicate whether counter factual instances are multimodal: 1 or unimodal: 0
         """
         self.target_class = self.black_box_predict(instance.reshape(1, -1))[0]
-
         # Computes the distance to the farthest instance from the training dataset to bound generating instances 
         farthest_distance = 0
         for training_instance in self.train_data:
             # get_distances is similar to pairwise distance (i.e: it is the same results for euclidean distance) 
             # but it adds a sparsity distance computation (i.e: number of same values) 
             #farthest_distance_now = get_distances(training_instance, instance, categorical_features=self.categorical_features)["euclidean"]
-            farthest_distance_now = distances(training_instance, instance, self.train_data, self.max_features, self.min_features, self.categorical_features)
+            farthest_distance_now = distances(training_instance, instance, self)
             if farthest_distance_now > farthest_distance:
                 farthest_distance = farthest_distance_now
-        
+        start_time = time.time()
+      #print("farthest distance", farthest_distance)
         growing_sphere = cf.CounterfactualExplanation(instance, self.black_box_predict, method=growing_method, target_class=opponent_class, 
                                                     continuous_features=self.continuous_features, 
                                                     categorical_features=self.categorical_features, 
-                                                    categorical_values=self.categorical_values)
+                                                    categorical_values=self.categorical_values,
+                                                    max_features=self.max_features,
+                                                    min_features=self.min_features)
         growing_sphere.fit(n_in_layer=n_instance_per_layer, first_radius=first_radius, dicrease_radius=dicrease_radius, sparse=True, 
                                                     verbose=self.verbose, feature_variance=self.feature_variance, 
                                                     farthest_distance_training_dataset=farthest_distance, 
                                                     probability_categorical_feature=self.probability_categorical_feature, 
                                                     min_counterfactual_in_sphere=self.nb_min_instance_per_class_in_sphere)
-        first_closest_counterfactual = growing_sphere.enemy
-
-        # After searching for the closest counterfactual, we take the closest from this point from the same class as the target instance to explain
-        second_growing_sphere = cf.CounterfactualExplanation(first_closest_counterfactual, self.black_box_predict, 
-                                                    method=growing_method, target_class=self.target_class, 
-                                                    continuous_features=self.continuous_features, 
-                                                    categorical_features=self.categorical_features, 
-                                                    categorical_values=self.categorical_values)
-        second_growing_sphere.fit(n_in_layer=n_instance_per_layer, first_radius=first_radius, dicrease_radius=dicrease_radius, sparse=True, 
-                                                    verbose=self.verbose, feature_variance=self.feature_variance, 
-                                                    farthest_distance_training_dataset=farthest_distance, 
-                                                    probability_categorical_feature=self.probability_categorical_feature, 
-                                                    min_counterfactual_in_sphere=self.nb_min_instance_per_class_in_sphere)
-        self.closest_counterfactual = second_growing_sphere.enemy        
-
+      #print("--- %s seconds ---" % (time.time() - start_time))
+        start_time = time.time()
+      #print("done searching for closest counterfactual")
+        self.closest_counterfactual = growing_sphere.enemy
+        # Computes the distance to the farthest instance from the training dataset to bound generating instances 
+        farthest_distance_cf = 0
+        for training_instance in self.train_data:
+            # get_distances is similar to pairwise distance (i.e: it is the same results for euclidean distance) 
+            # but it adds a sparsity distance computation (i.e: number of same values) 
+            #farthest_distance_now = get_distances(training_instance, instance, categorical_features=self.categorical_features)["euclidean"]
+            farthest_distance_cf_now = distances(self.closest_counterfactual, training_instance, self)
+            if farthest_distance_cf_now > farthest_distance_cf:
+                farthest_distance_cf = farthest_distance_cf_now
+      #print("farthest distance from counterfactual", farthest_distance_cf)
         if self.verbose:
             print("The farthest instance from the training dataset is ", farthest_distance, " away from the target.")
             if opponent_class == None:
@@ -676,52 +784,68 @@ class ApeTabularExplainer(object):
         
         """ Generates or store instances in the area of the hyperfield and their corresponding labels """
         min_instance_per_class = self.nb_min_instance_per_class_in_sphere
+      #print("--- %s seconds ---" % (time.time() - start_time))
+        start_time = time.time()
         position_training_instances_in_sphere, nb_training_instance_in_sphere = self.instances_from_dataset_inside_sphere(self.closest_counterfactual, 
                                                                                                     growing_sphere.radius, self.train_data)
+      #print("DONE INSTANCES FROM DATASET INSIDE SPHERE--- %s seconds ---" % (time.time() - start_time))
+        start_time = time.time()
         training_instances_in_sphere, train_labels_in_sphere, percentage_distribution, instances_in_sphere_libfolding = self.generate_instances_inside_sphere(growing_sphere.radius, 
-                                                                                                    self.closest_counterfactual, self.train_data, farthest_distance, 
+                                                                                                    self.closest_counterfactual, self.train_data, farthest_distance_cf, 
                                                                                                     min_instance_per_class, position_training_instances_in_sphere, 
                                                                                                     nb_training_instance_in_sphere, libfolding=True)
-        
+      #print("--- %s seconds ---" % (time.time() - start_time))
+        start_time = time.time()
+      #print("done generating train instances")
         position_testing_instances_in_sphere, nb_testing_instance_in_sphere = self.instances_from_dataset_inside_sphere(self.closest_counterfactual, 
                                                                                                                 growing_sphere.radius, self.test_data)
         test_instances_in_sphere, test_labels_in_sphere, test_percentage_distribution, _ = self.generate_instances_inside_sphere(growing_sphere.radius, 
                                                                                                     self.closest_counterfactual, 
                                                                                                     self.test_data,
-                                                                                                    farthest_distance, 
+                                                                                                    farthest_distance_cf, 
                                                                                                     self.nb_min_instance_per_class_in_sphere,
                                                                                                     position_testing_instances_in_sphere, 
                                                                                                     nb_testing_instance_in_sphere)
-
-
-
+      #print("--- %s seconds ---" % (time.time() - start_time))
+        start_time = time.time()
+      #print("done generating test instances")
         if local_surrogate_experiment:
-            local_surrogate_precision, local_surrogate_coverage, f1_local_surrogate = compute_local_surrogate_precision_coverage(self, 
+            local_surrogate_precision, local_surrogate_coverage, f2_local_surrogate = compute_local_surrogate_precision_coverage(self, 
                                                 instance, growing_sphere,
                                                 test_instances_in_sphere, test_labels_in_sphere,
                                                 position_testing_instances_in_sphere, nb_testing_instance_in_sphere, 
                                                 nb_features_employed)
-            return local_surrogate_precision, local_surrogate_coverage, f1_local_surrogate
+            return local_surrogate_precision, local_surrogate_coverage, f2_local_surrogate
 
         """ Compute the libfolding test to verify wheter instances in the area of the hyper sphere is multimodal or unimodal """
         if instances_in_sphere_libfolding != []:
             # In case of categorical data, we transform categorical values into probability distribution (continuous values for libfolding)
             index_counterfactual_instances_in_sphere = self.store_counterfactual_instances_in_sphere(training_instances_in_sphere,
                                                                                          self.target_class, libfolding=True)
+          #print("done storing counterfactual in hyper field")
+          #print("--- %s seconds ---" % (time.time() - start_time))
+            start_time = time.time()
             counterfactual_instances_in_sphere = training_instances_in_sphere[index_counterfactual_instances_in_sphere]
+          #print("done finding instances in hyper field")
+          #print("--- %s seconds ---" % (time.time() - start_time))
+            start_time = time.time()
             counterfactual_libfolding = instances_in_sphere_libfolding[index_counterfactual_instances_in_sphere]
+          #print("start of unimodality test")
             unimodal_test = self.check_test_unimodal_data(np.array(counterfactual_instances_in_sphere), training_instances_in_sphere, growing_sphere.radius,
                                                          counterfactual_libfolding=counterfactual_libfolding)
         else:
             counterfactual_instances_in_sphere = self.store_counterfactual_instances_in_sphere(training_instances_in_sphere, self.target_class)
             unimodal_test = self.check_test_unimodal_data(np.array(counterfactual_instances_in_sphere), training_instances_in_sphere, growing_sphere.radius)
 
+      #print("test unimodal done")
+      #print("--- %s seconds ---" % (time.time() - start_time))
+        start_time = time.time()
         nb = 0
         while not unimodal_test:
             # While the libfolding test is not able to declare that data are multimodal or unimodal we extend the number of instances that are generated
             min_instance_per_class *= 1.5
             training_instances_in_sphere, train_labels_in_sphere, percentage_distribution, instances_in_sphere_libfolding = self.generate_instances_inside_sphere(growing_sphere.radius, 
-                                                                                                    self.closest_counterfactual, self.train_data, farthest_distance, 
+                                                                                                    self.closest_counterfactual, self.train_data, farthest_distance_cf, 
                                                                                                     min_instance_per_class, position_training_instances_in_sphere, 
                                                                                                     nb_training_instance_in_sphere, libfolding=True)
             
@@ -759,12 +883,12 @@ class ApeTabularExplainer(object):
         
         """ Different cases for experiments """
         if user_experiments:
-            return simulate_user_experiments(self, instance, nb_features_employed, farthest_distance, 
+            return simulate_user_experiments(self, instance, nb_features_employed, farthest_distance_cf, 
                                             self.closest_counterfactual, growing_sphere,
                                             position_training_instances_in_sphere, nb_training_instance_in_sphere)
 
         elif lime_vs_local_surrogate:
-            return simulate_user_experiments_lime_ls(self, instance, nb_features_employed, farthest_distance, 
+            return simulate_user_experiments_lime_ls(self, instance, nb_features_employed, farthest_distance_cf, 
                                             self.closest_counterfactual, growing_sphere,
                                             position_training_instances_in_sphere, nb_training_instance_in_sphere)
 
@@ -772,58 +896,49 @@ class ApeTabularExplainer(object):
             return compute_all_explanation_method_precision(self, instance, growing_sphere, dicrease_radius, growing_sphere.radius,
                                             nb_training_instance_in_sphere, nb_instance_test_data_label_as_target,
                                             position_training_instances_in_sphere, training_instances_in_sphere, train_labels_in_sphere,
-                                            farthest_distance, percentage_distribution, nb_features_employed) 
+                                            farthest_distance, farthest_distance_cf, percentage_distribution, nb_features_employed) 
         elif illustrative_results:
             return ape_illustrative_results(self, instance, counterfactual_instances_in_sphere)
 
         elif stability:
             features_employed_in_linear, features_employed_by_ape, features_employed_in_rule = simulate_user_experiments(self, 
-                                            instance, nb_features_employed, farthest_distance, self.closest_counterfactual, 
+                                            instance, nb_features_employed, farthest_distance_cf, self.closest_counterfactual, 
                                             growing_sphere, position_training_instances_in_sphere, nb_training_instance_in_sphere)
             multimodal = 1 if self.multimodal_results else 0
             return multimodal, features_employed_by_ape
         
         elif lime_stability:
-            csi, vsi = self.lime_explainer.check_stability(self.closest_counterfactual, self.black_box_predict_proba, n_calls=10, index_verbose=False)
+            csi_ls, vsi_ls = self.lime_explainer.check_stability(self.closest_counterfactual, self.black_box_predict_proba, n_calls=10, index_verbose=False)
+            
             def compute_vsi_anchors(used_features):
-                true_labels = self.black_box_predict(self.train_data)
-                stdevs_beta = compute_WLS_stdevs(X=self.train_data, Y=true_labels,
-                                            weights=[1]*len(true_labels), alpha=1)
-
-                print("standard deviation ANCHORS", stdevs_beta)
-                print("features used in anchors", used_features)
-                beta_ridge = []
-                for j in range (len(self.train_data[0])):
-                    print("j", j)
-                    if j in used_features:
-                        temp_mean = np.mean(self.train_data[:,0])
-                        print("temp mean", temp_mean)
-                        beta_ridge.append(temp_mean)
-                    else:
-                        beta_ridge.append(0)
-
-                print("beta ridge", beta_ridge)
-                #beta_ridge = [np.mean(self.train_data[:,0]), np.mean(self.train_data[:,1])]
-
                 feature_ids = used_features
                 used_features = [self.feature_names[i] for i in feature_ids]
-
-                conf_int = refactor_confints_todict(means=beta_ridge, st_devs=stdevs_beta, feat_names=used_features)
-
+                conf_int = {}
+                for test in used_features:
+                    conf_int[test] = 1
                 return conf_int
-            _, _, features_employed_in_rule = simulate_user_experiments(self, 
-                                            instance, nb_features_employed, farthest_distance, self.closest_counterfactual, 
-                                            growing_sphere, position_training_instances_in_sphere, nb_training_instance_in_sphere)
+
             confidence_intervals = []
             for i in range(10):
+                _, _, features_employed_in_rule = simulate_user_experiments(self, 
+                                            instance, nb_features_employed, farthest_distance_cf, self.closest_counterfactual, 
+                                            growing_sphere, position_training_instances_in_sphere, nb_training_instance_in_sphere)
+                #print("features employed in rule", features_employed_in_rule)
                 confidence_intervals.append(compute_vsi_anchors(features_employed_in_rule))
+            #print("confidence intervals anchors", confidence_intervals)
             csi_anchors, vsi_anchors = compare_confints(confidence_intervals=confidence_intervals,
-                                    index_verbose=True)
+                                    index_verbose=True, anchors=True)
 
             print("csi / vsi anchor", csi_anchors, vsi_anchors)
+            if self.multimodal_results:
+                vsi = [vsi_anchors, vsi_ls, vsi_anchors]
+                csi = [None, csi_ls, None]
+            else:
+                vsi = [vsi_ls, vsi_ls, vsi_anchors]
+                csi = [csi_ls, csi_ls, None]
             return model_stability_score, csi, vsi
 
-        elif k_closest:
+        elif k_closest is not False:
             #closest_instances = np.concatenate((instances_in_sphere, self.train_data), axis=0)
             if 'S' in growing_method:
                 growing_method_other = 'GF'
@@ -832,39 +947,48 @@ class ApeTabularExplainer(object):
             
             index_train_data_counterfactual_class = np.where([x != self.target_class for x in self.black_box_predict(self.train_data)])
             train_data_counterfactual_class = self.train_data[index_train_data_counterfactual_class]
-            k = 5
 
+            neigh = NearestNeighbors(n_neighbors=k_closest+1, algorithm='ball_tree', metric=distances, metric_params={"ape": self})
             if nb_iteration == 0:
-                kdt = scipy.spatial.cKDTree(train_data_counterfactual_class)
+                neigh.fit(train_data_counterfactual_class, self.black_box_predict(train_data_counterfactual_class))
+                #kdt = scipy.spatial.cKDTree(train_data_counterfactual_class)
                 try:
-                    dists, neighs = kdt.query(self.clusters_centers, k+1)
+                    dists, neighs = neigh.kneighbors(self.clusters_centers, k_closest+1)
+                  #print("dists, neighs of knn", dists, neighs)
+                    #dists, neighs = kdt.query(self.clusters_centers, k_closest+1)
+                    #print("dists, neighs of tree", dists, neighs)
                 except AttributeError:
-                    dists, neighs = kdt.query(self.closest_counterfactual.reshape(1, -1), k+1)
-                mean_dists, mean_neighs = kdt.query(train_data_counterfactual_class, k+1)
-                
+                    dists, neighs = neigh.kneighbors(self.closest_counterfactual.reshape(1, -1), k_closest+1)
+                    #dists, neighs = kdt.query(self.closest_counterfactual.reshape(1, -1), k_closest+1)
+                mean_dists, mean_neighs = neigh.kneighbors(train_data_counterfactual_class, k_closest+1)
+                #mean_dists, mean_neighs = kdt.query(train_data_counterfactual_class, k_closest+1)
+
                 closest_ennemis = train_data_counterfactual_class[neighs[0]]
                 dists = []
                 for ennemis in closest_ennemis:
-                    dists.append(distances(self.closest_counterfactual, ennemis, self.train_data, self.max_features, self.min_features, self.categorical_features))
+                    dists.append(distances(self.closest_counterfactual, ennemis, self))
                 
                 avg_dists = np.mean(dists)
                 mean_avg_dists = np.mean(mean_dists[:, 1:], axis=1)
                 avg_dists_other, avg_dists_all_other = self.explain_instance(instance, growing_method=growing_method_other, 
-                                                            k_closest=True, nb_iteration=nb_iteration+1)
+                                                            k_closest=k_closest, nb_iteration=nb_iteration+1)
                 return avg_dists, np.mean(mean_avg_dists), avg_dists_other, avg_dists_all_other
             else:
-                kdt = scipy.spatial.cKDTree(train_data_counterfactual_class)
+                #kdt = scipy.spatial.cKDTree(train_data_counterfactual_class)
                 try:
-                    dists, neighs = kdt.query(self.clusters_centers, k+1)
+                    #dists, neighs = kdt.query(self.clusters_centers, k_closest+1)
+                    dists, neighs = neigh.kneighbors(self.clusters_centers, k_closest+1)
                 except AttributeError:
-                    dists, neighs = kdt.query(self.closest_counterfactual.reshape(1, -1), k+1)
+                    #dists, neighs = kdt.query(self.closest_counterfactual.reshape(1, -1), k_closest+1)
+                    dists, neighs = neigh.kneighbors(self.closest_counterfactual.reshape(1, -1), k_closest+1)
                 
                 closest_ennemis = train_data_counterfactual_class[neighs[0]]
                 dists = []
                 for ennemis in closest_ennemis:
-                    dists.append(distances(self.closest_counterfactual, ennemis, self.train_data, self.max_features, self.min_features, self.categorical_features))
+                    dists.append(distances(self.closest_counterfactual, ennemis, self))
 
-                mean_dists, mean_neighs = kdt.query(train_data_counterfactual_class, k+1)
+                #mean_dists, mean_neighs = kdt.query(train_data_counterfactual_class, k_closest+1)
+                mean_dists, mean_neighs = neigh.kneighbors(train_data_counterfactual_class, k_closest+1)
                 avg_dists = np.mean(dists)
                 mean_avg_dists = np.mean(mean_dists[:, 1:], axis=1)
                 return avg_dists, np.mean(mean_avg_dists)
@@ -872,14 +996,14 @@ class ApeTabularExplainer(object):
 
         if self.multimodal_results:
             # In case of multimodal data, we generate a rule based explanation and compute precision and coverage of this explanation model
-            ape_precision, ape_coverage, ape_f1, ape_explanation = self.compute_anchor_precision_coverage(instance, 
+            ape_precision, ape_coverage, ape_2, ape_explanation = self.compute_anchor_precision_coverage(instance, 
                                         labels_instance_test_data, len(test_instances_in_sphere), 
                                         farthest_distance, percentage_distribution, nb_instance_test_data_label_as_target)
         
         else:
             # In case of unimodal data, we generate linear explanation and compute precision and coverage of this explanation model
-            ape_precision, ape_coverage, ape_f1, ape_explanation = self.compute_lime_extending_precision_coverage(training_instances_in_sphere, 
-                                        train_labels_in_sphere, growing_sphere, nb_features_employed,
-                                        farthest_distance, dicrease_radius, nb_instance_test_data_label_as_target)
+            ape_precision, ape_coverage, ape_f2, ape_explanation, self.extended_radius = self.compute_lime_extending_precision_coverage(training_instances_in_sphere, 
+                                        instance, train_labels_in_sphere, growing_sphere, nb_features_employed,
+                                        farthest_distance_cf, dicrease_radius, nb_instance_test_data_label_as_target)
 
-        return ape_coverage, ape_precision, ape_f1, 1 if self.multimodal_results else 0
+        return ape_coverage, ape_precision, ape_f2, 1 if self.multimodal_results else 0

@@ -50,8 +50,9 @@ if __name__ == "__main__":
         # Store dataset information such as class names and the list of categerical features as well as variables (x for input and y for labels)
         x, y, class_names, regression, multiclass, continuous_features, categorical_features, categorical_values, categorical_names = generate_dataset(dataset_name)
         for nb_model, model in enumerate(models):
-            if graph: experimental_informations.initialize_per_models()
             model_name = models_name[nb_model]
+            filename="./results/"+dataset_name+"/"+model_name+"/"+str(threshold_interpretability)+"/"
+            if graph: experimental_informations.initialize_per_models(filename)
             # Split the dataset in test and train set (50% each)
             dataset, black_box, x_train, x_test, y_train, y_test = preparing_dataset(x, y, dataset_name, model)
             print("###", model_name, "training on", dataset_name, "dataset.")
@@ -85,32 +86,32 @@ if __name__ == "__main__":
 
                 if verbose: print("features employed by the black box", features_employed_black_box)
                 
-                # Get the list of features employed by the 3 explanation models 
-                features_employed_in_local_surrogate, features_employed_by_ape, features_employed_anchors = explainer.explain_instance(instance_to_explain, user_experiments=True, nb_features_employed=len(features_employed_black_box))
-                # Selects randomly as many features as the black box model is actually chosen among all the features
-                random_explainer = random.sample(range(len(instance_to_explain)), len(features_employed_in_local_surrogate))
-                if verbose:
+                try:
+                    # Get the list of features employed by the 3 explanation models 
+                    features_employed_in_local_surrogate, features_employed_by_ape, features_employed_anchors = explainer.explain_instance(instance_to_explain, user_experiments=True, nb_features_employed=len(features_employed_black_box))
+                    # Selects randomly as many features as the black box model is actually chosen among all the features
+                    random_explainer = random.sample(range(len(instance_to_explain)), len(features_employed_in_local_surrogate))
+                    if verbose:
+                        print("features employed by Local Surrogate", features_employed_in_local_surrogate)
+                        print("features employed by APE", features_employed_by_ape)
+                        print("features employed by anchors", features_employed_anchors)
+                        print("features employed randomly", random_explainer)
+                    print("features employed by the black box", features_employed_black_box)
                     print("features employed by Local Surrogate", features_employed_in_local_surrogate)
                     print("features employed by APE", features_employed_by_ape)
                     print("features employed by anchors", features_employed_anchors)
                     print("features employed randomly", random_explainer)
-                print("features employed by the black box", features_employed_black_box)
-                print("features employed by Local Surrogate", features_employed_in_local_surrogate)
-                print("features employed by APE", features_employed_by_ape)
-                print("features employed by anchors", features_employed_anchors)
-                print("features employed randomly", random_explainer)
-                score_local_surrogate = compute_score_interpretability_method(features_employed_in_local_surrogate, features_employed_black_box)
-                score_ape = compute_score_interpretability_method(features_employed_by_ape, features_employed_black_box)
-                score_anchor = compute_score_interpretability_method(features_employed_anchors, features_employed_black_box)
-                score_random = compute_score_interpretability_method(random_explainer, features_employed_black_box)
-
-                if cnt == max_instance_to_explain:
-                    break
-                cnt += 1
+                    score_local_surrogate = compute_score_interpretability_method(features_employed_in_local_surrogate, features_employed_black_box)
+                    score_ape = compute_score_interpretability_method(features_employed_by_ape, features_employed_black_box)
+                    score_anchor = compute_score_interpretability_method(features_employed_anchors, features_employed_black_box)
+                    score_random = compute_score_interpretability_method(random_explainer, features_employed_black_box)
+                    cnt += 1
+                except Exception as inst:
+                    print(inst)
+                    
                 if graph: experimental_informations.store_user_experiments_information_instance([score_local_surrogate, score_ape, score_anchor, score_random])
-            filename="./results/"+dataset_name+"/"+model_name+"/"+str(threshold_interpretability)+"/"
             filename_all="./results/"+dataset_name+"/"+str(threshold_interpretability)+"/"
-            if graph: experimental_informations.store_user_experiments_information(max_instance_to_explain, nb_model, filename=filename, filename_all=filename_all)
+            if graph: experimental_informations.store_user_experiments_information(max_instance_to_explain, nb_model, filename_all=filename_all)
 
             if graph:
                 plt.show(block=False)

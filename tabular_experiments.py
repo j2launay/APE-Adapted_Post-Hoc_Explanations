@@ -28,8 +28,7 @@ if __name__ == "__main__":
                 #Sequential(),
                 VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('rc', RidgeClassifier())], voting="hard"),
                 MLPClassifier(random_state=1)]
-    #models = [RandomForestClassifier(n_estimators=20), RidgeClassifier()]#, Sequential()]
-
+    #models=[LogisticRegression(), RidgeClassifier(), MLPClassifier(random_state=1)]
     # Number of instances explained by each model on each dataset
     max_instance_to_explain = 50
     # Print explanation result
@@ -46,7 +45,8 @@ if __name__ == "__main__":
         label_graph = ""
         growing_method = "GF"
     # Threshold for explanation method precision
-    threshold_interpretability = 0.99
+    threshold_interpretability = 0.95
+    linear_separability_index = 0.99
     linear_models_name = ['local surrogate', 'lime extending', 'lime regression', 'lime not binarize', 'lime traditional']
     interpretability_name = ['LS extend', 'APE', 'anchor']
     #interpretability_name = ['ls log reg', 'ls raw data']
@@ -57,8 +57,14 @@ if __name__ == "__main__":
         # Store dataset inside x and y (x data and y labels), with aditional information
         x, y, class_names, regression, multiclass, continuous_features, categorical_features, categorical_values, categorical_names = generate_dataset(dataset_name)
         for nb_model, model in enumerate(models):
-            if graph: experimental_informations.initialize_per_models()
             model_name = type(model).__name__
+            if growing_sphere:
+                filename = "./results/"+dataset_name+"/"+model_name+"/growing_spheres/"+str(threshold_interpretability)+"/"
+                filename_all = "./results/"+dataset_name+"/growing_spheres/"+str(threshold_interpretability)+"/"
+            else:
+                filename="./results/"+dataset_name+"/"+model_name+"/"+str(threshold_interpretability)+"/"
+                filename_all="./results/"+dataset_name+"/"+str(threshold_interpretability)+"/"
+            if graph: experimental_informations.initialize_per_models(filename)
             models_name.append(model_name)
             # Split the dataset inside train and test set (50% each set)
             dataset, black_box, x_train, x_test, y_train, y_test = preparing_dataset(x, y, dataset_name, model)
@@ -86,7 +92,8 @@ if __name__ == "__main__":
                                                             continuous_features=continuous_features,
                                                             categorical_features=categorical_features, categorical_values=categorical_values, 
                                                             feature_names=dataset.feature_names, categorical_names=categorical_names,
-                                                            verbose=verbose, threshold_precision=threshold_interpretability)
+                                                            verbose=verbose, threshold_precision=threshold_interpretability,
+                                                            linear_separability_index=linear_separability_index)
             for instance_to_explain in x_test:
                 if cnt == max_instance_to_explain:
                     break
@@ -94,19 +101,18 @@ if __name__ == "__main__":
                 print("### Models ", nb_model + 1, "over", len(models))
                 print("instance to explain:", instance_to_explain)
 
-                precision, coverage, f1, multimodal_result = explainer.explain_instance(instance_to_explain, growing_method=growing_method, 
+                try:
+                    precision, coverage, f2, multimodal_result = explainer.explain_instance(instance_to_explain, growing_method=growing_method, 
                                                             all_explanations_model=True)
-                if graph: experimental_informations.store_experiments_information_instance(precision, coverage, f1)
-                cnt += 1
+                    print("precision", precision)
+                    print("coverage", coverage)
+                    print("f2", f2)
+                    if graph: experimental_informations.store_experiments_information_instance(precision, coverage, f2)
+                    cnt += 1
+                except Exception as inst:
+                    print(inst)
 
-            if growing_sphere:
-                filename = "./results/"+dataset_name+"/"+model_name+"/growing_spheres/"+str(threshold_interpretability)+"/"
-                filename_all = "./results/"+dataset_name+"/growing_spheres/"+str(threshold_interpretability)+"/"
-            else:
-                filename="./results/"+dataset_name+"/"+model_name+"/"+str(threshold_interpretability)+"/"
-                filename_all="./results/"+dataset_name+"/"+str(threshold_interpretability)+"/"
-
-            if graph: experimental_informations.store_experiments_information(max_instance_to_explain, nb_model, filename=filename, filename_all=filename_all)
+            if graph: experimental_informations.store_experiments_information(max_instance_to_explain, nb_model, filename_all=filename_all)
 
             if graph:
                 plt.show(block=False)
@@ -126,11 +132,11 @@ if __name__ == "__main__":
                 graph_roc.show_coverage(model=interpretability_name, mean_coverage=experimental_informations.final_precision, 
                                         color=color[:len(interpretability_name)], title= label_graph + "Precision")
                 
-                graph_f1 = baseGraph.BaseGraph(title="Results of F1 score for LS, APE and Anchors", y_label="F1 score", 
+                graph_f2 = baseGraph.BaseGraph(title="Results of F2 score for LS, APE and Anchors", y_label="F2 score", 
                                         model=model_name, accuracy=score(x_test, y_test), 
                                         dataset=dataset_name, threshold=threshold_interpretability)
-                graph_f1.show_coverage(model=interpretability_name, mean_coverage=experimental_informations.final_f1, 
-                                        color=color[:len(interpretability_name)], title= label_graph + "f1")
+                graph_f2.show_coverage(model=interpretability_name, mean_coverage=experimental_informations.final_f2, 
+                                        color=color[:len(interpretability_name)], title= label_graph + "f2")
                 
         if len(models) > 1 and graph:
             # In case of multiple models we compare results for each model
@@ -152,12 +158,12 @@ if __name__ == "__main__":
                                         mean=experimental_informations.final_precisions, color=color, 
                                         title= label_graph + "precision", bars=bars, y_pos=y_pos)
             
-            graph_models_f1 = baseGraph.BaseGraph(title="Results of F1 score for LS, APE and Anchors on multiple models", y_label="F1", 
+            graph_models_f2 = baseGraph.BaseGraph(title="Results of F2 score for LS, APE and Anchors on multiple models", y_label="F2", 
                                         model=model_name, accuracy=score(x_test, y_test), 
                                         dataset=dataset_name, threshold=threshold_interpretability)
-            graph_models_f1.show_multiple_models(models_name=models_name, interpretability_name=interpretability_name, 
-                                        mean=experimental_informations.final_f1s, color=color, 
-                                        title= label_graph + "F1 score", bars=bars, y_pos=y_pos)
+            graph_models_f2.show_multiple_models(models_name=models_name, interpretability_name=interpretability_name, 
+                                        mean=experimental_informations.final_f2s, color=color, 
+                                        title= label_graph + "F2 score", bars=bars, y_pos=y_pos)
 
             y_pos = range(len(interpretability_name))
             graph_models_multimodal = baseGraph.BaseGraph(title="Proportion of times APE returns a multimodal explanation over multiple models", y_label="Multimodal",

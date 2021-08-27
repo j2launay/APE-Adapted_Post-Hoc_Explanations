@@ -21,7 +21,7 @@ models = [RandomForestClassifier(), LogisticRegression(),
                 RidgeClassifier(), 
                 MLPClassifier(),
                 None]
-graphs = ["coverage", "precision", "f1", 'recall', "average_distance", "coverages", "precisions", "f1s", "distance", 
+graphs = ["coverage", "precision", "f2", 'recall', "average_distance", "coverages", "precisions", "f2s", "distance", 
             'recalls_lime', 'recall_lime', "degrees", "counterfactual_in_anchor", "kendall", "mean_top_k"]
 graphs_lime = ["lime_vs_ls", "lime_ls"]
 
