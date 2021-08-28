@@ -54,8 +54,7 @@ if __name__ == "__main__":
         # Store dataset information such as class names and the list of categerical features as well as variables (x for input and y for labels)
         x, y, class_names, regression, multiclass, continuous_features, categorical_features, categorical_values, categorical_names = generate_dataset(dataset_name)
         for nb_model, model in enumerate(models):
-            if cnt == max_instance_to_explain:
-                break
+            cnt = 0
             model_name = models_name[nb_model]
             filename="./results/"+dataset_name+"/"+model_name+"/"+str(threshold_interpretability)+"/"
             if graph: experimental_informations.initialize_per_models(filename)
@@ -72,12 +71,13 @@ if __name__ == "__main__":
                 print("features importances", black_box.coef_)
             
             print('### Accuracy:', sum(black_box.predict(x_test) == y_test)/len(y_test))
-            cnt = 1
             explainer = ape_tabular.ApeTabularExplainer(x_test, class_names, black_box.predict, black_box.predict_proba, continuous_features=continuous_features, 
                                                             categorical_features=categorical_features, categorical_values=categorical_values, 
                                                             feature_names=dataset.feature_names, categorical_names=categorical_names,
                                                             verbose=verbose, threshold_precision=threshold_interpretability)
             for instance_to_explain in x_test: 
+                if cnt == max_instance_to_explain:
+                    break
                 print("### Instance number:", cnt, "over", max_instance_to_explain)
                 print("### Models ", nb_model+1, "over", len(models))
                 

@@ -42,22 +42,22 @@ class CounterfactualExplanation:
         """
         cf = self.methods_[self.method](self.obs_to_interprete,
                 self.prediction_fn,
-                self.target_class,
-                caps,
-                n_in_layer,
-                first_radius,
-                dicrease_radius,
-                sparse,
-                verbose,
+                feature_variance=feature_variance,
+                max_features=self.max_features,
+                min_features=self.min_features,
+                target_class=self.target_class,
+                caps=caps,
+                n_in_layer=n_in_layer,
+                first_radius=first_radius,
+                dicrease_radius=dicrease_radius,
+                sparse=sparse,
+                verbose=verbose,
                 continuous_features=self.continuous_features, 
                 categorical_features=self.categorical_features, 
                 categorical_values=self.categorical_values,
-                feature_variance=feature_variance,
                 farthest_distance_training_dataset=farthest_distance_training_dataset,
                 probability_categorical_feature=probability_categorical_feature,
-                min_counterfactual_in_sphere=min_counterfactual_in_sphere,
-                max_features=self.max_features,
-                min_features=self.min_features)
+                min_counterfactual_in_sphere=min_counterfactual_in_sphere)
         self.enemy, self.onevsrest, self.radius = cf.find_counterfactual()
         self.e_star = cf.e_star
         self.move = self.enemy - self.obs_to_interprete

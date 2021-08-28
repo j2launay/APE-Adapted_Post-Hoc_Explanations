@@ -82,8 +82,8 @@ def generate_inside_field(center, segment, n, max_features, min_features, featur
         feature_variance: Array of variance for each continuous feature
     """
     #print("segment", segment)
-    if segment[0] == 1:
-        print("IL Y A UN PROBLEME PUISQUE LE RAYON EST DE 1", segment, center, feature_variance)
+    if segment[0] == 1 and max_features == []:
+        print("IL Y A UN PROBLEME PUISQUE LE RAYON EST DE 1 et max features n'est pas initialisé", segment, center, feature_variance)
         generated_instances += 2
     d = center.shape[0]
     generated_instances = np.zeros((n,d))

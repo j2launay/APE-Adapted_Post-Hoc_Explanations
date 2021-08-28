@@ -513,7 +513,7 @@ class ApeTabularExplainer(object):
                                                 rules, farthest_distance, percentage_distribution)
         labels_in_anchor = self.black_box_predict(instances_in_anchor)
         anchor_coverage = nb_test_instances_in_anchor/nb_instance_test_data_label_as_target
-        if anchor_coverage != test_coverage:
+        #if anchor_coverage != test_coverage:
           #print()
           #print()
           #print()
@@ -949,8 +949,8 @@ class ApeTabularExplainer(object):
             train_data_counterfactual_class = self.train_data[index_train_data_counterfactual_class]
 
             neigh = NearestNeighbors(n_neighbors=k_closest+1, algorithm='ball_tree', metric=distances, metric_params={"ape": self})
+            neigh.fit(train_data_counterfactual_class, self.black_box_predict(train_data_counterfactual_class))
             if nb_iteration == 0:
-                neigh.fit(train_data_counterfactual_class, self.black_box_predict(train_data_counterfactual_class))
                 #kdt = scipy.spatial.cKDTree(train_data_counterfactual_class)
                 try:
                     dists, neighs = neigh.kneighbors(self.clusters_centers, k_closest+1)

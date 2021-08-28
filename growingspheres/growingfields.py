@@ -21,6 +21,9 @@ class GrowingFields:
     def __init__(self,
                 obs_to_interprete,
                 prediction_fn,
+                max_features,
+                min_features,
+                feature_variance,
                 target_class=None,
                 caps=None,
                 n_in_layer=2000,
@@ -31,12 +34,9 @@ class GrowingFields:
                 continuous_features=None,
                 categorical_features=[],
                 categorical_values=[],
-                feature_variance=None,
                 farthest_distance_training_dataset=None,
                 probability_categorical_feature=None,
-                min_counterfactual_in_sphere=0,
-                max_features=[],
-                min_features=[]
+                min_counterfactual_in_sphere=0
                 ):
         """
         Args: obs_to_interprete: Raw instance for which we generate a counterfactual explanation

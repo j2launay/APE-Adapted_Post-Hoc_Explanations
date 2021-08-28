@@ -34,7 +34,9 @@ class GrowingSpheres:
                 feature_variance=None,
                 farthest_distance_training_dataset=None,
                 probability_categorical_feature=None,
-                min_counterfactual_in_sphere=0):
+                min_counterfactual_in_sphere=0,
+                max_features=None,
+                min_features=None):
         """
         """
         self.obs_to_interprete = obs_to_interprete

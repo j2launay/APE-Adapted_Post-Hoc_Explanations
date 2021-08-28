@@ -33,15 +33,22 @@ def find_closest_counterfactual(instance, explainer):
             farthest_distance = farthest_distance_now
     
     growing_sphere = cf.CounterfactualExplanation(instance, explainer.black_box_predict, method="GF", target_class=None, 
-                continuous_features=explainer.continuous_features, categorical_features=explainer.categorical_features, categorical_values=explainer.categorical_values)
+                continuous_features=explainer.continuous_features, categorical_features=explainer.categorical_features, 
+                categorical_values=explainer.categorical_values, max_features=explainer.max_features,
+                min_features=explainer.min_features)
     growing_sphere.fit(n_in_layer=2000, first_radius=0.1, dicrease_radius=10, sparse=True, 
-                verbose=explainer.verbose, feature_variance=explainer.feature_variance, farthest_distance_training_dataset=farthest_distance, 
-                probability_categorical_feature=explainer.probability_categorical_feature, min_counterfactual_in_sphere=explainer.nb_min_instance_per_class_in_sphere)
+                verbose=explainer.verbose, feature_variance=explainer.feature_variance, 
+                farthest_distance_training_dataset=farthest_distance, 
+                probability_categorical_feature=explainer.probability_categorical_feature, 
+                min_counterfactual_in_sphere=explainer.nb_min_instance_per_class_in_sphere)
     first_closest_counterfactual = growing_sphere.enemy
 
     # After searching for the closest counterfactual, we take the closest from this point from the same class as the target instance to explain
-    second_growing_sphere = cf.CounterfactualExplanation(first_closest_counterfactual, explainer.black_box_predict, method="GF", target_class=target_class, 
-                continuous_features=explainer.continuous_features, categorical_features=explainer.categorical_features, categorical_values=explainer.categorical_values)
+    second_growing_sphere = cf.CounterfactualExplanation(first_closest_counterfactual, explainer.black_box_predict, 
+                method="GF", target_class=target_class, 
+                continuous_features=explainer.continuous_features, categorical_features=explainer.categorical_features, 
+                categorical_values=explainer.categorical_values, min_features=explainer.min_features,
+                max_features=explainer.max_features)
     second_growing_sphere.fit(n_in_layer=2000, first_radius=0.1, dicrease_radius=10, sparse=True, 
                 verbose=explainer.verbose, feature_variance=explainer.feature_variance, farthest_distance_training_dataset=farthest_distance, 
                 probability_categorical_feature=explainer.probability_categorical_feature, min_counterfactual_in_sphere=explainer.nb_min_instance_per_class_in_sphere)
@@ -156,30 +163,30 @@ if __name__ == "__main__":
                 print("### Instance number:", cnt + 1, "over", max_instance_to_explain)
                 print("### Models ", nb_model + 1, "over", len(models))
                 print("instance to explain:", instance_to_explain)
-                try:
-                    closest_counterfactual = find_closest_counterfactual(instance_to_explain, explainer)
-                    target_class = predict(instance_to_explain.reshape(1, -1))
-                    opponent_class = predict(closest_counterfactual.reshape(1, -1))
-                    farthest_distance = get_farthest_distance(instance_to_explain, x_train, categorical_features, metric='manhattan')
-                    
-                    local_surrogate = lime_explainer.explain_instance_training_dataset(closest_counterfactual, predict, 
-                                                                        num_features=6, model_regressor = LogisticRegression()) 
-                    #                                                    instances_in_sphere=instances_in_sphere)
-                    lime = lime_explainer.explain_instance_training_dataset(instance_to_explain, predict, 
-                                                                        num_features=6, model_regressor=LogisticRegression())
-                    
-                    for radius in (0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1):
-                        explainer.nb_min_instance_in_sphere = 800
-                        local_surrogate_precision = compute_precision_in_sphere(explainer, radius, local_surrogate, closest_counterfactual, farthest_distance, target_class)
-                        explainer.nb_min_instance_in_sphere = 800
-                        lime_precision = compute_precision_in_sphere(explainer, radius, lime, instance_to_explain, farthest_distance, opponent_class)
-                        if local_surrogate_precision >= lime_precision:
-                            #print("YEAH")
-                            local_surrogate_best_ratio += 1
-                        if graph: experimental_informations.store_lime_vs_local_surrogate(lime_precision, local_surrogate_precision, radius)
-                    cnt += 1
-                except Exception as inst:
-                    print(inst)
+                #try:
+                closest_counterfactual = find_closest_counterfactual(instance_to_explain, explainer)
+                target_class = predict(instance_to_explain.reshape(1, -1))
+                opponent_class = predict(closest_counterfactual.reshape(1, -1))
+                farthest_distance = get_farthest_distance(instance_to_explain, x_train, categorical_features, metric='manhattan')
+                
+                local_surrogate = lime_explainer.explain_instance_training_dataset(closest_counterfactual, predict, 
+                                                                    num_features=6, model_regressor = LogisticRegression()) 
+                #                                                    instances_in_sphere=instances_in_sphere)
+                lime = lime_explainer.explain_instance_training_dataset(instance_to_explain, predict, 
+                                                                    num_features=6, model_regressor=LogisticRegression())
+                
+                for radius in (0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1):
+                    explainer.nb_min_instance_in_sphere = 800
+                    local_surrogate_precision = compute_precision_in_sphere(explainer, radius, local_surrogate, closest_counterfactual, farthest_distance, target_class)
+                    explainer.nb_min_instance_in_sphere = 800
+                    lime_precision = compute_precision_in_sphere(explainer, radius, lime, instance_to_explain, farthest_distance, opponent_class)
+                    if local_surrogate_precision >= lime_precision:
+                        #print("YEAH")
+                        local_surrogate_best_ratio += 1
+                    if graph: experimental_informations.store_lime_vs_local_surrogate(lime_precision, local_surrogate_precision, radius)
+                cnt += 1
+                #except Exception as inst:
+                #    print(inst)
             print("ratio local surrogate better", local_surrogate_best_ratio/max_instance_to_explain)
             filename_all = "./results/"+dataset_name+"/"+str(threshold_interpretability)+"/"
             
