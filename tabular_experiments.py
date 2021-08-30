@@ -19,11 +19,11 @@ if __name__ == "__main__":
     # Filter the warning from matplotlib
     warnings.filterwarnings("ignore")
     # Datasets used for the experiments
-    dataset_names = ["generate_moons", "generate_blob", "generate_blobs", "titanic", "adult", "blood", "diabete", "iris", "compas", "artificial"]
+    dataset_names = ["titanic", "adult", "generate_moons", "generate_blob", "generate_blobs", "blood", "diabete", "iris", "compas", "artificial"]
     # array of the models used for the experiments
-    models = [RandomForestClassifier(n_estimators=20), LogisticRegression(),
+    models = [RandomForestClassifier(n_estimators=20), #LogisticRegression(),
                 GradientBoostingClassifier(n_estimators=20, learning_rate=1.0),
-                tree.DecisionTreeClassifier(),
+                #tree.DecisionTreeClassifier(),
                 RidgeClassifier(),
                 #Sequential(),
                 VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('rc', RidgeClassifier())], voting="hard"),
@@ -45,7 +45,7 @@ if __name__ == "__main__":
         label_graph = ""
         growing_method = "GF"
     # Threshold for explanation method precision
-    threshold_interpretability = 0.95
+    threshold_interpretability = 0.99
     linear_separability_index = 0.99
     linear_models_name = ['local surrogate', 'lime extending', 'lime regression', 'lime not binarize', 'lime traditional']
     interpretability_name = ['LS extend', 'APE', 'anchor']
@@ -151,19 +151,19 @@ if __name__ == "__main__":
                                         mean=experimental_informations.final_coverages, color=color, 
                                         title= label_graph + "coverage", bars=bars, y_pos=y_pos)
 
-            graph_models_precision = baseGraph.BaseGraph(title="Results of precision for LS, APE and Anchors on multiple models", y_label="Precision", 
-                                        model=model_name, accuracy=score(x_test, y_test), 
-                                        dataset=dataset_name, threshold=threshold_interpretability)
-            graph_models_precision.show_multiple_models(models_name=models_name, interpretability_name=interpretability_name, 
-                                        mean=experimental_informations.final_precisions, color=color, 
-                                        title= label_graph + "precision", bars=bars, y_pos=y_pos)
-            
             graph_models_f2 = baseGraph.BaseGraph(title="Results of F2 score for LS, APE and Anchors on multiple models", y_label="F2", 
                                         model=model_name, accuracy=score(x_test, y_test), 
                                         dataset=dataset_name, threshold=threshold_interpretability)
             graph_models_f2.show_multiple_models(models_name=models_name, interpretability_name=interpretability_name, 
                                         mean=experimental_informations.final_f2s, color=color, 
                                         title= label_graph + "F2 score", bars=bars, y_pos=y_pos)
+
+            graph_models_precision = baseGraph.BaseGraph(title="Results of precision for LS, APE and Anchors on multiple models", y_label="Precision", 
+                                        model=model_name, accuracy=score(x_test, y_test), 
+                                        dataset=dataset_name, threshold=threshold_interpretability)
+            graph_models_precision.show_multiple_models(models_name=models_name, interpretability_name=interpretability_name, 
+                                        mean=experimental_informations.final_precisions, color=color, 
+                                        title= label_graph + "precision", bars=bars, y_pos=y_pos)
 
             y_pos = range(len(interpretability_name))
             graph_models_multimodal = baseGraph.BaseGraph(title="Proportion of times APE returns a multimodal explanation over multiple models", y_label="Multimodal",

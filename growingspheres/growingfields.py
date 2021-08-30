@@ -8,7 +8,6 @@ from sklearn.metrics.pairwise import pairwise_distances
 from sklearn.utils import check_random_state
 
 
-
 class GrowingFields:
     """
     class to fit the Growing Fields algorithm
@@ -117,12 +116,10 @@ class GrowingFields:
             
         else:
             if self.verbose == True:
-                print("Exploring...")
+                print("Exploring...") 
             step_ = (self.dicrease_radius - 1) * radius_/2.0
-            
             while n_ennemies_ <= self.min_counterfactual_in_sphere:
-                #print("n ennemies", n_ennemies_)
-                #print("min counterfactual in sphere", self.min_counterfactual_in_sphere)
+                step_ = min(radius_ / 10, step_* 2)
                 layer = self.ennemies_in_layer_((radius_, radius_ + step_), self.caps, self.n_in_layer)
                 n_ennemies_ = layer.shape[0]
                 radius_ = min(1, radius_ + step_)

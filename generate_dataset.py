@@ -114,7 +114,7 @@ def generate_dataset(dataset_name, multiclass=False):
         regression = True
     
     elif "blobs" in dataset_name:
-        X, y = make_blobs(5000, n_features=12, random_state=0, centers=2)#, cluster_std=10)
+        X, y = make_blobs(5000, n_features=12, random_state=0, centers=2, cluster_std=5)
         class_names = ['class ' + str(Y)  for Y in range(len(set(y)))]
         multiclass=True
     
@@ -156,7 +156,7 @@ def generate_dataset(dataset_name, multiclass=False):
         categorical_values =[]
         for nb, features in enumerate(categorical_features):
             try:
-                tab = [int(x) for x in dataset.categorical_names[features]]
+                tab = list(set(X[:,features]))
             except ValueError:
                 tab = [i for i in range(len(dataset.categorical_names[features]))]
             if not 0 in tab:

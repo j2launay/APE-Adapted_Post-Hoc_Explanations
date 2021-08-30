@@ -47,9 +47,11 @@ class LimeBase(object):
                                      verbose=False)
         return alphas, coefs
 
-    def forward_selection(self, data, labels, weights, num_features):
+    def forward_selection(self, data, labels, weights, num_features, model_regressor=None):
         """Iteratively adds features to the model"""
-        clf = Ridge(alpha=0, fit_intercept=True, random_state=self.random_state)
+        if model_regressor is None:
+            model_regressor = Ridge(alpha=0, fit_intercept=True, random_state=self.random_state)
+        clf = model_regressor
         used_features = []
         for _ in range(min(num_features, data.shape[1])):
             max_ = -100000000
@@ -68,17 +70,21 @@ class LimeBase(object):
             used_features.append(best)
         return np.array(used_features)
 
-    def feature_selection(self, data, labels, weights, num_features, method):
+    def feature_selection(self, data, labels, weights, num_features, method, 
+                model_regressor=None):
         """Selects features for the model. see explain_instance_with_data to
            understand the parameters."""
+        if model_regressor is None:
+            model_regressor = Ridge(alpha=0, fit_intercept=True, random_state=self.random_state)
         if method == 'none':
             return np.array(range(data.shape[1]))
         elif method == 'forward_selection':
-            return self.forward_selection(data, labels, weights, num_features)
+            return self.forward_selection(data, labels, weights, num_features, model_regressor=model_regressor)
         elif method == 'highest_weights':
-            clf = Ridge(alpha=0, fit_intercept=True,
-                        random_state=self.random_state)
+            clf = model_regressor
             clf.fit(data, labels, sample_weight=weights)
+            if clf.coef_.ndim > 1:
+                clf.coef_ = clf.coef_[0]
             feature_weights = sorted(zip(range(data.shape[0]),
                                          clf.coef_ * data[0]),
                                      key=lambda x: np.abs(x[1]),
@@ -104,7 +110,7 @@ class LimeBase(object):
             else:
                 n_method = 'highest_weights'
             return self.feature_selection(data, labels, weights,
-                                          num_features, n_method)
+                                          num_features, n_method, model_regressor=model_regressor)
 
     def explain_instance_with_data(self,
                                    neighborhood_data,
@@ -151,11 +157,11 @@ class LimeBase(object):
         """
 
         weights = self.kernel_fn(distances)
+        #logistic = False
         if model_regressor is not None and neighborhood_labels.ndim == 1:
-            logistic = True
+            #logistic = True
             labels_column = neighborhood_labels
-        elif model_regressor is not None:
-            logistic = False
+        elif model_regressor is not None:   
             labels_column = []
             for neighborhood_label in neighborhood_labels[:,label]:
                 if neighborhood_label > 0.5:
@@ -163,13 +169,12 @@ class LimeBase(object):
                 else:
                     labels_column.append(1-label)
         else:
-            logistic = False
             labels_column = neighborhood_labels[:, label]
         used_features = self.feature_selection(neighborhood_data,
                                                labels_column,
                                                weights,
                                                num_features,
-                                               feature_selection)
+                                               feature_selection, model_regressor=model_regressor)
 
         self.used_features = used_features
         if model_regressor is None:
@@ -183,12 +188,15 @@ class LimeBase(object):
                         neighborhood_data[:, used_features],
                         labels_column, sample_weight=weights)
         local_pred = easy_model.predict(neighborhood_data[0, used_features].reshape(1, -1))
-        if len(easy_model.coef_) > 1 and logistic:
+        if easy_model.coef_.ndim > 1:
+            easy_model.coef_ = easy_model.coef_[0]
+        """if len(easy_model.coef_) > 1 and logistic:
             # Case for multi class
             coef = easy_model.coef_[local_pred]
         else:
-            coef = easy_model.coef_
-       
+            coef = easy_model.coef_"""
+        coef = easy_model.coef_
+        
 
         if stability:
             # For Lime stability computation
@@ -207,7 +215,6 @@ class LimeBase(object):
                 self.X = neighborhood_data[:, used_features]
                 self.weights = weights
                 self.true_labels = labels_column
-        
         return (easy_model.intercept_,
                 sorted(zip(used_features, coef),
                        key=lambda x: np.abs(x[1]), reverse=True),

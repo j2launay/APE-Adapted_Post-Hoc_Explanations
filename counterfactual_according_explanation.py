@@ -18,15 +18,12 @@ from keras.layers import Dense
 from growingspheres.utils.gs_utils import distances
 import scipy.stats as stats
 
-def get_farthest_distance(instance, train_data, categorical_features, metric='euclidean'):
+def get_farthest_distance(instance, train_data, categorical_features):
     farthest_distance = 0
     for training_instance in train_data:
         # get_distance is similar to pairwise distance (i.e: it is the same results for euclidean distance) 
         # but it adds a sparsity distance computation (i.e: number of same values)
-        if 'manhattan' in metric:
-            farthest_distance_now = distances(training_instance, instance, explainer)
-        else:
-            farthest_distance_now = get_distances(training_instance, instance, categorical_features=categorical_features)[metric]
+        farthest_distance_now = distances(training_instance, instance, explainer)
         if farthest_distance_now > farthest_distance:
             farthest_distance = farthest_distance_now
     return farthest_distance
@@ -35,7 +32,7 @@ if __name__ == "__main__":
     # Filter the warning from matplotlib
     warnings.filterwarnings("ignore")
     # Datasets used for the experiments
-    dataset_names = ["generate_blob", "generate_moons", "generate_blobs", "titanic", "adult", "blood", "diabete", "iris", "artificial", "compas"]
+    dataset_names = ["titanic", "adult", "generate_blob", "generate_moons", "generate_blobs", "blood", "diabete", "iris", "artificial", "compas"]
     # array of the models used for the experiments
     models = [RandomForestClassifier(n_estimators=20), LogisticRegression(),
                 GradientBoostingClassifier(n_estimators=20, learning_rate=1.0),
@@ -125,7 +122,7 @@ if __name__ == "__main__":
                 print("### Models ", nb_model + 1, "over", len(models))
                 #print("instance to explain:", instance_to_explain)
                 try:
-                    farthest_distance = get_farthest_distance(instance_to_explain, x_train, categorical_features, metric='manhattan')
+                    farthest_distance = get_farthest_distance(instance_to_explain, x_train, categorical_features)
                     #print("farthest distance", farthest_distance)
                     growing_fields = cf.CounterfactualExplanation(instance_to_explain, predict, method=growing_method, target_class=None, 
                                         continuous_features=continuous_features, categorical_features=categorical_features, 

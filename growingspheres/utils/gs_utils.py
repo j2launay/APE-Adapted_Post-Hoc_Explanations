@@ -177,8 +177,9 @@ def generate_categoric_inside_ball(center, segment, percentage_distribution, n, 
                 # otherwise we generate based on the probability of distribution from the dataset one trial
                 # and store the corresponding categorical value 
                 if random() < artificial_instance[categorical_feature]:
-                    probability_repartition = multinomial.rvs(n=1, p=probability_categorical_feature[nb_categorical_features], size=1)[0]
-                    categorical_value = categorical_values[nb_categorical_features][np.where(probability_repartition==1)[0][0]]
+                    #probability_repartition = multinomial.rvs(n=1, p=probability_categorical_feature[nb_categorical_features], size=1)[0]
+                    categorical_value = np.random.choice(categorical_values[nb_categorical_features], 1, p=probability_categorical_feature[nb_categorical_features])[0]
+                    #categorical_value = categorical_values[nb_categorical_features][np.where(probability_repartition==1)[0][0]]
                     matrix_perturb_instances[nb_instance][categorical_feature] = categorical_value
                 else:
                     matrix_perturb_instances[nb_instance][categorical_feature] = value_target_instance

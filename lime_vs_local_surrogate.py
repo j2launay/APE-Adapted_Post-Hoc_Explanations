@@ -87,11 +87,11 @@ if __name__ == "__main__":
     # Filter the warning from matplotlib
     warnings.filterwarnings("ignore")
     # Datasets used for the experiments
-    dataset_names = ["generate_moons", "generate_blob", "generate_blobs", "titanic", "adult", "blood", "diabete", "iris", "artificial", "compas"]
+    dataset_names = ["titanic", "adult", "generate_moons", "generate_blob", "generate_blobs", "blood", "diabete", "iris", "artificial", "compas"]
     # array of the models used for the experiments
-    models = [RandomForestClassifier(n_estimators=20), LogisticRegression(),
+    models = [RandomForestClassifier(n_estimators=20), #LogisticRegression(),
                 GradientBoostingClassifier(n_estimators=20, learning_rate=1.0),
-                tree.DecisionTreeClassifier(), 
+                #tree.DecisionTreeClassifier(), 
                 RidgeClassifier(), 
                 #Sequential(),
                 VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('rc', RidgeClassifier())], voting="hard"),

@@ -86,6 +86,7 @@ if __name__ == "__main__":
                 else:
                     features_employed_black_box = feature_kept
                 if verbose: print("features employed by the black box", features_employed_black_box)
+                print("features employed by the black box", features_employed_black_box)
 
                 
                 try:
@@ -101,6 +102,9 @@ if __name__ == "__main__":
                         print("features employed by Local Surrogate", features_employed_in_local_surrogate)
                         print("features employed by lime", features_employed_in_lime)
                         print("features employed randomly", random_explainer)
+                    print("features employed by Local Surrogate", features_employed_in_local_surrogate)
+                    print("features employed by lime", features_employed_in_lime)
+                    print("features employed randomly", random_explainer)
 
                     score_lime = compute_score_interpretability_method(features_employed_in_lime, features_employed_black_box)
                     score_local_surrogate = compute_score_interpretability_method(features_employed_in_local_surrogate, features_employed_black_box)

@@ -19,11 +19,11 @@ if __name__ == "__main__":
     # Filter the warning from matplotlib
     warnings.filterwarnings("ignore")
     # Datasets used for the experiments
-    dataset_names = ["generate_moons", "generate_blob", "generate_blobs", "blood", "diabete", "iris", "artificial", "titanic", "compas", "adult"]
+    dataset_names = ["titanic", "adult", "generate_moons", "generate_blob", "generate_blobs", "blood", "diabete", "iris", "artificial", "compas"]
     # array of the models used for the experiments
-    models = [RandomForestClassifier(n_estimators=20), LogisticRegression(),
+    models = [RandomForestClassifier(n_estimators=20), #LogisticRegression(),
                 GradientBoostingClassifier(n_estimators=20, learning_rate=1.0),
-                tree.DecisionTreeClassifier(), 
+                #tree.DecisionTreeClassifier(), 
                 RidgeClassifier(),
                 #Sequential(),
                 VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('rc', RidgeClassifier())], voting="hard"),
@@ -88,7 +88,7 @@ if __name__ == "__main__":
                 score = black_box.score
             print('### Accuracy:', score(x_test, y_test))
             cnt = 0
-            explainer = ape_tabular.ApeTabularExplainer(x_train, class_names, predict, black_box.predict_proba,
+            explainer = ape_tabular.ApeTabularExplainer(x_train, class_names, predict, #black_box.predict_proba,
                                                             continuous_features=continuous_features,
                                                             categorical_features=categorical_features, categorical_values=categorical_values, 
                                                             feature_names=dataset.feature_names, categorical_names=categorical_names,

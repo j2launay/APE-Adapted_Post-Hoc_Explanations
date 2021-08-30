@@ -20,6 +20,9 @@ from .discretize import BaseDiscretizer
 from . import explanation
 from . import lime_base
 from .utils_stability import refactor_confints_todict, compute_WLS_stdevs, compare_confints, LocalModelError
+import sys
+sys.path.append("...")
+from growingspheres.utils.gs_utils import distances as dista
 
 class TableDomainMapper(explanation.DomainMapper):
     """Maps feature ids to names, generates table views, etc"""
@@ -404,7 +407,8 @@ class LimeTabularExplainer(object):
                          num_samples=5000,
                          distance_metric='euclidean',
                          model_regressor=None,
-                         instances_in_sphere=[]):
+                         instances_in_sphere=[],
+                         ape=None):
         """Generates explanations for a prediction.
 
         First, we learn locally weighted linear models on 
@@ -449,11 +453,18 @@ class LimeTabularExplainer(object):
 
         scaled_data = (data - self.scaler.mean_) / self.scaler.scale_
 
-        distances = sklearn.metrics.pairwise_distances(
+        if ape is None:
+            distances = sklearn.metrics.pairwise_distances(
                 scaled_data,
                 scaled_data[0].reshape(1, -1),
                 metric=distance_metric
         ).ravel()
+        else:
+            distances = []
+            for instance in instances_in_sphere:
+                distances.append(dista(scaled_data[0], instance, ape))
+            distances = np.array(distances)
+            
 
         yss = predict_fn(inverse)
 

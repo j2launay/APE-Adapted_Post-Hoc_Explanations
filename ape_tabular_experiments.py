@@ -151,7 +151,7 @@ def compute_local_surrogate_precision_coverage(ape_tabular, instance, growing_sp
 
 
 def simulate_user_experiments(ape_tabular, instance, nb_features_employed, farthest_distance, closest_counterfactual, growing_sphere,
-                              position_instances_in_sphere, nb_training_instance_in_sphere):
+                              position_instances_in_sphere, nb_training_instance_in_sphere, only_anchors=False):
     """
     Function that generate a classic local surrogate explanation, an anchor explanation and an APE explanation and 
     returns the features that are used by these explanation models
@@ -166,15 +166,14 @@ def simulate_user_experiments(ape_tabular, instance, nb_features_employed, farth
           nb_training_instance_in_sphere: Number of training data located in the hyper field
     Return: List of features employed by APE, Anchors and a classic local surrogate
     """
-    target_class = ape_tabular.black_box_predict(instance.reshape(1, -1))[0]
-    ape_tabular.target_class = target_class
+    ape_tabular.target_class = ape_tabular.black_box_predict(instance.reshape(1, -1))[0]
     
     """ Generates or store instances in the area of the hypersphere and their correspoinding labels """
     min_instance_per_class = ape_tabular.nb_min_instance_per_class_in_sphere
-    instances_in_sphere, labels_in_sphere, percentage_distribution, instances_in_sphere_libfolding = ape_tabular.generate_instances_inside_sphere(growing_sphere.radius, 
+    instances_in_sphere, labels_in_sphere, percentage_distribution, _ = ape_tabular.generate_instances_inside_sphere(growing_sphere.radius, 
                                                                                                     closest_counterfactual, ape_tabular.train_data, farthest_distance, 
                                                                                                     min_instance_per_class, position_instances_in_sphere, 
-                                                                                                    nb_training_instance_in_sphere, libfolding=True)
+                                                                                                    nb_training_instance_in_sphere, libfolding=False)
 
     # Always compute an anchor explanation to compare with APE and local Surrogate
     anchor_exp = ape_tabular.anchor_explainer.explain_instance(instance, ape_tabular.black_box_predict, threshold=ape_tabular.threshold_precision, 
@@ -185,13 +184,16 @@ def simulate_user_experiments(ape_tabular, instance, nb_features_employed, farth
     rules, training_instances_pandas_frame, features_employed_in_rule = ape_tabular.generate_rule_and_data_for_anchors(anchor_exp.names(), 
                                                                                             ape_tabular.target_class, ape_tabular.train_data, 
                                                                                             simulated_user_experiment=True)
+    if only_anchors:
+        return features_employed_in_rule
     #print("rules in anchor", rules)
     if not ape_tabular.multimodal_results:
         # In case of unimodal data we compute a local surrogate explanation trained over raw instances located in the hyper sphere 
         local_surogate = ape_tabular.lime_explainer.explain_instance_training_dataset(closest_counterfactual,
                                                                     ape_tabular.black_box_predict_proba, 
-                                                                    num_features=nb_features_employed,
-                                                                    instances_in_sphere=instances_in_sphere)
+                                                                    num_features=len(features_employed_in_rule),
+                                                                    instances_in_sphere=instances_in_sphere,
+                                                                    ape=ape_tabular)
         features_linear_employed = []
         for feature_linear_employed in local_surogate.as_list():
             features_linear_employed.append(feature_linear_employed[0])
@@ -201,6 +203,25 @@ def simulate_user_experiments(ape_tabular, instance, nb_features_employed, farth
                                                                                                     ape_tabular.target_class, ape_tabular.train_data, 
                                                                                                     simulated_user_experiment=True)
         features_employed_by_ape = features_employed_by_extended_local_surrogate
+        
+        test_local_surogate = ape_tabular.lime_explainer.explain_instance_training_dataset(closest_counterfactual,
+                                                                    ape_tabular.black_box_predict, 
+                                                                    num_features=len(features_employed_in_rule),
+                                                                    instances_in_sphere=instances_in_sphere,
+                                                                    model_regressor = LogisticRegression(),
+                                                                    ape=ape_tabular
+                                                                    )
+        test_features_linear_employed = []
+        for feature_linear_employed in test_local_surogate.as_list():
+            test_features_linear_employed.append(feature_linear_employed[0])
+        rules, training_instances_pandas_frame, test_features_employed_by_extended_local_surrogate = ape_tabular.generate_rule_and_data_for_anchors(test_features_linear_employed, 
+                                                                                                    ape_tabular.target_class, ape_tabular.train_data, 
+                                                                                                    simulated_user_experiment=True)
+        #if features_employed_by_extended_local_surrogate != test_features_employed_by_extended_local_surrogate:
+        test_features_employed_by_extended_local_surrogate.sort()
+        print("with logistic regression", test_features_employed_by_extended_local_surrogate)
+        features_employed_by_extended_local_surrogate.sort()
+        print("without logistic regression", features_employed_by_extended_local_surrogate)
     else:
         # In case of multimodal data APE choose an anchor explanation 
         features_employed_by_ape = features_employed_in_rule
@@ -208,18 +229,26 @@ def simulate_user_experiments(ape_tabular, instance, nb_features_employed, farth
     # Generate a classic local Surrogate explanation model to compare with APE and Anchors
     local_surrogate = ape_tabular.lime_explainer.explain_instance(closest_counterfactual,
                                                                 ape_tabular.black_box_predict_proba, 
-                                                                num_features=nb_features_employed)
+                                                                num_features=len(features_employed_in_rule))
     features_linear_employed = []
+    #print("classic local surogate", local_surrogate.as_list())
     for feature_linear_employed in local_surrogate.as_list():
         features_linear_employed.append(feature_linear_employed[0])
     rules, training_instances_pandas_frame, features_employed_in_linear = ape_tabular.generate_rule_and_data_for_anchors(features_linear_employed, 
                                                                                                     ape_tabular.target_class, ape_tabular.train_data, 
                                                                                                     simulated_user_experiment=True)
+    features_employed_in_linear.sort()
     try:
-        if features_employed_by_extended_local_surrogate != features_employed_in_linear:
+        if features_employed_by_ape.sort() != features_employed_in_linear.sort():
+            print("There is a difference between the features chosen by classic local Surrogate and the one chosen by APE")
+            print("features employed by classic LS", features_employed_in_linear)
+            print("features employed by APE", features_employed_by_ape)
+            print("radiues", growing_sphere.radius)
+            
+        if features_employed_by_extended_local_surrogate.sort() != features_employed_in_linear.sort():
             print("There is a difference between the features chosen by classic local Surrogate and the one chosen by the Local Surrogate from APE")
-            print("features employed by APE", features_employed_in_linear)
-            print("features employed by Local Surrogate", features_employed_by_extended_local_surrogate)
+            print("features employed by classic LS", features_employed_in_linear)
+            print("features employed by extended Local Surrogate", features_employed_by_extended_local_surrogate)
     except:
         pass
     return features_employed_in_linear, features_employed_by_ape, features_employed_in_rule
@@ -269,7 +298,7 @@ def simulate_user_experiments_lime_ls(ape_tabular, instance, nb_features_employe
         # Trained a local surrogate explanation model
         local_surrogate_exp = ape_tabular.lime_explainer.explain_instance_training_dataset(closest_counterfactual, 
                                                                             ape_tabular.black_box_predict_proba, 
-                                                                            num_features=nb_features_employed)
+                                                                            num_features=nb_features_employed, ape=ape_tabular)
         features_local_surrogate_employed = []
         for feature_local_surrogate_employed in local_surrogate_exp.as_list():
             features_local_surrogate_employed.append(feature_local_surrogate_employed[0])
@@ -350,6 +379,7 @@ def modify_dataset(dataset, nb_feature_to_set_0, randomly=False):
     else:
         # Modify the dataset to replace values of the computed features by 0
         dataset_to_return[:,feature_modified] = 0
+    print("feature kept", feature_kept)
     return dataset_to_return, feature_kept
 
 def decision_tree_function(clf, instance):
