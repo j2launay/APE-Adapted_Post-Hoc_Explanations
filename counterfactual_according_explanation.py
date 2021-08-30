@@ -13,8 +13,8 @@ import baseGraph
 import ape_tabular
 import warnings
 import pickle
-from keras.models import Sequential
-from keras.layers import Dense
+#from keras.models import Sequential
+#from keras.layers import Dense
 from growingspheres.utils.gs_utils import distances
 import scipy.stats as stats
 

@@ -72,22 +72,6 @@ class ApeTabularExplainer(object):
                 #sum_not_in_categorical_value = 0
                 for categorical_feature in set_categorical_value:
                     probability_instance_per_feature.append(sum(self.train_data[:,feature] == categorical_feature)/len(self.train_data[:,feature]))
-                """"for instance in self.train_data:
-                    if instance[feature] not in set_categorical_value:
-                        print("instance", instance)
-                        print("instance feature value", instance[feature])
-                        print("set categorical values", set_categorical_value)
-                        test += 2
-                        sum_not_in_categorical_value += 1
-                summa = sum(probability_instance_per_feature)
-                if summa != 1:
-                    print("names", self.categorical_names)
-                    print("nb", nb_feature)
-                    print("categorical", self.categorical_features)
-                    #print(self.categorical_names[nb_feature])
-                    print("ERROR", summa)
-                    print(sum_not_in_categorical_value/len(self.train_data[:,feature]))
-                    test += 2"""
                 self.probability_categorical_feature.append(probability_instance_per_feature)
         self.min_features = []
         self.max_features = []

@@ -90,7 +90,8 @@ def generate_dataset(dataset_name, multiclass=False):
         categorical_values =[]
         for nb, features in enumerate(categorical_features):
             try:
-                tab = [int(x) for x in dataset.categorical_names[features]]
+                tab = list(set(X[:,features]))
+                #tab = [int(x) for x in dataset.categorical_names[features]]
             except ValueError:
                 tab = [i for i in range(len(dataset.categorical_names[features]))]
             if not 0 in tab:

@@ -189,13 +189,15 @@ class LimeBase(object):
                         labels_column, sample_weight=weights)
         local_pred = easy_model.predict(neighborhood_data[0, used_features].reshape(1, -1))
         if easy_model.coef_.ndim > 1:
-            easy_model.coef_ = easy_model.coef_[0]
+            coef = easy_model.coef_[0]
+        else:
+            coef = easy_model.coef_
         """if len(easy_model.coef_) > 1 and logistic:
             # Case for multi class
             coef = easy_model.coef_[local_pred]
         else:
             coef = easy_model.coef_"""
-        coef = easy_model.coef_
+
         
 
         if stability:
