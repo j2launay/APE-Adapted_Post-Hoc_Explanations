@@ -11,7 +11,7 @@ from sklearn.naive_bayes import GaussianNB
 from keras.models import Sequential
 from matplotlib.font_manager import FontProperties
 
-thresholds_interpretability = ["0.99", "0.8"]
+thresholds_interpretability = ["0.99", "0.95", "0.8"]
 datasets = ["generate_moons", "compas", "titanic", "adult", "generate_moons", "generate_blob", "generate_blobs", "artificial", "blood", "diabete", "iris"]
 models = [RandomForestClassifier(), LogisticRegression(),
                 VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('dt', tree.DecisionTreeClassifier())], voting="soft"),
@@ -21,8 +21,8 @@ models = [RandomForestClassifier(), LogisticRegression(),
                 RidgeClassifier(), 
                 MLPClassifier(),
                 None]
-graphs = ["coverage", "precision", "f2", 'recall', "average_distance", "coverages", "precisions", "f2s", "distance", 
-            'recalls_lime', 'recall_lime', "degrees", "counterfactual_in_anchor", "kendall", "mean_top_k"]
+graphs = ["coverage", "precision", "f2", 'recall', "average_distance", "distance", 
+        'recall_lime', "degrees", "counterfactual_in_anchor", "kendall", "mean_top_k"]
 graphs_lime = ["lime_vs_ls", "lime_ls"]
 
 for threshold_interpretability in thresholds_interpretability:

@@ -184,6 +184,7 @@ def simulate_user_experiments(ape_tabular, instance, nb_features_employed, farth
     rules, training_instances_pandas_frame, features_employed_in_rule = ape_tabular.generate_rule_and_data_for_anchors(anchor_exp.names(), 
                                                                                             ape_tabular.target_class, ape_tabular.train_data, 
                                                                                             simulated_user_experiment=True)
+    features_employed_in_rule = list(set(features_employed_in_rule))
     if only_anchors:
         return features_employed_in_rule
     #print("rules in anchor", rules)
@@ -202,26 +203,8 @@ def simulate_user_experiments(ape_tabular, instance, nb_features_employed, farth
         rules, training_instances_pandas_frame, features_employed_by_extended_local_surrogate = ape_tabular.generate_rule_and_data_for_anchors(features_linear_employed, 
                                                                                                     ape_tabular.target_class, ape_tabular.train_data, 
                                                                                                     simulated_user_experiment=True)
+        feature_linear_employed = list(set(feature_linear_employed))
         features_employed_by_ape = features_employed_by_extended_local_surrogate
-        
-        test_local_surogate = ape_tabular.lime_explainer.explain_instance_training_dataset(closest_counterfactual,
-                                                                    ape_tabular.black_box_predict, 
-                                                                    num_features=len(features_employed_in_rule),
-                                                                    instances_in_sphere=instances_in_sphere,
-                                                                    model_regressor = LogisticRegression(),
-                                                                    ape=ape_tabular
-                                                                    )
-        test_features_linear_employed = []
-        for feature_linear_employed in test_local_surogate.as_list():
-            test_features_linear_employed.append(feature_linear_employed[0])
-        rules, training_instances_pandas_frame, test_features_employed_by_extended_local_surrogate = ape_tabular.generate_rule_and_data_for_anchors(test_features_linear_employed, 
-                                                                                                    ape_tabular.target_class, ape_tabular.train_data, 
-                                                                                                    simulated_user_experiment=True)
-        #if features_employed_by_extended_local_surrogate != test_features_employed_by_extended_local_surrogate:
-        test_features_employed_by_extended_local_surrogate.sort()
-        print("with logistic regression", test_features_employed_by_extended_local_surrogate)
-        features_employed_by_extended_local_surrogate.sort()
-        print("without logistic regression", features_employed_by_extended_local_surrogate)
     else:
         # In case of multimodal data APE choose an anchor explanation 
         features_employed_by_ape = features_employed_in_rule
@@ -237,7 +220,7 @@ def simulate_user_experiments(ape_tabular, instance, nb_features_employed, farth
     rules, training_instances_pandas_frame, features_employed_in_linear = ape_tabular.generate_rule_and_data_for_anchors(features_linear_employed, 
                                                                                                     ape_tabular.target_class, ape_tabular.train_data, 
                                                                                                     simulated_user_experiment=True)
-    features_employed_in_linear.sort()
+    features_employed_in_linear = list(set(features_employed_in_linear))
     try:
         if features_employed_by_ape.sort() != features_employed_in_linear.sort():
             print("There is a difference between the features chosen by classic local Surrogate and the one chosen by APE")
@@ -295,10 +278,13 @@ def simulate_user_experiments_lime_ls(ape_tabular, instance, nb_features_employe
                                                                                                     target_class, ape_tabular.train_data, 
                                                                                                     simulated_user_experiment=True)
         
+        
         # Trained a local surrogate explanation model
         local_surrogate_exp = ape_tabular.lime_explainer.explain_instance_training_dataset(closest_counterfactual, 
                                                                             ape_tabular.black_box_predict_proba, 
-                                                                            num_features=nb_features_employed, ape=ape_tabular)
+                                                                            num_features=nb_features_employed, 
+                                                                            instances_in_sphere=instances_in_sphere,
+                                                                            ape=ape_tabular)
         features_local_surrogate_employed = []
         for feature_local_surrogate_employed in local_surrogate_exp.as_list():
             features_local_surrogate_employed.append(feature_local_surrogate_employed[0])
@@ -315,7 +301,7 @@ def simulate_user_experiments_lime_ls(ape_tabular, instance, nb_features_employe
         """
         features_employed_in_linear.sort()
         features_employed_in_local_surrogate.sort()
-        return features_employed_in_linear, features_employed_in_local_surrogate
+        return list(set(features_employed_in_linear)), list(set(features_employed_in_local_surrogate))
     else:
         print("multimodal data")
         return [], []

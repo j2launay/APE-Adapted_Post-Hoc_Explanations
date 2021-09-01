@@ -329,12 +329,6 @@ class ApeTabularExplainer(object):
         while nb_different_outcome < min_instance_per_class or nb_same_outcome < min_instance_per_class:
             percentage_distribution = radius/farthest_distance*100
             if (time.time() - start_time) > 2:
-              #print("--- %s seconds ---" % (time.time() - start_time))
-              #print("nb same outcome", nb_same_outcome)
-              #print("nb different outcome", nb_different_outcome)
-              #print("radius", radius)
-              #print("libfolding", libfolding)
-              #print("percentage cateforcia", percentage_distribution) 
                 radius += 0.005
                 start_time = time.time()
             if ((nb_different_outcome + nb_same_outcome > 10000) and lime_ls):
@@ -835,7 +829,7 @@ class ApeTabularExplainer(object):
                 model_stability.append(self.model_stability_index(instance, growing_method, 
                                         opponent_class, n_instance_per_layer, first_radius, 
                                         dicrease_radius, farthest_distance))
-            model_stability_score = model_stability.count(initial_multimodal)
+            model_stability_score = model_stability.count(initial_multimodal) / 11
 
         """ Computes the labels for instances from the dataset to compute precision for explanation method """
         labels_instance_test_data = self.black_box_predict(self.test_data)

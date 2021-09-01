@@ -155,9 +155,11 @@ def generate_categoric_inside_ball(center, segment, percentage_distribution, n, 
     if segment[1] > 1:
         print("Il y a un problème puisque la distance est supérieure à 1")
         segment[1] = 1
+        print("radius", segment)
     if percentage_distribution > 100:
         percentage_distribution = 100
         print("il y a un problème puisque le pourcentage de distribution est supérieur à 100")
+        print("radius", segment)
 
     matrix_perturb_instances = np.zeros((n, len(center)))
     for i in range(len(categorical_features)):

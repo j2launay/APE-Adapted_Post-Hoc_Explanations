@@ -29,12 +29,12 @@ if __name__ == "__main__":
     # Filter the warning from matplotlib
     warnings.filterwarnings("ignore")
     # Dataset used for the experiments
-    dataset_names = ["generate_blobs", "adult", "compas", "diabete"]
+    dataset_names = ["compas", "generate_blobs", "adult", "diabete"]
     # Black box models for which we generate explanation
     models = [tree.DecisionTreeClassifier(max_depth=4), tree.DecisionTreeClassifier(), LogisticRegression()]
     models_name = ['DecisionTreeClassifier_depth4', 'DecisionTreeClassifier', 'LogisticRegression']
-    models = [tree.DecisionTreeClassifier(), LogisticRegression()]
-    models_name = ['DecisionTreeClassifier', 'LogisticRegression']
+    models = [LogisticRegression(), tree.DecisionTreeClassifier()]
+    models_name = ['LogisticRegression', 'DecisionTreeClassifier']
     # Number of feature from the dataset that are modified (values are set to 0 to train the decision model)
     nb_feature_to_modify = 6
     # If set to True store the results inside a graph
@@ -44,7 +44,7 @@ if __name__ == "__main__":
     # If set to True print detailed information
     verbose = False
     # Precision threshold for explanation models and linear separability test 
-    threshold_interpretability = 0.8
+    threshold_interpretability = 0.85
     # Name of the explanation method printed on the graphs
     interpretability_name = ['lime', 'Local Surrogate', 'random']
 
@@ -74,7 +74,7 @@ if __name__ == "__main__":
             explainer = ape_tabular.ApeTabularExplainer(x_test, class_names, black_box.predict, black_box.predict_proba, continuous_features=continuous_features, 
                                                             categorical_features=categorical_features, categorical_values=categorical_values, 
                                                             feature_names=dataset.feature_names, categorical_names=categorical_names,
-                                                            verbose=verbose, threshold_precision=threshold_interpretability)
+                                                            verbose=verbose, linear_separability_index=threshold_interpretability)
             for instance_to_explain in x_test: 
                 if cnt == max_instance_to_explain:
                     break
@@ -90,6 +90,8 @@ if __name__ == "__main__":
 
                 
                 try:
+                    test += 2
+                except:
                     # Get the list of features employed by Lime and Local Surrogate 
                     features_employed_in_lime, features_employed_in_local_surrogate = explainer.explain_instance(instance_to_explain, 
                                                                 lime_vs_local_surrogate=True, nb_features_employed=len(features_employed_black_box))
@@ -111,8 +113,8 @@ if __name__ == "__main__":
                     score_random = compute_score_interpretability_method(random_explainer, features_employed_black_box)
                     cnt += 1
 
-                except Exception as inst:
-                    print(inst)
+                #except Exception as inst:
+                #    print(inst)
 
                 if graph: experimental_informations.store_user_experiments_information_instance([score_lime, score_local_surrogate, score_random])
             filename_all="./results/"+dataset_name+"/"+str(threshold_interpretability)+"/"

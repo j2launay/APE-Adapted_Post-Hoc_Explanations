@@ -28,10 +28,10 @@ if __name__ == "__main__":
     # Filter the warning from matplotlib
     warnings.filterwarnings("ignore")
     # The datasets employed for experiments
-    dataset_names = ["generate_blobs", "diabete", "adult", "compas"]
+    dataset_names = ["compas", "generate_blobs", "diabete", "adult"]
     # Models employed for experiments
-    models = [tree.DecisionTreeClassifier(max_depth=4),tree.DecisionTreeClassifier(), LogisticRegression()]
-    models_name = ['DecisionTreeClassifier_depth4', 'DecisionTreeClassifier', 'LogisticRegression']    
+    models = [LogisticRegression(), tree.DecisionTreeClassifier(max_depth=4),tree.DecisionTreeClassifier()]
+    models_name = [ 'LogisticRegression', 'DecisionTreeClassifier_depth4', 'DecisionTreeClassifier']    
     # Number of instance for which explanations are computed
     max_instance_to_explain = 50
     # Number of feature from the dataset that are modified (values are set to 0 to train the decision model)

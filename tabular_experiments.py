@@ -19,7 +19,7 @@ if __name__ == "__main__":
     # Filter the warning from matplotlib
     warnings.filterwarnings("ignore")
     # Datasets used for the experiments
-    dataset_names = ["titanic", "adult", "generate_moons", "generate_blob", "generate_blobs", "blood", "diabete", "iris", "compas", "artificial"]
+    dataset_names = ["compas", "titanic", "adult", "blood", "diabete", "generate_moons", "generate_blob", "generate_blobs",  "iris"]
     # array of the models used for the experiments
     models = [RandomForestClassifier(n_estimators=20), #LogisticRegression(),
                 GradientBoostingClassifier(n_estimators=20, learning_rate=1.0),
@@ -28,7 +28,7 @@ if __name__ == "__main__":
                 #Sequential(),
                 VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('rc', RidgeClassifier())], voting="hard"),
                 MLPClassifier(random_state=1)]
-    #models=[LogisticRegression(), RidgeClassifier(), MLPClassifier(random_state=1)]
+    #models=[RidgeClassifier(), MLPClassifier(random_state=1)]
     # Number of instances explained by each model on each dataset
     max_instance_to_explain = 50
     # Print explanation result

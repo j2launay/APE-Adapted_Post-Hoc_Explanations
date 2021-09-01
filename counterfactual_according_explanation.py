@@ -32,7 +32,7 @@ if __name__ == "__main__":
     # Filter the warning from matplotlib
     warnings.filterwarnings("ignore")
     # Datasets used for the experiments
-    dataset_names = ["titanic", "adult", "generate_blob", "generate_moons", "generate_blobs", "blood", "diabete", "iris", "artificial", "compas"]
+    dataset_names = ["compas", "titanic", "adult", "generate_blob", "generate_moons", "generate_blobs", "blood", "diabete", "iris", "artificial"]
     # array of the models used for the experiments
     models = [RandomForestClassifier(n_estimators=20), LogisticRegression(),
                 GradientBoostingClassifier(n_estimators=20, learning_rate=1.0),
@@ -61,7 +61,7 @@ if __name__ == "__main__":
     # Threshold for explanation method precision
     interpretability_name = ['direction vector', 'linear explanation', "degree"]
     interpretability_name_kendall = ['top k direction vector', 'top k linear explanation', "kendall", "hit-1", "hit-2", "hit-3", "hit-4", "hit-5"]
-    anchor_name = ['anchor rule', 'closest counterfactual', 'presence']
+    anchor_name = ['anchor rule', 'closest counterfactual', 'not in anchor']
     # Initialize all the variable needed to store the result in graph
     if graph: 
         experimental_informations_degrees = store_experimental_informations(len(models), len(interpretability_name), interpretability_name, len(models))

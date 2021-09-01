@@ -19,9 +19,6 @@ from growingspheres.utils.gs_utils import distances
 from growingspheres import counterfactuals as cf
 
 def find_closest_counterfactual(instance, explainer):
-    
-    target_class = explainer.black_box_predict(instance.reshape(1, -1))[0]
-
     # Computes the distance to the farthest instance from the training dataset to bound generating instances 
     farthest_distance = 0
     for training_instance in explainer.train_data:
@@ -41,18 +38,7 @@ def find_closest_counterfactual(instance, explainer):
                 farthest_distance_training_dataset=farthest_distance, 
                 probability_categorical_feature=explainer.probability_categorical_feature, 
                 min_counterfactual_in_sphere=explainer.nb_min_instance_per_class_in_sphere)
-    first_closest_counterfactual = growing_sphere.enemy
-
-    # After searching for the closest counterfactual, we take the closest from this point from the same class as the target instance to explain
-    second_growing_sphere = cf.CounterfactualExplanation(first_closest_counterfactual, explainer.black_box_predict, 
-                method="GF", target_class=target_class, 
-                continuous_features=explainer.continuous_features, categorical_features=explainer.categorical_features, 
-                categorical_values=explainer.categorical_values, min_features=explainer.min_features,
-                max_features=explainer.max_features)
-    second_growing_sphere.fit(n_in_layer=2000, first_radius=0.1, dicrease_radius=10, sparse=True, 
-                verbose=explainer.verbose, feature_variance=explainer.feature_variance, farthest_distance_training_dataset=farthest_distance, 
-                probability_categorical_feature=explainer.probability_categorical_feature, min_counterfactual_in_sphere=explainer.nb_min_instance_per_class_in_sphere)
-    return second_growing_sphere.enemy # Return the closest counterfactual
+    return growing_sphere.enemy # Return the closest counterfactual
 
 def get_farthest_distance(instance, train_data, categorical_features, metric='euclidean'):
     farthest_distance = 0
@@ -67,18 +53,31 @@ def get_farthest_distance(instance, train_data, categorical_features, metric='eu
             farthest_distance = farthest_distance_now
     return farthest_distance
 
-def compute_precision_in_sphere(ape_tabular, radius_sphere, linear_explainer, closest_counterfactual, farthest_distance, target_class):
+def compute_precision_in_sphere(ape_tabular, radius_sphere, closest_counterfactual, farthest_distance, target_class, 
+                                lime_explainer, linear_explainer='ls'):
     position_instances_in_sphere, nb_training_instance_in_sphere = ape_tabular.instances_from_dataset_inside_sphere(closest_counterfactual, 
-                                                                                                radius_sphere, ape_tabular.train_data)
+                                                                                                radius_sphere, ape_tabular.test_data)
     ape_tabular.target_class = target_class
     try:
-        instances_in_sphere, labels_in_sphere, percentage_distribution, _ = ape_tabular.generate_instances_inside_sphere(radius_sphere, closest_counterfactual, 
-                                                                                        farthest_distance, ape_tabular.nb_min_instance_per_class_in_sphere,
-                                                                                        position_instances_in_sphere, nb_training_instance_in_sphere,
-                                                                                        lime_ls=True)
+        instances_in_sphere, labels_in_sphere, percentage_distribution, _ = \
+                            ape_tabular.generate_instances_inside_sphere(radius_sphere, 
+                                                                    closest_counterfactual, 
+                                                                    dataset=ape_tabular.test_data,
+                                                                    farthest_distance=farthest_distance, 
+                                                                    min_instance_per_class=ape_tabular.nb_min_instance_per_class_in_sphere,
+                                                                    position_instances_in_sphere=position_instances_in_sphere, 
+                                                                    nb_training_instance_in_sphere=nb_training_instance_in_sphere,
+                                                                    lime_ls=True)
     except:
         return 0
     ape_tabular.nb_min_instance_in_sphere = 800
+    if linear_explainer == 'ls':
+        linear_explainer = lime_explainer.explain_instance_training_dataset(closest_counterfactual, predict, 
+                                                                    num_features=6, model_regressor = LogisticRegression(),
+                                                                    ape=ape_tabular, instances_in_sphere=instances_in_sphere)
+    else:
+        linear_explainer = lime_explainer.explain_instance(instance_to_explain, predict, num_features=6, 
+                                                                    model_regressor=LogisticRegression())
     prediction_inside_sphere = ape_tabular.modify_instance_for_linear_model(linear_explainer, instances_in_sphere)
     precision_local_surrogate = ape_tabular.compute_linear_regression_precision(prediction_inside_sphere, labels_in_sphere)
     return precision_local_surrogate
@@ -87,7 +86,7 @@ if __name__ == "__main__":
     # Filter the warning from matplotlib
     warnings.filterwarnings("ignore")
     # Datasets used for the experiments
-    dataset_names = ["titanic", "adult", "generate_moons", "generate_blob", "generate_blobs", "blood", "diabete", "iris", "artificial", "compas"]
+    dataset_names = ["compas","titanic", "adult", "generate_moons", "generate_blob", "generate_blobs", "blood", "diabete", "iris", "artificial"]
     # array of the models used for the experiments
     models = [RandomForestClassifier(n_estimators=20), #LogisticRegression(),
                 GradientBoostingClassifier(n_estimators=20, learning_rate=1.0),
@@ -163,31 +162,29 @@ if __name__ == "__main__":
                 print("### Instance number:", cnt + 1, "over", max_instance_to_explain)
                 print("### Models ", nb_model + 1, "over", len(models))
                 print("instance to explain:", instance_to_explain)
-                #try:
-                closest_counterfactual = find_closest_counterfactual(instance_to_explain, explainer)
-                target_class = predict(instance_to_explain.reshape(1, -1))
-                opponent_class = predict(closest_counterfactual.reshape(1, -1))
-                farthest_distance = get_farthest_distance(instance_to_explain, x_train, categorical_features, metric='manhattan')
-                
-                local_surrogate = lime_explainer.explain_instance_training_dataset(closest_counterfactual, predict, 
-                                                                    num_features=6, model_regressor = LogisticRegression()) 
-                #                                                    instances_in_sphere=instances_in_sphere)
-                lime = lime_explainer.explain_instance_training_dataset(instance_to_explain, predict, 
-                                                                    num_features=6, model_regressor=LogisticRegression())
-                
-                for radius in (0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1):
-                    explainer.nb_min_instance_in_sphere = 800
-                    local_surrogate_precision = compute_precision_in_sphere(explainer, radius, local_surrogate, closest_counterfactual, farthest_distance, target_class)
-                    explainer.nb_min_instance_in_sphere = 800
-                    lime_precision = compute_precision_in_sphere(explainer, radius, lime, instance_to_explain, farthest_distance, opponent_class)
-                    if local_surrogate_precision >= lime_precision:
-                        #print("YEAH")
-                        local_surrogate_best_ratio += 1
-                    if graph: experimental_informations.store_lime_vs_local_surrogate(lime_precision, local_surrogate_precision, radius)
-                cnt += 1
-                #except Exception as inst:
-                #    print(inst)
-            print("ratio local surrogate better", local_surrogate_best_ratio/max_instance_to_explain)
+                try:
+                    closest_counterfactual = find_closest_counterfactual(instance_to_explain, explainer)
+                    target_class = predict(instance_to_explain.reshape(1, -1))
+                    opponent_class = predict(closest_counterfactual.reshape(1, -1))
+                    farthest_distance = get_farthest_distance(instance_to_explain, x_train, categorical_features, metric='manhattan')
+                    
+                    for radius in (0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1):
+                        explainer.nb_min_instance_in_sphere = 800
+                        local_surrogate_precision = compute_precision_in_sphere(explainer, radius, closest_counterfactual, farthest_distance, 
+                                                        target_class, lime_explainer)
+                        explainer.nb_min_instance_in_sphere = 800
+                        lime_precision = compute_precision_in_sphere(explainer, radius, instance_to_explain, farthest_distance,
+                                                        opponent_class, lime_explainer, linear_explainer='lime')
+                        print("ls precision", local_surrogate_precision)
+                        print("lime precision", lime_precision)
+                        if local_surrogate_precision >= lime_precision:
+                            #print("YEAH")
+                            local_surrogate_best_ratio += 1
+                        if graph: experimental_informations.store_lime_vs_local_surrogate(lime_precision, local_surrogate_precision, radius)
+                    cnt += 1
+                except Exception as inst:
+                    print(inst)
+            #print("ratio local surrogate better", local_surrogate_best_ratio/max_instance_to_explain)
             filename_all = "./results/"+dataset_name+"/"+str(threshold_interpretability)+"/"
             
             if graph: experimental_informations.store_experiments_information(max_instance_to_explain, nb_model, filename_all=filename_all)

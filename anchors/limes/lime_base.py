@@ -7,7 +7,6 @@ from sklearn.linear_model import Ridge, lars_path
 from sklearn.utils import check_random_state
 from sklearn import preprocessing
 
-
 class LimeBase(object):
     """Class for learning a locally linear sparse model from perturbed data"""
     def __init__(self,
@@ -59,7 +58,7 @@ class LimeBase(object):
             for feature in range(data.shape[1]):
                 if feature in used_features:
                     continue
-                clf.fit(data[:, used_features + [feature]], labels,
+                clf.fit(data[:, used_features + [feature]], labels, 
                         sample_weight=weights)
                 score = clf.score(data[:, used_features + [feature]],
                                   labels,
@@ -155,7 +154,6 @@ class LimeBase(object):
             by decreasing absolute value of y.
             score is the R^2 value of the returned explanation
         """
-
         weights = self.kernel_fn(distances)
         #logistic = False
         if model_regressor is not None and neighborhood_labels.ndim == 1:
