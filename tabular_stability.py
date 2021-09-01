@@ -59,13 +59,13 @@ if __name__ == "__main__":
     verbose_ape = False
     # Threshold for explanation method precision
     threshold_interpretability = 0.99
-    linear_models_name = ['local surrogate', 'lime extending', 'lime regression', 'lime not binarize', 'lime traditional']
-    interpretability_name = ['stability score']
-    stability_name = ['APE', "Local Surrogate", "Anchors"]
+    #linear_models_name = ['local surrogate', 'lime extending', 'lime regression', 'lime not binarize', 'lime traditional']
+    #interpretability_name = ['stability score']
+    stability_name = ["Local Surrogate", "Anchors", 'APE']
     #interpretability_name = ['ls log reg', 'ls raw data']
     # Initialize all the variable needed to store the result in graph
     if graph: 
-        experimental_informations = store_experimental_informations(len(models), len(interpretability_name), interpretability_name, len(models))
+        #experimental_informations = store_experimental_informations(len(models), len(interpretability_name), interpretability_name, len(models))
         stability_informations = store_experimental_informations(len(models), len(stability_name), stability_name, len(models))
     for dataset_name in dataset_names:
         models_name = []
@@ -75,7 +75,7 @@ if __name__ == "__main__":
             model_name = type(model).__name__
             filename = "./results/"+dataset_name+"/"+model_name+"/"+str(threshold_interpretability)+"/"
             if graph: 
-                experimental_informations.initialize_per_models(filename)
+                #experimental_informations.initialize_per_models(filename)
                 stability_informations.initialize_per_models(filename)
             models_name.append(model_name)
             # Split the dataset inside train and test set (50% each set)
@@ -113,7 +113,6 @@ if __name__ == "__main__":
                 print("### Models ", nb_model + 1, "over", len(models))
                 print("instance to explain:", instance_to_explain)
 
-                #msi, csi_ls, vsi_ls, vsi_anchors = explainer.explain_instance(instance_to_explain, lime_stability=True, model_stability_index=True)
                 #try:
                 msi, csi, vsi = explainer.explain_instance(instance_to_explain, lime_stability=True, model_stability_index=True)
                 print("msi, csi, vsi", msi, csi, vsi)
@@ -137,7 +136,7 @@ if __name__ == "__main__":
                                                                         max_features=explainer.max_features,
                                                                         min_features=explainer.min_features)
 
-                # Test the stability error
+                """# Test the stability error
                 stability_results = 0
                 nb_identical_features= 0
                 for instance in perturb_instances:
@@ -153,6 +152,7 @@ if __name__ == "__main__":
                     print("proportion of identical features", identical_features_score)
                     print("stability score", stability_results)
                 if graph: experimental_informations.store_stability_information_instance(stability_results, identical_features_score)
+                """
                 cnt += 1
                 print("--- %s seconds to compute stability of APE for 1 instance ---" % (time.time() - start_time))
                 #except Exception as inst:
@@ -160,5 +160,5 @@ if __name__ == "__main__":
 
             filename_all = "./results/"+dataset_name+"/"+str(threshold_interpretability)+"/"
             if graph: 
-                experimental_informations.store_experiments_information(max_instance_to_explain, nb_model, filename_all=filename_all)
+                #experimental_informations.store_experiments_information(max_instance_to_explain, nb_model, filename_all=filename_all)
                 stability_informations.store_experiments_information(max_instance_to_explain, nb_model, filename_all=filename_all)

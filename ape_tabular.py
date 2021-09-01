@@ -885,11 +885,11 @@ class ApeTabularExplainer(object):
                                     index_verbose=True, anchors=True)
             print("csi / vsi anchor", csi_anchors, vsi_anchors)
             if self.multimodal_results:
-                vsi = [vsi_anchors, vsi_ls, vsi_anchors]
-                csi = [None, csi_ls, None]
+                vsi = [vsi_ls, vsi_anchors, vsi_anchors]
+                csi = [csi_ls, None, None]
             else:
-                vsi = [vsi_ls, vsi_ls, vsi_anchors]
-                csi = [csi_ls, csi_ls, None]
+                vsi = [vsi_ls, vsi_anchors, vsi_ls]
+                csi = [csi_ls, None, None]
             return model_stability_score, csi, vsi
 
         elif k_closest is not False:

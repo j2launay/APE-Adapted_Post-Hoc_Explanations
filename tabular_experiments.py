@@ -48,7 +48,7 @@ if __name__ == "__main__":
     threshold_interpretability = 0.99
     linear_separability_index = 0.99
     linear_models_name = ['local surrogate', 'lime extending', 'lime regression', 'lime not binarize', 'lime traditional']
-    interpretability_name = ['LS extend', 'APE', 'anchor']
+    interpretability_name = ['LS extend', 'anchor', 'APE']
     #interpretability_name = ['ls log reg', 'ls raw data']
     # Initialize all the variable needed to store the result in graph
     if graph: experimental_informations = store_experimental_informations(len(models), len(interpretability_name), interpretability_name, len(models))

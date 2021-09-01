@@ -112,9 +112,9 @@ def compute_all_explanation_method_precision(ape_tabular, instance, growing_sphe
         print("ERL coverage : ", np.round(ape_coverage, decimals=3))
         print("ERL F1 score:", np.round(f2_ape, decimals=3))
 
-    precisions = [local_surrogate_extend_raw_precision, ape_precision, anchor_precision]
-    coverages = [local_surrogate_extend_raw_coverage, ape_coverage, anchor_coverage]
-    f2s = [f2_local_surrogate_extend_raw, f2_ape, f2_anchor]
+    precisions = [local_surrogate_extend_raw_precision, anchor_precision, ape_precision]
+    coverages = [local_surrogate_extend_raw_coverage, anchor_coverage, ape_coverage]
+    f2s = [f2_local_surrogate_extend_raw, f2_anchor, f2_ape]
     multimodal = 1 if ape_tabular.multimodal_results else 0
     return precisions, coverages, f2s, multimodal
 
@@ -203,7 +203,8 @@ def simulate_user_experiments(ape_tabular, instance, nb_features_employed, farth
         rules, training_instances_pandas_frame, features_employed_by_extended_local_surrogate = ape_tabular.generate_rule_and_data_for_anchors(features_linear_employed, 
                                                                                                     ape_tabular.target_class, ape_tabular.train_data, 
                                                                                                     simulated_user_experiment=True)
-        feature_linear_employed = list(set(feature_linear_employed))
+
+        features_employed_by_extended_local_surrogate = list(set(features_employed_by_extended_local_surrogate))
         features_employed_by_ape = features_employed_by_extended_local_surrogate
     else:
         # In case of multimodal data APE choose an anchor explanation 
@@ -301,7 +302,9 @@ def simulate_user_experiments_lime_ls(ape_tabular, instance, nb_features_employe
         """
         features_employed_in_linear.sort()
         features_employed_in_local_surrogate.sort()
-        return list(set(features_employed_in_linear)), list(set(features_employed_in_local_surrogate))
+        features_employed_in_linear = list(set(features_employed_in_linear)) 
+        features_employed_in_local_surrogate = list(set(features_employed_in_local_surrogate))
+        return features_employed_in_linear, features_employed_in_local_surrogate
     else:
         print("multimodal data")
         return [], []

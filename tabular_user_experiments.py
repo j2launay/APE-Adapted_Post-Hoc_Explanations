@@ -42,7 +42,7 @@ if __name__ == "__main__":
     verbose = False
     # Precision threshold for explanation models and linear separability test 
     threshold_interpretability = 0.99
-    interpretability_name = ['local surrogate', 'ape', 'anchors', 'random']
+    interpretability_name = ['local surrogate', 'anchors', 'random', 'ape']
 
     # Initialize variable to store the results for the graph representation
     if graph: experimental_informations = store_experimental_informations(len(models), len(interpretability_name), interpretability_name, len(models))
@@ -111,7 +111,7 @@ if __name__ == "__main__":
                 #except Exception as inst:
                 #    print(inst)
                     
-                if graph: experimental_informations.store_user_experiments_information_instance([score_local_surrogate, score_ape, score_anchor, score_random])
+                if graph: experimental_informations.store_user_experiments_information_instance([score_local_surrogate, score_anchor, score_random, score_ape])
             filename_all="./results/"+dataset_name+"/"+str(threshold_interpretability)+"/"
             if graph: experimental_informations.store_user_experiments_information(max_instance_to_explain, nb_model, filename_all=filename_all)
 
