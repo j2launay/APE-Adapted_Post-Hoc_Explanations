@@ -69,6 +69,8 @@ class GrowingSpheres:
         Finds the decision border then perform projections to make the explanation sparse.
         """
         ennemies_, radius = self.exploration()
+        print("nnemies_", ennemies_)
+        print("radius", radius)
         ennemies = sorted(ennemies_, 
                                  key= lambda x: pairwise_distances(self.obs_to_interprete.reshape(1, -1), x.reshape(1, -1)))
         self.e_star = ennemies[0]
@@ -186,11 +188,12 @@ class GrowingSpheres:
             v= np.linalg.norm(v, ord=2, axis=1)
             return v
             
-        def perturb_continuous_features(continuous_features, n, segment, center, matrix_perturb_instances):
-            """
+        #def perturb_continuous_features(continuous_features, n, segment, center, matrix_perturb_instances):
+        """
             Perturb each continuous features of the n instances around center in the area of a sphere of radius equals to segment
             Return a matrix of n instances of d dimension perturbed based on the distribution of the dataset
             """
+        """
             d = len(continuous_features)
             z = np.random.normal(0, 1, (n, d))
             # Draw uniformaly instances between the value of segment[0]**d and segment[1]**d with d the number of dimension of the instance to explain
@@ -204,24 +207,25 @@ class GrowingSpheres:
             for nb, continuous in enumerate(continuous_features):
                 matrix_perturb_instances[:,continuous] = z[:,nb].ravel()
             return matrix_perturb_instances
-
+        """
 
         # Just for clarity of display
         d = center.shape[0]
-        z = np.zeros((n,d))
+        """z = np.zeros((n,d))
         if feature_variance is not None:
             for feature in range(d):
                 # Modify the generation of artificial instance depending on the variance of each feature
                 z[:,feature] = np.random.normal(0, feature_variance[feature], n)
         else:
-            z = np.random.normal(0, 1, (n, d))
+            z = np.random.normal(0, 1, (n, d))"""
+        z = np.random.normal(0, 1, (n, d))
         # Draw uniformaly instances between the value of segment[0]**d and segment[1]**d with d the number of dimension of the instance to explain
         u = np.random.uniform(segment[0]**d, segment[1]**d, n)
         r = u**(1/float(d))
         z = np.array([a * b / c for a, b, c in zip(z, r,  norm(z))])
         z = z + center
         return z
-        if self.categorical_features != []:
+        """if self.categorical_features != []:
             matrix_perturb_instances = np.zeros((n, len(center)))
             for i in range(len(self.categorical_features)):
                 # add for each categorical feature these values to be considered as a probability 
@@ -243,4 +247,4 @@ class GrowingSpheres:
             r = u**(1/float(d))
             z = np.array([a * b / c for a, b, c in zip(z, r,  norm(z))])
             z = z + center
-            return z
+            return z"""

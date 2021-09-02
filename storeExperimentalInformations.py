@@ -95,7 +95,7 @@ class store_experimental_informations(object):
             self.f2[interpretability] = []
             self.recall_user_experiments[interpretability] = []
 
-    def store_experiments_information_instance(self, precisions, coverages, f2s, multimodal=None):
+    def store_experiments_information_instance(self, precisions, coverages, f2s, multimodal=None, local_surrogate=False):
         """
         Store precisions, coverages, f2s and multimodal results inside dictionary 
         Args: precisions: list of precision result for each explanation method on a single instance
@@ -103,26 +103,36 @@ class store_experimental_informations(object):
               f2s: list of f2 score for each explanation method on a single instance
               multimodal: 1 if APE selected a multimodal distribution, otherwise 0
         """
-        self.pd_precision = self.pd_precision.append(pd.DataFrame([precisions], columns=self.interpretability_name))
-        self.pd_coverage = self.pd_coverage.append(pd.DataFrame([coverages], columns=self.interpretability_name))
-        self.pd_f2 = self.pd_f2.append(pd.DataFrame([f2s], columns=self.interpretability_name))
-        self.pd_precision.to_csv(self.filename + 'precision.csv', index=False)
-        self.pd_coverage.to_csv(self.filename + 'coverage.csv', index=False)
-        self.pd_f2.to_csv(self.filename + 'f2.csv', index=False)
-        for precision, coverage, f2, interpretability in zip(precisions, coverages, f2s, self.interpretability_name):
-            if self.precision[interpretability] == []:
-                self.precision[interpretability] = precision
-                self.coverage[interpretability] = coverage
-                self.f2[interpretability] = f2
+        if local_surrogate:
+            self.pd_precision = self.pd_precision.append(pd.DataFrame([precisions], columns=self.interpretability_name))
+            self.pd_precision.to_csv(self.filename + 'precision.csv', index=False)
+            """
+            if self.precision[self.interpretability_name] == []:
+                self.precision[self.interpretability_name] = precisions
             else:
-                self.precision[interpretability] += precision
-                self.coverage[interpretability] += coverage
-                self.f2[interpretability] += f2
-        if multimodal is not None:
-            if self.multimodal == []:
-                self.multimodal = multimodal
-            else:
-                self.multimodal += multimodal
+                self.precision[self.interpretability_name] += precisions
+            """
+        else:
+            self.pd_precision = self.pd_precision.append(pd.DataFrame([precisions], columns=self.interpretability_name))
+            self.pd_coverage = self.pd_coverage.append(pd.DataFrame([coverages], columns=self.interpretability_name))
+            self.pd_f2 = self.pd_f2.append(pd.DataFrame([f2s], columns=self.interpretability_name))
+            self.pd_precision.to_csv(self.filename + 'precision.csv', index=False)
+            self.pd_coverage.to_csv(self.filename + 'coverage.csv', index=False)
+            self.pd_f2.to_csv(self.filename + 'f2.csv', index=False)
+            for precision, coverage, f2, interpretability in zip(precisions, coverages, f2s, self.interpretability_name):
+                if self.precision[interpretability] == []:
+                    self.precision[interpretability] = precision
+                    self.coverage[interpretability] = coverage
+                    self.f2[interpretability] = f2
+                else:
+                    self.precision[interpretability] += precision
+                    self.coverage[interpretability] += coverage
+                    self.f2[interpretability] += f2
+            if multimodal is not None:
+                if self.multimodal == []:
+                    self.multimodal = multimodal
+                else:
+                    self.multimodal += multimodal
 
     def store_experiments_information(self, nb_instance, nb_model, filename_all=""):
         """ 
@@ -130,8 +140,8 @@ class store_experimental_informations(object):
         Args: nb_instance: Number of instance for which we generate explanation for each model
               nb_model: Numerous of the black box model for which we generate explanation (first model employed = 0 , second model employed = 1, etc...)
         """
-        os.makedirs(os.path.dirname(self.filename+"/"), exist_ok=True)
-        os.makedirs(os.path.dirname(filename_all+"/"), exist_ok=True)
+        os.makedirs(os.path.dirname(self.filename), exist_ok=True)
+        os.makedirs(os.path.dirname(filename_all), exist_ok=True)
 
         self.final_precision = []
         self.final_coverage = []

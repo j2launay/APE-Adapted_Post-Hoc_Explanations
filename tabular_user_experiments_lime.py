@@ -113,10 +113,11 @@ if __name__ == "__main__":
                     score_random = compute_score_interpretability_method(random_explainer, features_employed_black_box)
                     cnt += 1
 
-                #except Exception as inst:
-                #    print(inst)
-
-                if graph: experimental_informations.store_user_experiments_information_instance([score_lime, score_random, score_local_surrogate])
+                try:
+                    if graph: experimental_informations.store_user_experiments_information_instance([score_lime, score_random, score_local_surrogate])
+                except Exception as inst:
+                    print(inst)
+                    
             filename_all="./results/"+dataset_name+"/"+str(threshold_interpretability)+"/"
             if graph: experimental_informations.store_user_experiments_information(max_instance_to_explain, nb_model, filename_all=filename_all, lime=True)
 

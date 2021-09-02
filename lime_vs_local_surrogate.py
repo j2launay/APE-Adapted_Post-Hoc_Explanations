@@ -18,7 +18,7 @@ from anchors import limes
 from growingspheres.utils.gs_utils import distances
 from growingspheres import counterfactuals as cf
 
-def find_closest_counterfactual(instance, explainer):
+def find_closest_counterfactual(instance, explainer, method='GF'):
     # Computes the distance to the farthest instance from the training dataset to bound generating instances 
     farthest_distance = 0
     for training_instance in explainer.train_data:
@@ -29,7 +29,7 @@ def find_closest_counterfactual(instance, explainer):
         if farthest_distance_now > farthest_distance:
             farthest_distance = farthest_distance_now
     
-    growing_sphere = cf.CounterfactualExplanation(instance, explainer.black_box_predict, method="GF", target_class=None, 
+    growing_sphere = cf.CounterfactualExplanation(instance, explainer.black_box_predict, method=method, target_class=None, 
                 continuous_features=explainer.continuous_features, categorical_features=explainer.categorical_features, 
                 categorical_values=explainer.categorical_values, max_features=explainer.max_features,
                 min_features=explainer.min_features)
@@ -38,9 +38,12 @@ def find_closest_counterfactual(instance, explainer):
                 farthest_distance_training_dataset=farthest_distance, 
                 probability_categorical_feature=explainer.probability_categorical_feature, 
                 min_counterfactual_in_sphere=explainer.nb_min_instance_per_class_in_sphere)
-    return growing_sphere.enemy # Return the closest counterfactual
+    if method == 'GF':
+        return growing_sphere.enemy # Return the closest counterfactual
+    else:
+        return growing_sphere.enemy, growing_sphere.radius
 
-def get_farthest_distance(instance, train_data, categorical_features, metric='euclidean'):
+def get_farthest_distance(instance, train_data, categorical_features, explainer, metric='euclidean'):
     farthest_distance = 0
     for training_instance in train_data:
         # get_distance is similar to pairwise distance (i.e: it is the same results for euclidean distance) 
@@ -72,12 +75,15 @@ def compute_precision_in_sphere(ape_tabular, radius_sphere, closest_counterfactu
         return 0
     ape_tabular.nb_min_instance_in_sphere = 800
     if linear_explainer == 'ls':
-        linear_explainer = lime_explainer.explain_instance_training_dataset(closest_counterfactual, predict, 
+        linear_explainer = lime_explainer.explain_instance_training_dataset(closest_counterfactual, ape_tabular.black_box_predict, 
                                                                     num_features=6, model_regressor = LogisticRegression(),
                                                                     ape=ape_tabular, instances_in_sphere=instances_in_sphere)
-    else:
-        linear_explainer = lime_explainer.explain_instance(instance_to_explain, predict, num_features=6, 
+    elif linear_explainer =='lime':
+        linear_explainer = lime_explainer.explain_instance(instance_to_explain, ape_tabular.black_box_predict, num_features=6, 
                                                                     model_regressor=LogisticRegression())
+    else:
+        linear_explainer = lime_explainer.explain_instance(closest_counterfactual, ape_tabular.black_box_predict, model_regressor=LogisticRegression(), 
+                                                                    num_features=6)
     prediction_inside_sphere = ape_tabular.modify_instance_for_linear_model(linear_explainer, instances_in_sphere)
     precision_local_surrogate = ape_tabular.compute_linear_regression_precision(prediction_inside_sphere, labels_in_sphere)
     return precision_local_surrogate
@@ -166,7 +172,7 @@ if __name__ == "__main__":
                     closest_counterfactual = find_closest_counterfactual(instance_to_explain, explainer)
                     target_class = predict(instance_to_explain.reshape(1, -1))
                     opponent_class = predict(closest_counterfactual.reshape(1, -1))
-                    farthest_distance = get_farthest_distance(instance_to_explain, x_train, categorical_features, metric='manhattan')
+                    farthest_distance = get_farthest_distance(instance_to_explain, x_train, categorical_features, explainer, metric='manhattan')
                     
                     for radius in (0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1):
                         explainer.nb_min_instance_in_sphere = 800
