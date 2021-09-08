@@ -29,7 +29,7 @@ class ApeTabularExplainer(object):
     """
     def __init__(self, train_data, class_names, black_box_predict, black_box_predict_proba=None,
                 multiclass = False, continuous_features=None, categorical_features=None,
-                categorical_values = None, feature_names=None, discretizer="decile", 
+                categorical_values = None, feature_names=None, discretizer="quartile", 
                 nb_min_instance_in_sphere=800, threshold_precision=0.95, 
                 nb_min_instance_per_class_in_sphere=100, verbose=False, 
                 categorical_names=None, linear_separability_index=0.99,
@@ -137,6 +137,7 @@ class ApeTabularExplainer(object):
         if self.categorical_features != []:
             train_enc = instances_in_sphere[:,self.categorical_features]
             codes = self.enc.transform(train_enc).toarray()
+            print("codes to test precision", codes)
             instances_in_sphere = np.append(np.asarray(codes), instances_in_sphere[:,self.continuous_features], axis=1)
         prediction_inside_sphere = linear_model.predict(instances_in_sphere[:,used_features])
         return prediction_inside_sphere
@@ -616,13 +617,12 @@ class ApeTabularExplainer(object):
         last_radius = radius
         extending = False
         print("taille de l'échantillon pour mesurer la précision", len(test_labels_in_sphere), len(prediction_inside_sphere))
-        while precision_ls_raw_data > self.threshold_precision or precision_ls_raw_data < 0.8 and radius < farthest_distance:
+        while precision_ls_raw_data > self.threshold_precision or precision_ls_raw_data < 0.85 and radius < farthest_distance:
             #print("EXTENDING the hypersphere")
             extending = True
             """ Extending the hypersphere radius until the precision inside the hypersphere is lower than the threshold 
             and the radius of the hyper sphere is not longer than the distances to the farthest instance from the dataset """
-            final_precision = precision_ls_raw_data
-            last_radius = radius
+            #last_radius = radius
             # Extend the size of the sphere as Laugel et al. in Growing Sphere
             radius += 0.005
             position_training_instances_in_sphere, nb_training_instance_in_sphere = self.instances_from_dataset_inside_sphere(self.closest_counterfactual, 
@@ -643,9 +643,16 @@ class ApeTabularExplainer(object):
             #print("ls explanation", ls_raw_data.as_list())
             prediction_inside_sphere = self.modify_instance_for_linear_model(ls_raw_data, test_instances_in_sphere)
             #precision_ls_raw_data_old = self.compute_linear_regression_precision(prediction_inside_sphere, test_labels_in_sphere)
-            precision_ls_raw_data = precision_score(test_labels_in_sphere, prediction_inside_sphere)
-            #print("precision after extending the sphere", precision_ls_raw_data)
-            #print("radius", radius)
+            if precision_ls_raw_data <= precision_score(test_labels_in_sphere, prediction_inside_sphere): 
+                precision_ls_raw_data = precision_score(test_labels_in_sphere, prediction_inside_sphere)
+                final_precision = precision_score(test_labels_in_sphere, prediction_inside_sphere)
+                last_radius = radius
+            else:
+                final_precision = precision_ls_raw_data
+                last_radius -= 0.005
+
+            #print("precision after extending the sphere", final_precision)
+            ##print("radius", last_radius)
         if extending:#final_precision > precision_ls_raw_data and final_precision != 0.8 and precision_ls_raw_data < self.threshold_precision:
             precision_ls_raw_data = final_precision
             radius = last_radius
