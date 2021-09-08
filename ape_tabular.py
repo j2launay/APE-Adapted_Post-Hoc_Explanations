@@ -62,7 +62,7 @@ class ApeTabularExplainer(object):
                                                                     black_box_labels=self.black_box_labels, ordinal_features=continuous_features)
         if categorical_features != []:
             self.transformations = transformations
-            self.enc = OneHotEncoder()#categories=self.categorical_features)#handle_unknown='ignore')
+            self.enc = OneHotEncoder(handle_unknown='ignore')
             train_enc = train_data[:,categorical_features]
             self.enc.fit(train_enc)
             #self.enc.fit(train_data)

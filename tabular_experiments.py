@@ -19,11 +19,11 @@ if __name__ == "__main__":
     # Filter the warning from matplotlib
     warnings.filterwarnings("ignore")
     # Datasets used for the experiments
-    dataset_names = ["titanic", "blood", "diabete", "adult", "generate_circles", "generate_moons", "generate_blob", "generate_blobs", "compas"]
+    dataset_names = ["compas", "titanic", "adult", "generate_blob", "generate_blobs", "blood", "generate_circles", "generate_moons", "diabete"]
     # array of the models used for the experiments
-    models = [RandomForestClassifier(n_estimators=20), 
+    models = [GradientBoostingClassifier(n_estimators=20, learning_rate=1.0),
+                RandomForestClassifier(n_estimators=20), 
                 MLPClassifier(random_state=1, activation="logistic"),
-                GradientBoostingClassifier(n_estimators=20, learning_rate=1.0),
                 VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('rc', RidgeClassifier())], voting="hard"),
                 MLPClassifier(random_state=1),
                 RidgeClassifier()]#,
