@@ -137,7 +137,7 @@ class ApeTabularExplainer(object):
         if self.categorical_features != []:
             train_enc = instances_in_sphere[:,self.categorical_features]
             codes = self.enc.transform(train_enc).toarray()
-            print("codes to test precision", codes)
+            #print("codes to test precision", codes)
             instances_in_sphere = np.append(np.asarray(codes), instances_in_sphere[:,self.continuous_features], axis=1)
         prediction_inside_sphere = linear_model.predict(instances_in_sphere[:,used_features])
         return prediction_inside_sphere
@@ -617,6 +617,7 @@ class ApeTabularExplainer(object):
         last_radius = radius
         extending = False
         print("taille de l'échantillon pour mesurer la précision", len(test_labels_in_sphere), len(prediction_inside_sphere))
+        nb_not_increasing = 0
         while precision_ls_raw_data > self.threshold_precision or precision_ls_raw_data < 0.85 and radius < farthest_distance:
             #print("EXTENDING the hypersphere")
             extending = True
@@ -647,9 +648,14 @@ class ApeTabularExplainer(object):
                 precision_ls_raw_data = precision_score(test_labels_in_sphere, prediction_inside_sphere)
                 final_precision = precision_score(test_labels_in_sphere, prediction_inside_sphere)
                 last_radius = radius
+                nb_not_increasing = 0
             else:
                 final_precision = precision_ls_raw_data
-                last_radius -= 0.005
+                if nb_not_increasing ==0:
+                    last_radius -= 0.005
+                nb_not_increasing += 1
+                if nb_not_increasing == 10:
+                    break
 
             #print("precision after extending the sphere", final_precision)
             ##print("radius", last_radius)
