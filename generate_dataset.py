@@ -18,13 +18,13 @@ def preparing_dataset(x, y, dataset_name, model, plot=False, text=False):
         
     if not text:
         # Split the data inside a test and a train set (50% each)
-        x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.5)
+        x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.5, random_state=10)
         vectorizer = None
         return dataset, model, x_train, x_test, y_train, y_test
     else:
         print("Preparing dataset for text data")
-        if "newsgroup" in dataset_name:x, _, y, _ = train_test_split(x, y, test_size=0.9)
-        x_train_vectorize, x_test_vectorize, y_train, y_test = train_test_split(x, y, test_size=0.5)
+        if "newsgroup" in dataset_name:x, _, y, _ = train_test_split(x, y, test_size=0.9, random_state=10)
+        x_train_vectorize, x_test_vectorize, y_train, y_test = train_test_split(x, y, test_size=0.5, random_state=10)
         vectorizer = CountVectorizer(min_df=1)
         # Si il y a un probleme avec le vectorizer c'est parce qu'il n'a pas les mots du jeu de test lorsqu'il fit
         vectorizer.fit(x_train_vectorize)
@@ -40,6 +40,7 @@ def generate_dataset(dataset_name, multiclass=False):
     categorical_features=[] 
     categorical_values=[]
     categorical_names = []
+    transformations = None
     if "polarity" in dataset_name:
         path='./dataset/rt-polaritydata'
         X = []
@@ -81,6 +82,7 @@ def generate_dataset(dataset_name, multiclass=False):
             categorical_values.append(tab)
         class_names = ['Less than $50,000', 'More than $50,000']
         categorical_names = dataset.categorical_names
+        transformations = dataset.transformations
     
     elif "titanic" in dataset_name:
         dataset = utils.load_dataset("titanic", balance=False, discretize=False, dataset_folder="./dataset/")
@@ -99,6 +101,7 @@ def generate_dataset(dataset_name, multiclass=False):
             categorical_values.append(tab)
         class_names = ['Survive', 'Died']
         categorical_names = dataset.categorical_names
+        transformations = dataset.transformations
     
     elif "blood" in dataset_name:
         dataset = utils.load_dataset("blood", balance=False, discretize=False, dataset_folder="./dataset/")
@@ -142,11 +145,11 @@ def generate_dataset(dataset_name, multiclass=False):
         instance = []
         for taille, age in zip(tailles, ages):
             instance.append([taille, age])
-        X = np.array(instance) 
+        X = np.array(instance)
         class_names = ['class ' + str(Y)  for Y in range(len(set(y)))]
     
     elif "circles" in dataset_name:
-        X, y = make_circles(n_samples=1000, noise=0.05)
+        X, y = make_circles(n_samples=1000, noise=0.05, random_state=0)
         class_names = ['class ' + str(Y)  for Y in range(len(set(y)))]
     
     elif 'compas' in dataset_name:
@@ -180,6 +183,7 @@ def generate_dataset(dataset_name, multiclass=False):
         X = data.drop(['two_year_recid'], axis=1).values
         """
         class_names = ['Recidiv', 'Vanish']
+        transformations = dataset.transformations
 
     else:
         # By default the dataset chosen is generate_moons
@@ -188,6 +192,6 @@ def generate_dataset(dataset_name, multiclass=False):
         class_names = ['class ' + str(Y)  for Y in range(len(set(y)))]
     features = [i for i in range(len(X[0]))]
     continuous_features = [x for x in features if x not in categorical_features]
-    return X, y, class_names, regression, multiclass, continuous_features, categorical_features, categorical_values, categorical_names
+    return X, y, class_names, regression, multiclass, continuous_features, categorical_features, categorical_values, categorical_names, transformations
 
 #generate_dataset("titanic")
