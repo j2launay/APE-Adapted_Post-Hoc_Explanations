@@ -106,7 +106,7 @@ if __name__ == "__main__":
                 print("### Instance number:", cnt + 1, "over", max_instance_to_explain)
                 print("### Models ", nb_model + 1, "over", len(models))
                 print("instance to explain:", instance_to_explain)
-                closest_counterfactual, radius = find_closest_counterfactual(instance_to_explain, explainer, method='GS')
+                closest_counterfactual, radius = find_closest_counterfactual(instance_to_explain, explainer, method='GS', radius=True)
                 target_class = predict(instance_to_explain.reshape(1, -1))
                 opponent_class = predict(closest_counterfactual.reshape(1, -1))
                 farthest_distance = get_farthest_distance(instance_to_explain, x_train, categorical_features, explainer, metric='manhattan')

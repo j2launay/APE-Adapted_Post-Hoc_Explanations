@@ -69,8 +69,6 @@ class GrowingSpheres:
         Finds the decision border then perform projections to make the explanation sparse.
         """
         ennemies_, radius = self.exploration()
-        print("nnemies_", ennemies_)
-        print("radius", radius)
         ennemies = sorted(ennemies_, 
                                  key= lambda x: pairwise_distances(self.obs_to_interprete.reshape(1, -1), x.reshape(1, -1)))
         self.e_star = ennemies[0]

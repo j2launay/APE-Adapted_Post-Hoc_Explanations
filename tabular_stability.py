@@ -117,7 +117,7 @@ if __name__ == "__main__":
                 msi, csi, vsi = explainer.explain_instance(instance_to_explain, lime_stability=True, model_stability_index=True)
                 print("msi, csi, vsi", msi, csi, vsi)
                 if graph: stability_informations.store_stability_coefficient_information_instance(msi, csi, vsi)
-                multimodal_result, original_features_employed = explainer.explain_instance(instance_to_explain, stability=True)
+                """multimodal_result, original_features_employed = explainer.explain_instance(instance_to_explain, stability=True)
                 farthest_distance = get_farthest_distance(instance_to_explain, x_train, categorical_features, metric='manhattan')
                 if verbose:
                     print("distance la plus éloignée", farthest_distance)
@@ -136,7 +136,7 @@ if __name__ == "__main__":
                                                                         max_features=explainer.max_features,
                                                                         min_features=explainer.min_features)
 
-                """# Test the stability error
+                # Test the stability error
                 stability_results = 0
                 nb_identical_features= 0
                 for instance in perturb_instances:

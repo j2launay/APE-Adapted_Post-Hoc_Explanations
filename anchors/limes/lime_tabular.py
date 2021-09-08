@@ -540,12 +540,41 @@ class LimeTabularExplainer(object):
             for f in self.discretizer.names:
                 discretized_feature_names[f] = self.discretizer.names[f][int(
                         discretized_instance[f])]
-
-        domain_mapper = TableDomainMapper(feature_names,
+        """
+        print("domain mapper")
+        print("feature names", feature_names)
+        print("ape encoded features names", ape.encoded_features_names)
+        print("values", values)
+        print("scaled data", scaled_data[0])
+        print("categorical features", categorical_features)
+        print("discretized", discretized_feature_names)
+        """
+        if ape.categorical_features == []:
+            domain_mapper = TableDomainMapper(feature_names,
                                           values,
                                           scaled_data[0],
                                           categorical_features=categorical_features,
                                           discretized_feature_names=discretized_feature_names)
+        
+        else:
+            domain_feature_names = ape.encoded_features_names
+            #print(ape.enc.transform(scaled_data[0][ape.categorical_features].reshape(1, -1)).toarray())
+            #print(list(range(len(ape.continuous_features))))
+            domain_values = np.append(ape.enc.transform(scaled_data[0][ape.categorical_features].reshape(1, -1)).toarray()[0], 
+                                                np.ones(len(ape.continuous_features)), axis=0)
+            #domain_categorical_features = ape.enc.transform(scaled_data[0][ape.categorical_features].reshape(1, -1)).toarray()[0]
+            """
+            print("domain_categorical_features", domain_categorical_features)
+            print("domain values", domain_values)
+            print("target instance", scaled_data[0][ape.categorical_features].reshape(1, -1))
+            print("TEST", range(len(scaled_data[0]) - len(ape.continuous_features)))
+            print("2ND", range(len(domain_values) - len(ape.continuous_features)))
+            #print("2DN", discretized_feature_names[:,ape.continuous_features])"""
+            domain_mapper = TableDomainMapper(domain_feature_names,
+                                            domain_values,
+                                            ape.enc.transform(scaled_data[0][ape.categorical_features].reshape(1, -1)).toarray(),
+                                            categorical_features=range(len(scaled_data[0][ape.categorical_features].reshape(1, -1)) - len(ape.continuous_features)),
+                                            discretized_feature_names=discretized_feature_names)
         ret_exp = explanation.Explanation(domain_mapper,
                                           mode=self.mode,
                                           class_names=self.class_names)
@@ -574,7 +603,8 @@ class LimeTabularExplainer(object):
                     label,
                     num_features,
                     model_regressor=model_regressor,
-                    feature_selection=self.feature_selection)
+                    feature_selection=self.feature_selection,
+                    ape=ape)
 
         if self.mode == "regression":
             ret_exp.intercept[1] = ret_exp.intercept[0]

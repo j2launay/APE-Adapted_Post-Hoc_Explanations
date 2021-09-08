@@ -125,7 +125,8 @@ def load_dataset(dataset_name, balance=False, discretize=True, dataset_folder='.
             feature_names=feature_names, features_to_use=features_to_use,
             categorical_features=categorical_features, discretize=discretize,
             balance=balance, feature_transformations=transformations)
-    
+        dataset.transformations = transformations
+
     elif dataset_name == 'titanic':
         feature_names = ["PassengerId", "Pclass",  "First Name", "Last Name", "Sex",
                 "Age", "SibSp", "Parch", "Ticket", "Fare", "Cabin", "Embarked", "Survived"]
@@ -145,7 +146,8 @@ def load_dataset(dataset_name, balance=False, discretize=True, dataset_folder='.
             discretize=discretize,
             balance=balance, feature_transformations=transformations)
         dataset.class_names = ['Survived', 'Died']
-
+        dataset.transformations = transformations
+        
     elif dataset_name == 'compas':
         """
         feature_names = ['id', 'name', 'first', 'last', 'compas_screening_date', 'sex', 'dob', 
@@ -325,6 +327,8 @@ def load_dataset(dataset_name, balance=False, discretize=True, dataset_folder='.
             discretize=discretize,
             balance=balance, feature_transformations=transformations)
         dataset.class_names = ['Recidiv', 'Disappear']
+        dataset.transformations = transformations
+
     elif dataset_name == 'blood':
         feature_names = ["Recency", "Frequency",  "Monetary", "Time", "Class"]
         
@@ -368,6 +372,8 @@ def load_dataset(dataset_name, balance=False, discretize=True, dataset_folder='.
             features_to_use=range(2, 49),
             categorical_features=categorical_features, discretize=discretize,
             balance=balance, feature_transformations=transformations)
+        dataset.transformations = transformations
+
     elif dataset_name == 'default':
         categorical_features = [2, 3, 4, 6, 7, 8, 9, 10, 11]
         dataset = load_csv_dataset(
@@ -415,6 +421,7 @@ def load_dataset(dataset_name, balance=False, discretize=True, dataset_folder='.
             feature_names=feature_names, discretize=discretize,
             features_to_use=features_to_use, balance=balance,
             feature_transformations=transformations, skip_first=True)
+        dataset.transformations = transformations
     
     elif dataset_name == 'lending':
         def filter_fn(data):

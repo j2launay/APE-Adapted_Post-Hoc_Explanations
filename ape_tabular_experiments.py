@@ -116,7 +116,7 @@ def compute_all_explanation_method_precision(ape_tabular, instance, growing_sphe
     coverages = [local_surrogate_extend_raw_coverage, anchor_coverage, ape_coverage]
     f2s = [f2_local_surrogate_extend_raw, f2_anchor, f2_ape]
     multimodal = 1 if ape_tabular.multimodal_results else 0
-    return precisions, coverages, f2s, multimodal
+    return precisions, coverages, f2s, multimodal, ape_tabular.extended_radius, ape_tabular.separability_index, ape_tabular.pvalue
 
 def compute_local_surrogate_precision_coverage(ape_tabular, instance, growing_sphere,
                                                 test_instances_in_sphere, test_labels_in_sphere,

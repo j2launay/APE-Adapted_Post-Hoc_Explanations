@@ -19,18 +19,20 @@ if __name__ == "__main__":
     # Filter the warning from matplotlib
     warnings.filterwarnings("ignore")
     # Datasets used for the experiments
-    dataset_names = ["compas", "titanic", "adult", "blood", "diabete", "generate_moons", "generate_blob", "generate_blobs",  "iris"]
+    dataset_names = ["titanic", "blood", "diabete", "adult", "generate_circles", "generate_moons", "generate_blob", "generate_blobs", "compas"]
     # array of the models used for the experiments
-    models = [RandomForestClassifier(n_estimators=20), #LogisticRegression(),
+    models = [RandomForestClassifier(n_estimators=20), 
+                MLPClassifier(random_state=1, activation="logistic"),
                 GradientBoostingClassifier(n_estimators=20, learning_rate=1.0),
-                #tree.DecisionTreeClassifier(),
-                RidgeClassifier(),
-                #Sequential(),
                 VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('rc', RidgeClassifier())], voting="hard"),
-                MLPClassifier(random_state=1)]
+                MLPClassifier(random_state=1),
+                RidgeClassifier()]#,
+                #LogisticRegression(),
+                #tree.DecisionTreeClassifier(),
+                #Sequential(),
     #models=[RidgeClassifier(), MLPClassifier(random_state=1)]
     # Number of instances explained by each model on each dataset
-    max_instance_to_explain = 50
+    max_instance_to_explain = 25
     # Print explanation result
     illustrative_example = False
     """ All the variable necessaries for generating the graph results """
@@ -46,18 +48,20 @@ if __name__ == "__main__":
         growing_method = "GF"
     # Threshold for explanation method precision
     threshold_interpretability = 0.99
-    linear_separability_index = 0.99
+    linear_separability_index = 1
     linear_models_name = ['local surrogate', 'lime extending', 'lime regression', 'lime not binarize', 'lime traditional']
     interpretability_name = ['LS extend', 'anchor', 'APE']
     #interpretability_name = ['ls log reg', 'ls raw data']
     # Initialize all the variable needed to store the result in graph
-    if graph: experimental_informations = store_experimental_informations(len(models), len(interpretability_name), interpretability_name, len(models))
     for dataset_name in dataset_names:
+        if graph: experimental_informations = store_experimental_informations(len(models), len(interpretability_name), interpretability_name, len(models))
         models_name = []
         # Store dataset inside x and y (x data and y labels), with aditional information
-        x, y, class_names, regression, multiclass, continuous_features, categorical_features, categorical_values, categorical_names = generate_dataset(dataset_name)
+        x, y, class_names, regression, multiclass, continuous_features, categorical_features, categorical_values, categorical_names, transformations = generate_dataset(dataset_name)
         for nb_model, model in enumerate(models):
             model_name = type(model).__name__
+            if "MLP" in model_name and nb_model <=1 :
+                model_name += "logistic"
             if growing_sphere:
                 filename = "./results/"+dataset_name+"/"+model_name+"/growing_spheres/"+str(threshold_interpretability)+"/"
                 filename_all = "./results/"+dataset_name+"/growing_spheres/"+str(threshold_interpretability)+"/"
@@ -93,24 +97,33 @@ if __name__ == "__main__":
                                                             categorical_features=categorical_features, categorical_values=categorical_values, 
                                                             feature_names=dataset.feature_names, categorical_names=categorical_names,
                                                             verbose=verbose, threshold_precision=threshold_interpretability,
-                                                            linear_separability_index=linear_separability_index)
-            for instance_to_explain in x_test:
+                                                            linear_separability_index=linear_separability_index, 
+                                                            transformations=transformations)
+            for instance_to_explain in x_test[17:]:
                 if cnt == max_instance_to_explain:
                     break
                 print("### Instance number:", cnt + 1, "over", max_instance_to_explain)
                 print("### Models ", nb_model + 1, "over", len(models))
                 print("instance to explain:", instance_to_explain)
 
-                try:
-                    precision, coverage, f2, multimodal_result = explainer.explain_instance(instance_to_explain, growing_method=growing_method, 
-                                                            all_explanations_model=True)
-                    print("precision", precision)
-                    print("coverage", coverage)
-                    print("f2", f2)
-                    if graph: experimental_informations.store_experiments_information_instance(precision, coverage, f2)
-                    cnt += 1
-                except Exception as inst:
-                    print(inst)
+                #try:
+                precision, coverage, f2, multimodal_result, radius, separability, pvalue = explainer.explain_instance(instance_to_explain, 
+                                                    growing_method=growing_method, 
+                                                    all_explanations_model=True)
+                print("precision", precision)
+                print("coverage", coverage)
+                print("f2", f2)
+                print("multimodal", multimodal_result)
+                print("radius", radius)
+                print("separability", separability)
+                print("pvalue", pvalue)
+                print("folding statistic", explainer.folding_statistics)
+                if graph: experimental_informations.store_experiments_information_instance(precision, coverage, f2, 
+                                                    multimodal=[precision[0], precision[1], precision[2], multimodal_result, 
+                                                                                    radius, pvalue, separability, explainer.folding_statistics])
+                cnt += 1
+                #except Exception as inst:
+                #    print(inst)
 
             if graph: experimental_informations.store_experiments_information(max_instance_to_explain, nb_model, filename_all=filename_all)
 
@@ -125,19 +138,19 @@ if __name__ == "__main__":
                                         dataset=dataset_name, threshold=threshold_interpretability)
                 graph_coverage.show_coverage(model=interpretability_name, mean_coverage=experimental_informations.final_coverage, 
                                         color=color[:len(interpretability_name)], title= label_graph + "coverage")
-                
-                graph_roc = baseGraph.BaseGraph(title="Results of accuracy score for LS, APE and Anchors", y_label="Precision", 
-                                        model=model_name, accuracy=score(x_test, y_test), 
-                                        dataset=dataset_name, threshold=threshold_interpretability)
-                graph_roc.show_coverage(model=interpretability_name, mean_coverage=experimental_informations.final_precision, 
-                                        color=color[:len(interpretability_name)], title= label_graph + "Precision")
-                
+
                 graph_f2 = baseGraph.BaseGraph(title="Results of F2 score for LS, APE and Anchors", y_label="F2 score", 
                                         model=model_name, accuracy=score(x_test, y_test), 
                                         dataset=dataset_name, threshold=threshold_interpretability)
                 graph_f2.show_coverage(model=interpretability_name, mean_coverage=experimental_informations.final_f2, 
                                         color=color[:len(interpretability_name)], title= label_graph + "f2")
-                
+                                
+                graph_roc = baseGraph.BaseGraph(title="Results of accuracy score for LS, APE and Anchors", y_label="Precision", 
+                                        model=model_name, accuracy=score(x_test, y_test), 
+                                        dataset=dataset_name, threshold=threshold_interpretability)
+                graph_roc.show_coverage(model=interpretability_name, mean_coverage=experimental_informations.final_precision, 
+                                        color=color[:len(interpretability_name)], title= label_graph + "Precision")
+
         if len(models) > 1 and graph:
             # In case of multiple models we compare results for each model
             color, bars, y_pos = prepare_legends(experimental_informations.final_coverages, models, interpretability_name)

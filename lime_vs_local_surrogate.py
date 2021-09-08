@@ -18,7 +18,7 @@ from anchors import limes
 from growingspheres.utils.gs_utils import distances
 from growingspheres import counterfactuals as cf
 
-def find_closest_counterfactual(instance, explainer, method='GF'):
+def find_closest_counterfactual(instance, explainer, method='GF', radius=False):
     # Computes the distance to the farthest instance from the training dataset to bound generating instances 
     farthest_distance = 0
     for training_instance in explainer.train_data:
@@ -38,7 +38,7 @@ def find_closest_counterfactual(instance, explainer, method='GF'):
                 farthest_distance_training_dataset=farthest_distance, 
                 probability_categorical_feature=explainer.probability_categorical_feature, 
                 min_counterfactual_in_sphere=explainer.nb_min_instance_per_class_in_sphere)
-    if method == 'GF':
+    if radius == False:
         return growing_sphere.enemy # Return the closest counterfactual
     else:
         return growing_sphere.enemy, growing_sphere.radius
@@ -117,8 +117,8 @@ if __name__ == "__main__":
     interpretability_name = ['radius', 'Lime', 'Local Surrogate']
     #interpretability_name = ['ls log reg', 'ls raw data']
     # Initialize all the variable needed to store the result in graph
-    if graph: experimental_informations = store_experimental_informations(len(models), len(interpretability_name), interpretability_name, len(models))
     for dataset_name in dataset_names:
+        if graph: experimental_informations = store_experimental_informations(len(models), len(interpretability_name), interpretability_name, len(models))
         models_name = []
         # Store dataset inside x and y (x data and y labels), with aditional information
         x, y, class_names, regression, multiclass, continuous_features, categorical_features, categorical_values, categorical_names = generate_dataset(dataset_name)
@@ -128,7 +128,7 @@ if __name__ == "__main__":
             if graph: experimental_informations.initialize_per_models(filename)
             models_name.append(model_name)
             # Split the dataset inside train and test set (50% each set)
-            dataset, black_box, x_train, x_test, y_train, y_test = preparing_dataset(x, y, dataset_name, model)
+            dataset, black_box, x_train, x_test, y_train, y_test, transformations = preparing_dataset(x, y, dataset_name, model)
             print("###", model_name, "training on", dataset_name, "dataset.")
             if 'Sequential' in model_name:
                 # Train a neural network classifier with 2 relu and a sigmoid activation function
@@ -154,7 +154,8 @@ if __name__ == "__main__":
                                                             continuous_features=continuous_features,
                                                             categorical_features=categorical_features, categorical_values=categorical_values, 
                                                             feature_names=dataset.feature_names, categorical_names=categorical_names,
-                                                            verbose=verbose, threshold_precision=threshold_interpretability)
+                                                            verbose=verbose, threshold_precision=threshold_interpretability, 
+                                                            transformations=transformations)
 
             lime_explainer = limes.lime_tabular.LimeTabularExplainer(x_train, feature_names=dataset.feature_names, 
                                                                 categorical_features=categorical_features, categorical_names=categorical_names,

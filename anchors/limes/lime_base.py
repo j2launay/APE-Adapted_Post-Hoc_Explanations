@@ -119,7 +119,8 @@ class LimeBase(object):
                                    num_features,
                                    feature_selection='auto',
                                    model_regressor=None,
-                                   stability=False):
+                                   stability=False,
+                                   ape=None):
         """Takes perturbed data, labels and distances, returns explanation.
 
         Args:
@@ -172,12 +173,32 @@ class LimeBase(object):
                                                labels_column,
                                                weights,
                                                num_features,
-                                               feature_selection, model_regressor=model_regressor)
+                                               feature_selection, 
+                                               model_regressor=model_regressor)
 
         self.used_features = used_features
         if model_regressor is None:
             model_regressor = Ridge(alpha=1, fit_intercept=True,
                                     random_state=self.random_state)
+        if ape.categorical_features != []:
+            #print("neighborod data", neighborhood_data[0])
+            #print("categorical features from ape in lime base", ape.categorical_features)
+            codes = ape.enc.transform(neighborhood_data[:,ape.categorical_features]).toarray()
+            """train_enc = train_data[:,categorical_features]
+            self.enc.fit(train_enc)
+            #self.enc.fit(train_data)
+            codes = self.enc.transform(train_enc).toarray()
+            #codes = self.enc.transform(train_data).toarray()"""
+            #categorical_features_names = []
+            #for i in categorical_features:
+            #    categorical_features_names.append(feature_names[i])
+            neighborhood_data = np.append(np.asarray(codes), 
+                                neighborhood_data[:,ape.continuous_features], axis=1)
+            #print("neighborhood data after", neighborhood_data[0])
+            used_features = []
+            for i in range(len(neighborhood_data[0])):
+                used_features.append(i)
+            #print("used feature after", used_features)
         easy_model = model_regressor
         easy_model.fit(neighborhood_data[:, used_features],
                         labels_column, sample_weight=weights)
@@ -195,9 +216,10 @@ class LimeBase(object):
             coef = easy_model.coef_[local_pred]
         else:
             coef = easy_model.coef_"""
-
-        
-
+        #print("coef for easy model", coef)
+        #print("label to use", used_features)        
+        #inverse_features = ape.enc.inverse_transform(np.asarray(used_features).reshape(1, -1))
+        #print("TEST", inverse_features)
         if stability:
             # For Lime stability computation
             print("searching for vsi and csi indicators...")

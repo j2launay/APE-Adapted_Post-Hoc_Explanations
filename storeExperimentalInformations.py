@@ -1,3 +1,4 @@
+from pandas.core.indexes import multi
 import numpy as np
 import pandas as pd
 import csv
@@ -53,6 +54,7 @@ class store_experimental_informations(object):
         self.pd_all_models_precision = pd.DataFrame(columns=interpretability_name)
         self.pd_all_models_coverage = pd.DataFrame(columns=interpretability_name)
         self.pd_all_models_f2 = pd.DataFrame(columns=interpretability_name)
+        self.pd_all_models_multimodal = pd.DataFrame(columns=["LS", "Anchors", "APE", "Multimodal", "radius", "pvalue", "separability", "folding statistics"])
         self.pd_all_models_stability = pd.DataFrame(columns=interpretability_name)
         self.pd_all_models_stability_features = pd.DataFrame(columns=interpretability_name)
         self.pd_all_models_msi = pd.DataFrame(columns=['APE'])
@@ -73,7 +75,7 @@ class store_experimental_informations(object):
         self.recall_user_experiments = {}
         self.multimodal = []
         self.filename = filename
-        os.makedirs(os.path.dirname(self.filename+"/"), exist_ok=True)
+        os.makedirs(os.path.dirname(self.filename), exist_ok=True)
         self.pd_stability = pd.DataFrame(columns=self.interpretability_name)
         self.pd_stability_features = pd.DataFrame(columns=self.interpretability_name)
         self.pd_msi = pd.DataFrame(columns=['APE'])
@@ -83,6 +85,7 @@ class store_experimental_informations(object):
         self.pd_precision = pd.DataFrame(columns=self.interpretability_name)
         self.pd_coverage = pd.DataFrame(columns=self.interpretability_name)
         self.pd_f2 = pd.DataFrame(columns=self.interpretability_name)
+        self.pd_multimodal = pd.DataFrame(columns=["LS", "Anchors", "APE", "Multimodal", "radius", "pvalue", "separability", "folding statistics"])
         self.pd_recall = pd.DataFrame(columns=self.interpretability_name)
         self.pd_average_distance = pd.DataFrame(columns=self.interpretability_name)
         self.pd_lime_ls = pd.DataFrame(columns=self.interpretability_name)
@@ -106,12 +109,6 @@ class store_experimental_informations(object):
         if local_surrogate:
             self.pd_precision = self.pd_precision.append(pd.DataFrame([precisions], columns=self.interpretability_name))
             self.pd_precision.to_csv(self.filename + 'precision.csv', index=False)
-            """
-            if self.precision[self.interpretability_name] == []:
-                self.precision[self.interpretability_name] = precisions
-            else:
-                self.precision[self.interpretability_name] += precisions
-            """
         else:
             self.pd_precision = self.pd_precision.append(pd.DataFrame([precisions], columns=self.interpretability_name))
             self.pd_coverage = self.pd_coverage.append(pd.DataFrame([coverages], columns=self.interpretability_name))
@@ -133,6 +130,9 @@ class store_experimental_informations(object):
                     self.multimodal = multimodal
                 else:
                     self.multimodal += multimodal
+                self.pd_multimodal = self.pd_multimodal.append(pd.DataFrame([multimodal], columns=["LS", "Anchors", "APE", "Multimodal", "radius", "pvalue", 
+                                                    "separability", "folding statistics"]))
+                self.pd_multimodal.to_csv(self.filename + "multimodal.csv", index=False)
 
     def store_experiments_information(self, nb_instance, nb_model, filename_all=""):
         """ 
@@ -169,8 +169,11 @@ class store_experimental_informations(object):
             self.pd_all_models_f2s.to_csv(filename_all + 'f2.csv', index=False)
         
         if not self.multimodal == []:
-            self.final_multimodal = self.multimodal/nb_instance
+            self.final_multimodal = self.multimodal[3]/nb_instance
             self.final_multimodals[nb_model] = self.final_multimodal
+            self.pd_all_models_multimodal = self.pd_all_models_multimodal.append(self.pd_multimodal)
+            self.pd_all_models_multimodal.to_csv(filename_all + "multimodal.csv", index=False)
+            self.pd_multimodal.to_csv(self.filename + "multimodal.csv", index=False)
         
         if not self.pd_stability.empty:
             self.pd_all_models_stability_features = self.pd_all_models_stability_features.append(self.pd_stability_features)
@@ -242,8 +245,8 @@ class store_experimental_informations(object):
         Args: nb_instance: Number of instances for which we generate an explanation for each model
               nb_model: Numerous of the black box model for which we generate explanation (first model employed = 0 , second model employed = 1, etc...)
         """
-        os.makedirs(os.path.dirname(self.filename+"/"), exist_ok=True)
-        os.makedirs(os.path.dirname(filename_all+"/"), exist_ok=True)
+        os.makedirs(os.path.dirname(self.filename), exist_ok=True)
+        os.makedirs(os.path.dirname(filename_all), exist_ok=True)
         self.final_recall = []
         for interpretability in self.interpretability_name:
             self.final_recall.append(self.recall_user_experiments[interpretability] / nb_instance)

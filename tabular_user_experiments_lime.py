@@ -114,7 +114,7 @@ if __name__ == "__main__":
                     cnt += 1
 
                 try:
-                    if graph: experimental_informations.store_user_experiments_information_instance([score_lime, score_random, score_local_surrogate])
+                    if graph: experimental_informations.store_user_experiments_information_instance([score_lime, score_random, score_local_surrogate], lime=True)
                 except Exception as inst:
                     print(inst)
                     
