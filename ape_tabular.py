@@ -253,6 +253,9 @@ class ApeTabularExplainer(object):
                                                                         artificial_instances_pandas_frame)
             artificial_instances_in_anchors = artificial_instances_in_anchors.append(artificial_instances_in_anchor, ignore_index=True)
             cnt += 1
+            if cnt > 10 and len(artificial_instances_in_anchors) < 10:
+                # TODO deal with cases where GF is not able to generate instances for too specific anchors
+                test += 2
         return artificial_instances_in_anchors[:nb_instances_in_sphere].to_numpy()
 
     def store_counterfactual_instances_in_sphere(self, instances_in_sphere, libfolding=False):
@@ -541,7 +544,6 @@ class ApeTabularExplainer(object):
                                     delta=0.1, tau=0.15, batch_size=100, max_anchor_size=None, 
                                     stop_on_first=False, desired_label=None, beam_size=4)
         # Generate rules and data frame for applying anchors on training data
-        #print("rule by anchor", anchor_exp.names())
 
         rules, testing_instances_pandas_frame = self.generate_rule_and_data_for_anchors(anchor_exp.names(), self.target_class, self.test_data)
         # Apply anchors and returns instances from testing instances pandas frame with corresponding labels 
@@ -549,7 +551,6 @@ class ApeTabularExplainer(object):
         testing_instances_pandas_frame = pd.concat([testing_instances_pandas_frame, pd.DataFrame(labels_test_instances, columns=["label"])], axis=1)
 
         testing_instances_in_anchor = self.get_base_model_data(rules, testing_instances_pandas_frame)
-        
         # Computes the number of instances from the training set that are classified as the target instance and validate the anchor rules.
         labels_instance_test_data = self.black_box_predict(self.test_data)
         index_instances_test_data_labels_as_target = np.where([x == self.target_class for x in labels_instance_test_data])
@@ -557,12 +558,14 @@ class ApeTabularExplainer(object):
         testing_instances_in_anchor = testing_instances_in_anchor.drop(columns=['label'])
         coverage_testing_instances_in_anchor = testing_instances_in_anchor.copy()
         nb_test_instances_in_anchor = 0
-        
         for instance_index in instances_from_index:
             matches = coverage_testing_instances_in_anchor[(coverage_testing_instances_in_anchor==instance_index).all(axis=1)]
             if len(matches)>0:
                 nb_test_instances_in_anchor += 1
-            
+        if nb_test_instances_in_anchor < 10:
+            farthest_distance = 1
+            percentage_distribution = 100
+            nb_instances_in_sphere = min(nb_instances_in_sphere, 100)
         # Generates artificial instances in the area of the anchor rules until there are as many instances as in the hyperfield
         instances_in_anchor = self.generate_artificial_instances_in_anchor(testing_instances_in_anchor, nb_instances_in_sphere, instance, 
                                                 rules, farthest_distance, percentage_distribution)
@@ -613,7 +616,7 @@ class ApeTabularExplainer(object):
         last_radius = radius
         print("taille de l'échantillon pour mesurer la précision", len(test_labels_in_sphere), len(prediction_inside_sphere))
         while precision_ls_raw_data > self.threshold_precision or final_precision < 0.8 and radius < farthest_distance:
-          #print("EXTENDING the hypersphere")
+            #print("EXTENDING the hypersphere")
             """ Extending the hypersphere radius until the precision inside the hypersphere is lower than the threshold 
             and the radius of the hyper sphere is not longer than the distances to the farthest instance from the dataset """
             final_precision = precision_ls_raw_data
@@ -647,12 +650,14 @@ class ApeTabularExplainer(object):
         #print("lime explanation", ls_raw_data.as_list())
         #start_time = time.time()
         #print("timing", start_time)
-        position_testing_instances_in_sphere, nb_testing_instance_in_sphere = self.instances_from_dataset_inside_sphere(self.closest_counterfactual, 
-                                                                                                            radius, self.test_data)
+        #position_testing_instances_in_sphere, nb_testing_instance_in_sphere = self.instances_from_dataset_inside_sphere(self.closest_counterfactual, 
+        #                                                                                                    radius, self.test_data)
         # Compute the number of training data that are classify by the black box model as the target instance and the labels of training data instance
+        """
         nb_testing_instance_in_sphere_label_as_target, labels_testing_instance_in_sphere = self.compute_labels_inside_sphere(nb_testing_instance_in_sphere, 
                                                                                                                                 position_testing_instances_in_sphere,
                                                                                                                                 self.test_data)
+        """
         #print("il aura fallu %s secondes pour calculer la couverture à l'ancienne" % (time.time() - start_time))
         #start_time = time.time()
         """ computation of the coverage inside the sphere for linear model on training data """

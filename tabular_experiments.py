@@ -19,7 +19,7 @@ if __name__ == "__main__":
     # Filter the warning from matplotlib
     warnings.filterwarnings("ignore")
     # Datasets used for the experiments
-    dataset_names = ["compas", "titanic", "adult", "generate_blob", "generate_blobs", "blood", "generate_circles", "generate_moons", "diabete"]
+    dataset_names = ["titanic", "compas", "adult", "generate_blob", "generate_blobs", "blood", "generate_circles", "generate_moons", "diabete"]
     # array of the models used for the experiments
     models = [GradientBoostingClassifier(n_estimators=20, learning_rate=1.0),
                 RandomForestClassifier(n_estimators=20), 
@@ -106,24 +106,24 @@ if __name__ == "__main__":
                 print("### Models ", nb_model + 1, "over", len(models))
                 print("instance to explain:", instance_to_explain)
 
-                #try:
-                precision, coverage, f2, multimodal_result, radius, separability, pvalue = explainer.explain_instance(instance_to_explain, 
-                                                    growing_method=growing_method, 
-                                                    all_explanations_model=True)
-                print("precision", precision)
-                print("coverage", coverage)
-                print("f2", f2)
-                print("multimodal", multimodal_result)
-                print("radius", radius)
-                print("separability", separability)
-                print("pvalue", pvalue)
-                print("folding statistic", explainer.folding_statistics)
-                if graph: experimental_informations.store_experiments_information_instance(precision, coverage, f2, 
-                                                    multimodal=[precision[0], precision[1], precision[2], multimodal_result, 
-                                                                                    radius, pvalue, separability, explainer.folding_statistics])
-                cnt += 1
-                #except Exception as inst:
-                #    print(inst)
+                try:
+                    precision, coverage, f2, multimodal_result, radius, separability, pvalue = explainer.explain_instance(instance_to_explain, 
+                                                        growing_method=growing_method, 
+                                                        all_explanations_model=True)
+                    print("precision", precision)
+                    print("coverage", coverage)
+                    print("f2", f2)
+                    print("multimodal", multimodal_result)
+                    print("radius", radius)
+                    print("separability", separability)
+                    print("pvalue", pvalue)
+                    print("folding statistic", explainer.folding_statistics)
+                    if graph: experimental_informations.store_experiments_information_instance(precision, coverage, f2, 
+                                                        multimodal=[precision[0], precision[1], precision[2], multimodal_result, 
+                                                                                        radius, pvalue, separability, explainer.folding_statistics])
+                    cnt += 1
+                except Exception as inst:
+                    print(inst)
 
             if graph: experimental_informations.store_experiments_information(max_instance_to_explain, nb_model, filename_all=filename_all)
 

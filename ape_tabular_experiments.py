@@ -96,7 +96,6 @@ def compute_all_explanation_method_precision(ape_tabular, instance, growing_sphe
     anchor_precision, anchor_coverage, f2_anchor, _ = ape_tabular.compute_anchor_precision_coverage(instance, 
                                     labels_instance_test_data, len(instances_in_sphere), 
                                     farthest_distance, percentage_distribution, nb_instance_test_data_label_as_target)
-
     ape_precision = anchor_precision if ape_tabular.multimodal_results else local_surrogate_extend_raw_precision
     ape_coverage = anchor_coverage if ape_tabular.multimodal_results else local_surrogate_extend_raw_coverage
     f2_ape = f2_anchor if ape_tabular.multimodal_results else f2_local_surrogate_extend_raw
