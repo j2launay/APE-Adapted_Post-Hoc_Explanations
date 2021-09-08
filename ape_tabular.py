@@ -612,11 +612,13 @@ class ApeTabularExplainer(object):
             print("ATTENTION, la precision est de 0")
             print("prediction of ls model", prediction_inside_sphere)
         radius = growing_sphere.radius
-        final_precision = 0.8
+        #final_precision = 0.8
         last_radius = radius
+        extending = False
         print("taille de l'échantillon pour mesurer la précision", len(test_labels_in_sphere), len(prediction_inside_sphere))
-        while precision_ls_raw_data > self.threshold_precision or final_precision < 0.8 and radius < farthest_distance:
+        while precision_ls_raw_data > self.threshold_precision or precision_ls_raw_data < 0.8 and radius < farthest_distance:
             #print("EXTENDING the hypersphere")
+            extending = True
             """ Extending the hypersphere radius until the precision inside the hypersphere is lower than the threshold 
             and the radius of the hyper sphere is not longer than the distances to the farthest instance from the dataset """
             final_precision = precision_ls_raw_data
@@ -644,7 +646,7 @@ class ApeTabularExplainer(object):
             precision_ls_raw_data = precision_score(test_labels_in_sphere, prediction_inside_sphere)
             #print("precision after extending the sphere", precision_ls_raw_data)
             #print("radius", radius)
-        if final_precision > precision_ls_raw_data or final_precision < 0.8 and precision_ls_raw_data < self.threshold_precision:
+        if extending:#final_precision > precision_ls_raw_data and final_precision != 0.8 and precision_ls_raw_data < self.threshold_precision:
             precision_ls_raw_data = final_precision
             radius = last_radius
         #print("lime explanation", ls_raw_data.as_list())
