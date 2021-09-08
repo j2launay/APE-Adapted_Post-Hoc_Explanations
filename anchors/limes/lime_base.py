@@ -5,7 +5,8 @@ from __future__ import print_function
 import numpy as np
 from sklearn.linear_model import Ridge, lars_path
 from sklearn.utils import check_random_state
-from sklearn import preprocessing
+from collections import Counter
+import random
 
 class LimeBase(object):
     """Class for learning a locally linear sparse model from perturbed data"""
@@ -183,6 +184,27 @@ class LimeBase(object):
         if ape.categorical_features != []:
             #print("neighborod data", neighborhood_data[0])
             #print("categorical features from ape in lime base", ape.categorical_features)
+            #c = Counter(neighborhood_labels)
+            neighborhood_data_index_minorities_class = np.where([x == label for x in neighborhood_labels])[0]
+            if len(neighborhood_labels) > 2 * len(neighborhood_data_index_minorities_class):
+                test = neighborhood_data[neighborhood_data_index_minorities_class]
+                how_many = len(neighborhood_labels) - len(neighborhood_data_index_minorities_class)
+                idx = np.random.randint(len(neighborhood_data_index_minorities_class), size=how_many)
+                add_index_for_oversampling = [label]*how_many
+                weights_values_for_oversampling = weights[neighborhood_data_index_minorities_class]
+            else:
+                index_class_counterfactual = list(set(list(range(0, len(neighborhood_labels)))) - set(neighborhood_data_index_minorities_class))
+                test = neighborhood_data[index_class_counterfactual]
+                how_many =  len(neighborhood_data_index_minorities_class) - (len(neighborhood_labels) - len(neighborhood_data_index_minorities_class))
+                idx = np.random.randint(len(index_class_counterfactual), size=how_many)
+                add_index_for_oversampling = [1-label]*how_many
+                weights_values_for_oversampling = weights[index_class_counterfactual]
+            add_instance_for_oversampling = test[idx,:]
+            add_sample_weight = weights_values_for_oversampling[idx]
+            weights = np.concatenate((weights, add_sample_weight))
+            neighborhood_data = np.concatenate((neighborhood_data, add_instance_for_oversampling))
+            labels_column = np.concatenate((neighborhood_labels, add_index_for_oversampling))
+            #print("neighborhood labels after", neighborhood_labels)
             codes = ape.enc.transform(neighborhood_data[:,ape.categorical_features]).toarray()
             """train_enc = train_data[:,categorical_features]
             self.enc.fit(train_enc)

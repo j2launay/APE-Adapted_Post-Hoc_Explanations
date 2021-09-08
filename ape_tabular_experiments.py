@@ -91,7 +91,7 @@ def compute_all_explanation_method_precision(ape_tabular, instance, growing_sphe
                                             instance, labels_in_sphere, growing_sphere, nb_features_employed, 
                                             farthest_distance_cf, dicrease_radius, 
                                             nb_instance_test_data_label_as_target)
-    
+
     # Compute precision, coverage and F1 for Anchors
     anchor_precision, anchor_coverage, f2_anchor, _ = ape_tabular.compute_anchor_precision_coverage(instance, 
                                     labels_instance_test_data, len(instances_in_sphere), 

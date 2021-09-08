@@ -101,7 +101,7 @@ class ApeTabularExplainer(object):
         
             self.lime_explainer = limes.lime_tabular.LimeTabularExplainer(train_data, feature_names=feature_names, 
                                                                 categorical_features=categorical_features, categorical_names=categorical_names,
-                                                                class_names=class_names, discretize_continuous=False, 
+                                                                class_names=class_names, discretize_continuous=False, #TODO change to True ?
                                                                 training_labels=self.black_box_labels)                                                            
         # Compute and store variance of each feature
         self.feature_variance = []
@@ -254,7 +254,7 @@ class ApeTabularExplainer(object):
                                                                         artificial_instances_pandas_frame)
             artificial_instances_in_anchors = artificial_instances_in_anchors.append(artificial_instances_in_anchor, ignore_index=True)
             cnt += 1
-            if cnt > 10 and len(artificial_instances_in_anchors) < 10:
+            if cnt > 15 and len(artificial_instances_in_anchors) < 10:
                 # TODO deal with cases where GF is not able to generate instances for too specific anchors
                 test += 2
         return artificial_instances_in_anchors[:nb_instances_in_sphere].to_numpy()
@@ -291,12 +291,13 @@ class ApeTabularExplainer(object):
         self.pvalue = results.p_value
         self.separability_index = -1
         
+        """
         if self.pvalue > 0.05:
             #print("la pvalue est trop faible on génère plus d'instances")
             # TODO generate more instances
             self.multimodal_results = True
             return True
-        
+        """
         #print(self.multimodal_results)
         if self.multimodal_results:
             # If counterfactual instances are multimodal we compute the clusters center 
@@ -498,18 +499,22 @@ class ApeTabularExplainer(object):
             thresholds_regression = [min_threshold_regression, max_threshold_regression]
         precisions_regression = []
         for threshold_regression in thresholds_regression:
+            prediction_inside_sphere_regression_test_sup_0 = []
             prediction_inside_sphere_regression_test = []
             for prediction_regression in prediction_inside_sphere:
                 # TODO regarder si c'est toujours la classe 1 quand c'est supérieur et 0 inférieur + S'occuper des cas multiclasses
                 if prediction_regression > threshold_regression:
                     prediction_inside_sphere_regression_test.append(1)
+                    prediction_inside_sphere_regression_test_sup_0.append(0)
                 else:
                     prediction_inside_sphere_regression_test.append(0)
+                    prediction_inside_sphere_regression_test_sup_0.append(1)
             #precision_regression = sum(prediction_inside_sphere_regression_test == labels_in_sphere)/len(prediction_inside_sphere_regression_test)
             #print("precision regression", precision_regression)
-            precision_regression = precision_score(prediction_inside_sphere_regression_test, labels_in_sphere)
+            precision_regression = precision_score(prediction_inside_sphere_regression_test, labels_in_sphere, pos_label=self.target_class)
+            precision_regression_sup_0 = precision_score(prediction_inside_sphere_regression_test_sup_0, labels_in_sphere, pos_label=self.target_class)
             #print("average precision", average_precision)
-            precisions_regression.append(precision_regression)
+            precisions_regression.append(max(precision_regression, precision_regression_sup_0))
         lime_extending_precision = max(precisions_regression)
         return lime_extending_precision
 
@@ -572,7 +577,9 @@ class ApeTabularExplainer(object):
                                                 rules, farthest_distance, percentage_distribution)
         labels_in_anchor = self.black_box_predict(instances_in_anchor)
         anchor_coverage = nb_test_instances_in_anchor/nb_instance_test_data_label_as_target
-        anchor_precision = sum(labels_in_anchor == self.target_class)/len(labels_in_anchor)
+        #print(list(range(self.target_class))[:20])
+        #print(len(list(range(self.target_class))))
+        anchor_precision = precision_score(labels_in_anchor, [self.target_class]*len(labels_in_anchor), pos_label=self.target_class) #sum(labels_in_anchor == self.target_class)/len(labels_in_anchor)
         f2_anchor = (anchor_coverage+2*anchor_precision)/3
         return anchor_precision, anchor_coverage, f2_anchor, anchor_exp.names()
 
@@ -590,8 +597,7 @@ class ApeTabularExplainer(object):
               nb_instance_train_data_label_as_target: Number of instances from the training data that are classify as the target instance
         Return: precision, coverage and F1 of local surrogate trained over training instances with a logistic regression model
         """
-        #over_sampler = RandomOverSampler(random_state=42)
-        #train_instances_in_sphere, labels_in_sphere = over_sampler.fit_resample(train_instances_in_sphere, labels_in_sphere)
+
         train_instances_in_sphere, test_instances_in_sphere, labels_in_sphere, test_labels_in_sphere = train_test_split(train_instances_in_sphere, 
                                                         labels_in_sphere, test_size=0.4, random_state=42)
         # Generate a local surrogate explanation model (centered on the closest counterfactual instance) trained over 
@@ -607,25 +613,23 @@ class ApeTabularExplainer(object):
         # Initialize the precision of Local Surrogate
         #precision_ls_raw_data = sum(test_labels_in_sphere == prediction_inside_sphere)/len(prediction_inside_sphere)
         #print("precision ls", precision_ls_raw_data)
-        precision_ls_raw_data = precision_score(test_labels_in_sphere, prediction_inside_sphere)
+        precision_ls_raw_data = precision_score(test_labels_in_sphere, prediction_inside_sphere, pos_label=self.target_class)
         #print("average precision", precision_ls_raw_data)
         if precision_ls_raw_data == 0:
             print("ATTENTION, la precision est de 0")
-            print("prediction of ls model", prediction_inside_sphere)
+            print("taille de l'échantillon pour mesurer la précision", len(test_labels_in_sphere), len(prediction_inside_sphere))
         radius = growing_sphere.radius
-        #final_precision = 0.8
         last_radius = radius
         extending = False
-        print("taille de l'échantillon pour mesurer la précision", len(test_labels_in_sphere), len(prediction_inside_sphere))
         nb_not_increasing = 0
-        while precision_ls_raw_data > self.threshold_precision or precision_ls_raw_data < 0.85 and radius < farthest_distance:
-            #print("EXTENDING the hypersphere")
+        while (precision_ls_raw_data > self.threshold_precision or precision_ls_raw_data < 0.85) and radius < farthest_distance:
+            print("EXTENDING the hypersphere")
             extending = True
             """ Extending the hypersphere radius until the precision inside the hypersphere is lower than the threshold 
             and the radius of the hyper sphere is not longer than the distances to the farthest instance from the dataset """
             #last_radius = radius
             # Extend the size of the sphere as Laugel et al. in Growing Sphere
-            radius += 0.005
+            radius += 0.05
             position_training_instances_in_sphere, nb_training_instance_in_sphere = self.instances_from_dataset_inside_sphere(self.closest_counterfactual, 
                                                                                                                 radius, self.train_data)
             train_instances_in_sphere, labels_in_sphere, percentage_distribution, _ = self.generate_instances_inside_sphere(radius, self.closest_counterfactual, self.train_data,
@@ -643,14 +647,18 @@ class ApeTabularExplainer(object):
                                                                     ape=self)
             #print("ls explanation", ls_raw_data.as_list())
             prediction_inside_sphere = self.modify_instance_for_linear_model(ls_raw_data, test_instances_in_sphere)
+            #print("precision ls raw data", precision_ls_raw_data)
+            #print("precision score", precision_score(test_labels_in_sphere, prediction_inside_sphere, pos_label=self.target_class))
             #precision_ls_raw_data_old = self.compute_linear_regression_precision(prediction_inside_sphere, test_labels_in_sphere)
-            if precision_ls_raw_data <= precision_score(test_labels_in_sphere, prediction_inside_sphere): 
-                precision_ls_raw_data = precision_score(test_labels_in_sphere, prediction_inside_sphere)
-                final_precision = precision_score(test_labels_in_sphere, prediction_inside_sphere)
+            if precision_ls_raw_data <= precision_score(test_labels_in_sphere, prediction_inside_sphere, pos_label=self.target_class): 
+                precision_ls_raw_data = precision_score(test_labels_in_sphere, prediction_inside_sphere, pos_label=self.target_class)
+                #print("increasing precision")
+                final_precision = precision_ls_raw_data
                 last_radius = radius
                 nb_not_increasing = 0
             else:
                 final_precision = precision_ls_raw_data
+                #print("keeping precision")
                 if nb_not_increasing ==0:
                     last_radius -= 0.005
                 nb_not_increasing += 1
@@ -658,7 +666,8 @@ class ApeTabularExplainer(object):
                     break
 
             #print("precision after extending the sphere", final_precision)
-            ##print("radius", last_radius)
+            #print("last radius", last_radius)
+            #print("radius", radius)
         if extending:#final_precision > precision_ls_raw_data and final_precision != 0.8 and precision_ls_raw_data < self.threshold_precision:
             precision_ls_raw_data = final_precision
             radius = last_radius

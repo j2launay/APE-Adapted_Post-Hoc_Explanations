@@ -19,7 +19,7 @@ if __name__ == "__main__":
     # Filter the warning from matplotlib
     warnings.filterwarnings("ignore")
     # Datasets used for the experiments
-    dataset_names = ["titanic", "compas", "adult", "generate_blob", "generate_blobs", "blood", "generate_circles", "generate_moons", "diabete"]
+    dataset_names = ["adult"]#"titanic", "adult", "blood"]# "generate_circles", "blood"]#"compas", "adult", "generate_blob", "generate_blobs", "blood", "generate_circles", "generate_moons", "diabete"]
     # array of the models used for the experiments
     models = [GradientBoostingClassifier(n_estimators=20, learning_rate=1.0),
                 RandomForestClassifier(n_estimators=20), 
@@ -60,7 +60,7 @@ if __name__ == "__main__":
         x, y, class_names, regression, multiclass, continuous_features, categorical_features, categorical_values, categorical_names, transformations = generate_dataset(dataset_name)
         for nb_model, model in enumerate(models):
             model_name = type(model).__name__
-            if "MLP" in model_name and nb_model <=1 :
+            if "MLP" in model_name and nb_model <=2 :
                 model_name += "logistic"
             if growing_sphere:
                 filename = "./results/"+dataset_name+"/"+model_name+"/growing_spheres/"+str(threshold_interpretability)+"/"
@@ -108,8 +108,8 @@ if __name__ == "__main__":
 
                 try:
                     precision, coverage, f2, multimodal_result, radius, separability, pvalue = explainer.explain_instance(instance_to_explain, 
-                                                        growing_method=growing_method, 
-                                                        all_explanations_model=True)
+                                                    growing_method=growing_method, 
+                                                    all_explanations_model=True)
                     print("precision", precision)
                     print("coverage", coverage)
                     print("f2", f2)
@@ -119,8 +119,8 @@ if __name__ == "__main__":
                     print("pvalue", pvalue)
                     print("folding statistic", explainer.folding_statistics)
                     if graph: experimental_informations.store_experiments_information_instance(precision, coverage, f2, 
-                                                        multimodal=[precision[0], precision[1], precision[2], multimodal_result, 
-                                                                                        radius, pvalue, separability, explainer.folding_statistics])
+                                                    multimodal=[precision[0], precision[1], precision[2], multimodal_result, 
+                                                                                    radius, pvalue, separability, explainer.folding_statistics])
                     cnt += 1
                 except Exception as inst:
                     print(inst)
