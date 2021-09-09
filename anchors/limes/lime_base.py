@@ -181,46 +181,45 @@ class LimeBase(object):
         if model_regressor is None:
             model_regressor = Ridge(alpha=1, fit_intercept=True,
                                     random_state=self.random_state)
-        if ape.categorical_features != []:
-            #print("neighborod data", neighborhood_data[0])
-            #print("categorical features from ape in lime base", ape.categorical_features)
-            #c = Counter(neighborhood_labels)
-            neighborhood_data_index_minorities_class = np.where([x == label for x in neighborhood_labels])[0]
-            if len(neighborhood_labels) > 2 * len(neighborhood_data_index_minorities_class):
-                test = neighborhood_data[neighborhood_data_index_minorities_class]
-                how_many = len(neighborhood_labels) - len(neighborhood_data_index_minorities_class)
-                idx = np.random.randint(len(neighborhood_data_index_minorities_class), size=how_many)
-                add_index_for_oversampling = [label]*how_many
-                weights_values_for_oversampling = weights[neighborhood_data_index_minorities_class]
-            else:
+        if ape is not None:
+            if ape.categorical_features != []:
+                #print("neighborod data", neighborhood_data[0])
+                #print("categorical features from ape in lime base", ape.categorical_features)
+                #c = Counter(neighborhood_labels)
+                neighborhood_data_index_minorities_class = np.where([x == label for x in neighborhood_labels])[0]
+                #print("test", neighborhood_data_index_minorities_class)
                 index_class_counterfactual = list(set(list(range(0, len(neighborhood_labels)))) - set(neighborhood_data_index_minorities_class))
-                test = neighborhood_data[index_class_counterfactual]
-                how_many =  len(neighborhood_data_index_minorities_class) - (len(neighborhood_labels) - len(neighborhood_data_index_minorities_class))
-                idx = np.random.randint(len(index_class_counterfactual), size=how_many)
-                add_index_for_oversampling = [1-label]*how_many
-                weights_values_for_oversampling = weights[index_class_counterfactual]
-            add_instance_for_oversampling = test[idx,:]
-            add_sample_weight = weights_values_for_oversampling[idx]
-            weights = np.concatenate((weights, add_sample_weight))
-            neighborhood_data = np.concatenate((neighborhood_data, add_instance_for_oversampling))
-            labels_column = np.concatenate((neighborhood_labels, add_index_for_oversampling))
-            #print("neighborhood labels after", neighborhood_labels)
-            codes = ape.enc.transform(neighborhood_data[:,ape.categorical_features]).toarray()
-            """train_enc = train_data[:,categorical_features]
-            self.enc.fit(train_enc)
-            #self.enc.fit(train_data)
-            codes = self.enc.transform(train_enc).toarray()
-            #codes = self.enc.transform(train_data).toarray()"""
-            #categorical_features_names = []
-            #for i in categorical_features:
-            #    categorical_features_names.append(feature_names[i])
-            neighborhood_data = np.append(np.asarray(codes), 
-                                neighborhood_data[:,ape.continuous_features], axis=1)
-            #print("neighborhood data after", neighborhood_data[0])
-            used_features = []
-            for i in range(len(neighborhood_data[0])):
-                used_features.append(i)
-            #print("used feature after", used_features)
+                #print("PLUS", index_class_counterfactual)
+                if len(neighborhood_data_index_minorities_class) != 0:
+                    if len(neighborhood_labels) > 2 * len(neighborhood_data_index_minorities_class):
+                        test = neighborhood_data[neighborhood_data_index_minorities_class]
+                        how_many = len(neighborhood_labels) - len(neighborhood_data_index_minorities_class)
+                        idx = np.random.randint(len(neighborhood_data_index_minorities_class), size=how_many)
+                        labels_test = neighborhood_labels[index_class_counterfactual]
+                        add_index_for_oversampling = labels_test[idx,:]
+                        weights_values_for_oversampling = weights[neighborhood_data_index_minorities_class]
+                    else:
+                        index_class_counterfactual = list(set(list(range(0, len(neighborhood_labels)))) - set(neighborhood_data_index_minorities_class))
+                        test = neighborhood_data[index_class_counterfactual]
+                        how_many =  len(neighborhood_data_index_minorities_class) - (len(neighborhood_labels) - len(neighborhood_data_index_minorities_class))
+                        idx = np.random.randint(len(index_class_counterfactual), size=how_many)
+                        labels_test = neighborhood_labels[index_class_counterfactual]
+                        add_index_for_oversampling = labels_test[idx,:]
+                        weights_values_for_oversampling = weights[index_class_counterfactual]
+                    add_instance_for_oversampling = test[idx,:]
+                    add_sample_weight = weights_values_for_oversampling[idx]
+                    weights = np.concatenate((weights, add_sample_weight))
+                    neighborhood_data = np.concatenate((neighborhood_data, add_instance_for_oversampling))
+                    labels_column = np.concatenate((neighborhood_labels, add_index_for_oversampling))
+                #print("neighborhood labels after", neighborhood_labels)
+                codes = ape.enc.transform(neighborhood_data[:,ape.categorical_features]).toarray()
+                neighborhood_data = np.append(np.asarray(codes), 
+                                    neighborhood_data[:,ape.continuous_features], axis=1)
+                #print("neighborhood data after", neighborhood_data[0])
+                used_features = []
+                for i in range(len(neighborhood_data[0])):
+                    used_features.append(i)
+                #print("used feature after", used_features)
         easy_model = model_regressor
         easy_model.fit(neighborhood_data[:, used_features],
                         labels_column, sample_weight=weights)

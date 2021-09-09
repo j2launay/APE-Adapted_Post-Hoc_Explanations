@@ -390,6 +390,7 @@ class LimeTabularExplainer(object):
                     model_regressor=model_regressor,
                     feature_selection=self.feature_selection,
                     stability=stability)
+        print("used features", self.base.used_features)
 
         if self.mode == "regression":
             ret_exp.intercept[1] = ret_exp.intercept[0]
@@ -408,7 +409,8 @@ class LimeTabularExplainer(object):
                          distance_metric='euclidean',
                          model_regressor=None,
                          instances_in_sphere=[],
-                         ape=None):
+                         ape=None,
+                         user_simulated=False):
         """Generates explanations for a prediction.
 
         First, we learn locally weighted linear models on 
@@ -610,7 +612,8 @@ class LimeTabularExplainer(object):
             ret_exp.intercept[1] = ret_exp.intercept[0]
             ret_exp.local_exp[1] = [x for x in ret_exp.local_exp[0]]
             ret_exp.local_exp[0] = [(i, -1 * j) for i, j in ret_exp.local_exp[1]]
-
+        if user_simulated:
+            return ret_exp, self.base.used_features
         return ret_exp
 
     def __data_inverse(self,
