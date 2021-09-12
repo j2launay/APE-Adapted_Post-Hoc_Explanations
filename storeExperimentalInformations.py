@@ -164,9 +164,9 @@ class store_experimental_informations(object):
             self.pd_precision.to_csv(self.filename + 'precision.csv', index=False)
             self.pd_coverage.to_csv(self.filename + 'coverage.csv', index=False)
             self.pd_f2.to_csv(self.filename + 'f2.csv', index=False)
-            self.pd_all_models_precision.to_csv(filename_all + 'precision.csv', index=False)
-            self.pd_all_models_coverage.to_csv(filename_all + 'coverage.csv', index=False)
-            self.pd_all_models_f2s.to_csv(filename_all + 'f2.csv', index=False)
+            self.pd_all_models_precision.to_csv(filename_all + 'precision_sup_mat.csv', index=False)
+            self.pd_all_models_coverage.to_csv(filename_all + 'coverage_sup_mat.csv', index=False)
+            self.pd_all_models_f2s.to_csv(filename_all + 'f2_sup_mat.csv', index=False)
         
         if not self.multimodal == []:
             self.final_multimodal = self.multimodal[3]/nb_instance
@@ -303,3 +303,29 @@ class store_experimental_informations(object):
         counterfactual_in_anchor = np.array([counterfactual_in_anchor])
         self.pd_counterfactual_in_anchor = self.pd_counterfactual_in_anchor.append(pd.DataFrame(counterfactual_in_anchor, columns=self.interpretability_name))
         self.pd_counterfactual_in_anchor.to_csv(self.filename + 'counterfactual_in_anchor.csv', index=False)
+
+    def store_experiments_information_instance_sup_map(self, precisions, coverages, f2s):
+        """
+        Store precisions, coverages, f2s and multimodal results inside dictionary 
+        Args: precisions: list of precision result for each explanation method on a single instance
+              coverages: list of coverage result for each explanation method on a single instance
+              f2s: list of f2 score for each explanation method on a single instance
+              multimodal: 1 if APE selected a multimodal distribution, otherwise 0
+        """
+        self.pd_precision = self.pd_precision.append(pd.DataFrame([precisions], columns=self.interpretability_name))
+        self.pd_coverage = self.pd_coverage.append(pd.DataFrame([coverages], columns=self.interpretability_name))
+        self.pd_f2 = self.pd_f2.append(pd.DataFrame([f2s], columns=self.interpretability_name))
+        print(self.filename)
+        print(self.pd_precision)
+        self.pd_precision.to_csv(self.filename + 'precision_sup_mat.csv', index=False)
+        self.pd_coverage.to_csv(self.filename + 'coverage_sup_mat.csv', index=False)
+        self.pd_f2.to_csv(self.filename + 'f2_sup_mat.csv', index=False)
+        for precision, coverage, f2, interpretability in zip(precisions, coverages, f2s, self.interpretability_name):
+            if self.precision[interpretability] == []:
+                self.precision[interpretability] = precision
+                self.coverage[interpretability] = coverage
+                self.f2[interpretability] = f2
+            else:
+                self.precision[interpretability] += precision
+                self.coverage[interpretability] += coverage
+                self.f2[interpretability] += f2

@@ -14,6 +14,7 @@ import baseGraph
 import ape_tabular
 import warnings
 import pickle
+from growingspheres.utils.gs_utils import distances
 
 if __name__ == "__main__":
     # Filter the warning from matplotlib
@@ -21,13 +22,13 @@ if __name__ == "__main__":
     # Datasets used for the experiments
     dataset_names = ["blood", "diabete", "generate_moons", "generate_blob", "generate_blobs",]
     # array of the models used for the experiments
-    models = [RandomForestClassifier(n_estimators=20), #LogisticRegression(),
-                GradientBoostingClassifier(n_estimators=20, learning_rate=1.0),
+    models = [RandomForestClassifier(n_estimators=20, random_state=1), #LogisticRegression(),
+                GradientBoostingClassifier(n_estimators=20, learning_rate=1.0, random_state=1),
                 #tree.DecisionTreeClassifier(),
-                RidgeClassifier(),
+                RidgeClassifier(random_state=1),
                 #Sequential(),
                 VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('rc', RidgeClassifier())], voting="hard"),
-                MLPClassifier(random_state=1)]
+                MLPClassifier(random_state=1, random_state=1)]
     #models=[RidgeClassifier(), MLPClassifier(random_state=1)]
     # Number of instances explained by each model on each dataset
     max_instance_to_explain = 50
@@ -35,7 +36,7 @@ if __name__ == "__main__":
     illustrative_example = False
     """ All the variable necessaries for generating the graph results """
     # Store results inside graph if set to True
-    graph = True
+    graph = False
     verbose = False
     growing_sphere = False
     if growing_sphere:
@@ -51,11 +52,11 @@ if __name__ == "__main__":
     interpretability_name = ['LS + GS', 'LS + GF']
     #interpretability_name = ['ls log reg', 'ls raw data']
     # Initialize all the variable needed to store the result in graph
-    if graph: experimental_informations = store_experimental_informations(len(models), len(interpretability_name), interpretability_name, len(models))
     for dataset_name in dataset_names:
+        if graph: experimental_informations = store_experimental_informations(len(models), len(interpretability_name), interpretability_name, len(models))
         models_name = []
         # Store dataset inside x and y (x data and y labels), with aditional information
-        x, y, class_names, regression, multiclass, continuous_features, categorical_features, categorical_values, categorical_names = generate_dataset(dataset_name)
+        x, y, class_names, regression, multiclass, continuous_features, categorical_features, categorical_values, categorical_names, transformations = generate_dataset(dataset_name)
         for nb_model, model in enumerate(models):
             model_name = type(model).__name__
             filename="./results/"+dataset_name+"/"+model_name+"/"+str(threshold_interpretability)+"/lsgsgf_"
@@ -90,7 +91,8 @@ if __name__ == "__main__":
                                                             categorical_features=categorical_features, categorical_values=categorical_values, 
                                                             feature_names=dataset.feature_names, categorical_names=categorical_names,
                                                             verbose=verbose, threshold_precision=threshold_interpretability,
-                                                            linear_separability_index=linear_separability_index)
+                                                            linear_separability_index=linear_separability_index, 
+                                                            transformations=transformations)
             
             linear_explainer = limes.lime_tabular.LimeTabularExplainer(x_train, feature_names=dataset.feature_names, 
                                                                 categorical_features=categorical_features, categorical_names=categorical_names,
@@ -105,10 +107,16 @@ if __name__ == "__main__":
                 closest_counterfactual_gs, radius_gs = find_closest_counterfactual(instance_to_explain, explainer, method='GS', radius=True)
                 closest_counterfactual_gf, radius_gf = find_closest_counterfactual(instance_to_explain, explainer, method='GF', radius=True)
                 print("radius gs", radius_gs)
+                print("closest gs", closest_counterfactual_gs)
                 print("radius gf", radius_gf)
+                print("closest gf", closest_counterfactual_gf)
+                print("distance gs", distances(closest_counterfactual_gs, instance_to_explain, explainer))
+                print("distance gf", distances(closest_counterfactual_gf, instance_to_explain, explainer))
                 radius = max(radius_gs, radius_gf)
                 target_class = predict(instance_to_explain.reshape(1, -1))
+                print(target_class)
                 opponent_class = predict(closest_counterfactual_gs.reshape(1, -1))
+                print("opponent class", opponent_class)
                 farthest_distance = get_farthest_distance(instance_to_explain, x_train, categorical_features, explainer, metric='manhattan')
                 
                 explainer.nb_min_instance_in_sphere = 800

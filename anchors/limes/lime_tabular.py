@@ -390,7 +390,6 @@ class LimeTabularExplainer(object):
                     model_regressor=model_regressor,
                     feature_selection=self.feature_selection,
                     stability=stability)
-        print("used features", self.base.used_features)
 
         if self.mode == "regression":
             ret_exp.intercept[1] = ret_exp.intercept[0]

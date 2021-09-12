@@ -494,7 +494,8 @@ class ApeTabularExplainer(object):
         min_threshold_regression, max_threshold_regression = min(prediction_inside_sphere), max(prediction_inside_sphere)
         try:
             # Set 10 threshold values for the regression model between the min and the max
-            thresholds_regression = np.arange(min_threshold_regression, max_threshold_regression, (max_threshold_regression-min_threshold_regression)/10 )
+            #thresholds_regression = np.arange(min_threshold_regression, max_threshold_regression, (max_threshold_regression-min_threshold_regression)/10 )
+            thresholds_regression = [(max_threshold_regression + min_threshold_regression) / 2]
         except ValueError:
             thresholds_regression = [min_threshold_regression, max_threshold_regression]
         precisions_regression = []
@@ -510,10 +511,9 @@ class ApeTabularExplainer(object):
                     prediction_inside_sphere_regression_test.append(0)
                     prediction_inside_sphere_regression_test_sup_0.append(1)
             #precision_regression = sum(prediction_inside_sphere_regression_test == labels_in_sphere)/len(prediction_inside_sphere_regression_test)
-            #print("precision regression", precision_regression)
             precision_regression = precision_score(prediction_inside_sphere_regression_test, labels_in_sphere, pos_label=self.target_class)
             precision_regression_sup_0 = precision_score(prediction_inside_sphere_regression_test_sup_0, labels_in_sphere, pos_label=self.target_class)
-            #print("average precision", average_precision)
+            #precisions_regression.append(precision_regression)
             precisions_regression.append(max(precision_regression, precision_regression_sup_0))
         lime_extending_precision = max(precisions_regression)
         return lime_extending_precision

@@ -15,6 +15,7 @@ import pickle
 #from keras.models import Sequential
 #from keras.layers import Dense
 from anchors import limes
+from sklearn.metrics import precision_score
 from growingspheres.utils.gs_utils import distances
 from growingspheres import counterfactuals as cf
 
@@ -75,32 +76,45 @@ def compute_precision_in_sphere(ape_tabular, radius_sphere, closest_counterfactu
         return 0
     ape_tabular.nb_min_instance_in_sphere = 800
     if linear_explainer == 'ls':
-        linear_explainer = lime_explainer.explain_instance_training_dataset(closest_counterfactual, ape_tabular.black_box_predict, 
+        linear_model = lime_explainer.explain_instance_training_dataset(closest_counterfactual, ape_tabular.black_box_predict, 
                                                                     num_features=6, model_regressor = LogisticRegression(),
                                                                     ape=ape_tabular, instances_in_sphere=instances_in_sphere)
     elif linear_explainer =='lime':
-        linear_explainer = lime_explainer.explain_instance(instance_to_explain, ape_tabular.black_box_predict, num_features=6, 
-                                                                    model_regressor=LogisticRegression())
+        linear_model = lime_explainer.explain_instance(instance_to_explain, ape_tabular.black_box_predict_proba, num_features=6)#, 
+                                                                    #model_regressor = LogisticRegression())
     else:
-        linear_explainer = lime_explainer.explain_instance(closest_counterfactual, ape_tabular.black_box_predict, model_regressor=LogisticRegression(), 
+        linear_model = lime_explainer.explain_instance(closest_counterfactual, ape_tabular.black_box_predict, 
+                                                                    model_regressor=LogisticRegression(), 
                                                                     num_features=6)
-    prediction_inside_sphere = ape_tabular.modify_instance_for_linear_model(linear_explainer, instances_in_sphere)
-    precision_local_surrogate = ape_tabular.compute_linear_regression_precision(prediction_inside_sphere, labels_in_sphere)
+    prediction_inside_sphere = ape_tabular.modify_instance_for_linear_model(linear_model, instances_in_sphere)
+    #precision_local_surrogate = ape_tabular.compute_linear_regression_precision(prediction_inside_sphere, labels_in_sphere)
+    #print(prediction_inside_sphere)
+    if linear_explainer == 'lime':
+        new_prediction_inside_sphere = []
+        for prediction in prediction_inside_sphere:
+            if prediction > 0.5:
+                new_prediction_inside_sphere.append(ape_tabular.target_class[0])
+            else:
+                new_prediction_inside_sphere.append(1-ape_tabular.target_class[0])
+        prediction_inside_sphere = new_prediction_inside_sphere
+        #print("new prediction", prediction_inside_sphere)
+
+    precision_local_surrogate = max(precision_score(labels_in_sphere, prediction_inside_sphere, pos_label=ape_tabular.target_class[0]),\
+        precision_score(labels_in_sphere, prediction_inside_sphere, pos_label=1-ape_tabular.target_class[0]))
     return precision_local_surrogate
 
 if __name__ == "__main__":
     # Filter the warning from matplotlib
     warnings.filterwarnings("ignore")
     # Datasets used for the experiments
-    dataset_names = ["compas","titanic", "adult", "generate_moons", "generate_blob", "generate_blobs", "blood", "diabete", "iris", "artificial"]
+    dataset_names = ["generate_moons", "generate_circles", "blood", "diabete", "generate_blobs"]#, "iris", "artificial"]
     # array of the models used for the experiments
-    models = [RandomForestClassifier(n_estimators=20), #LogisticRegression(),
-                GradientBoostingClassifier(n_estimators=20, learning_rate=1.0),
-                #tree.DecisionTreeClassifier(), 
-                RidgeClassifier(), 
-                #Sequential(),
-                VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('rc', RidgeClassifier())], voting="hard"),
-                MLPClassifier(random_state=1)]
+    models = [GradientBoostingClassifier(n_estimators=20, learning_rate=1.0, random_state=1),
+                RandomForestClassifier(n_estimators=20,random_state=1), 
+                #MLPClassifier(random_state=1, activation="logistic"),
+                VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('mlp', MLPClassifier())], voting="soft"),
+                MLPClassifier(random_state=1)]#,
+                #RidgeClassifier()]
     #models = [RandomForestClassifier(n_estimators=20), RidgeClassifier()]
 
     # Number of instances explained by each model on each dataset
@@ -121,14 +135,14 @@ if __name__ == "__main__":
         if graph: experimental_informations = store_experimental_informations(len(models), len(interpretability_name), interpretability_name, len(models))
         models_name = []
         # Store dataset inside x and y (x data and y labels), with aditional information
-        x, y, class_names, regression, multiclass, continuous_features, categorical_features, categorical_values, categorical_names = generate_dataset(dataset_name)
+        x, y, class_names, regression, multiclass, continuous_features, categorical_features, categorical_values, categorical_names, transformations = generate_dataset(dataset_name)
         for nb_model, model in enumerate(models):
             model_name = type(model).__name__
             filename = "./results/"+dataset_name+"/"+model_name+"/"+str(threshold_interpretability)+"/"
             if graph: experimental_informations.initialize_per_models(filename)
             models_name.append(model_name)
             # Split the dataset inside train and test set (50% each set)
-            dataset, black_box, x_train, x_test, y_train, y_test, transformations = preparing_dataset(x, y, dataset_name, model)
+            dataset, black_box, x_train, x_test, y_train, y_test = preparing_dataset(x, y, dataset_name, model)
             print("###", model_name, "training on", dataset_name, "dataset.")
             if 'Sequential' in model_name:
                 # Train a neural network classifier with 2 relu and a sigmoid activation function
@@ -150,7 +164,7 @@ if __name__ == "__main__":
             print('### Accuracy:', score(x_test, y_test))
             cnt = 0
             black_box_labels = predict(x_train)
-            explainer = ape_tabular.ApeTabularExplainer(x_train, class_names, predict,
+            explainer = ape_tabular.ApeTabularExplainer(x_train, class_names, predict, black_box.predict_proba,
                                                             continuous_features=continuous_features,
                                                             categorical_features=categorical_features, categorical_values=categorical_values, 
                                                             feature_names=dataset.feature_names, categorical_names=categorical_names,
@@ -170,6 +184,8 @@ if __name__ == "__main__":
                 print("### Models ", nb_model + 1, "over", len(models))
                 print("instance to explain:", instance_to_explain)
                 try:
+                    test += 2
+                except:
                     closest_counterfactual = find_closest_counterfactual(instance_to_explain, explainer)
                     target_class = predict(instance_to_explain.reshape(1, -1))
                     opponent_class = predict(closest_counterfactual.reshape(1, -1))
@@ -181,16 +197,17 @@ if __name__ == "__main__":
                                                         target_class, lime_explainer)
                         explainer.nb_min_instance_in_sphere = 800
                         lime_precision = compute_precision_in_sphere(explainer, radius, instance_to_explain, farthest_distance,
-                                                        opponent_class, lime_explainer, linear_explainer='lime')
+                                                        target_class, lime_explainer, linear_explainer='lime')
                         print("ls precision", local_surrogate_precision)
                         print("lime precision", lime_precision)
+                        print("radius", radius)
                         if local_surrogate_precision >= lime_precision:
                             #print("YEAH")
                             local_surrogate_best_ratio += 1
                         if graph: experimental_informations.store_lime_vs_local_surrogate(lime_precision, local_surrogate_precision, radius)
                     cnt += 1
-                except Exception as inst:
-                    print(inst)
+                #except Exception as inst:
+                #    print(inst)
             #print("ratio local surrogate better", local_surrogate_best_ratio/max_instance_to_explain)
             filename_all = "./results/"+dataset_name+"/"+str(threshold_interpretability)+"/"
             

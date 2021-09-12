@@ -12,7 +12,7 @@ from keras.models import Sequential
 from matplotlib.font_manager import FontProperties
 
 thresholds_interpretability = ["0.99", "0.95", "0.8"]
-datasets = ["generate_moons", "compas", "titanic", "adult", "generate_moons", "generate_blob", "generate_blobs", "artificial", "blood", "diabete", "iris"]
+datasets = ["generate_moons", "compas", "titanic", "adult", "generate_moons", "generate_circles", "generate_blob", "generate_blobs", "artificial", "blood", "diabete", "iris"]
 models = [RandomForestClassifier(), LogisticRegression(),
                 VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('dt', tree.DecisionTreeClassifier())], voting="soft"),
                 Sequential(),
@@ -45,7 +45,7 @@ for threshold_interpretability in thresholds_interpretability:
                     pyplot.xlabel('radius')
                     pyplot.ylabel('precision')
                     pyplot.ylim(0, 1.1)
-                    pyplot.title('boxplot of ' + graph + " on " + dataset + " for " + model[:-1])
+                    pyplot.title('Graph of precision of LIME vs LS for different radius')
                     first = True
                     for nb, rad in enumerate(radius):
                         values = data.iloc[nb::radius.shape[0]]

@@ -19,12 +19,11 @@ if __name__ == "__main__":
     # Filter the warning from matplotlib
     warnings.filterwarnings("ignore")
     # Datasets used for the experiments
-    dataset_names = ["generate_moons", "titanic", "adult", "generate_moons", "generate_blob", "generate_blobs", "blood", "diabete", "iris", "artificial", "compas"]
+    dataset_names = ["generate_blobs", "generate_circles", "blood", "diabete", "generate_moons", "compas", "titanic", "adult"]
     # array of the models used for the experiments
-    models = [RandomForestClassifier(n_estimators=20), #LogisticRegression(),
-                GradientBoostingClassifier(n_estimators=20, learning_rate=1.0),
-                #tree.DecisionTreeClassifier(), 
-                RidgeClassifier(),
+    models = [RandomForestClassifier(n_estimators=20, random_state=1), #LogisticRegression(),
+                GradientBoostingClassifier(n_estimators=20, learning_rate=1.0, random_state=1),
+                RidgeClassifier(random_state=1),
                 #Sequential(),
                 VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('rc', RidgeClassifier())], voting="hard"),
                 MLPClassifier(random_state=1)]
@@ -51,11 +50,11 @@ if __name__ == "__main__":
     interpretability_name = ['Growing Fields', 'Growing Spheres']
     #interpretability_name = ['ls log reg', 'ls raw data']
     # Initialize all the variable needed to store the result in graph
-    if graph: experimental_informations = store_experimental_informations(len(models), len(interpretability_name), interpretability_name, len(models))
     for dataset_name in dataset_names:
+        if graph: experimental_informations = store_experimental_informations(len(models), len(interpretability_name), interpretability_name, len(models))
         models_name = []
         # Store dataset inside x and y (x data and y labels), with aditional information
-        x, y, class_names, regression, multiclass, continuous_features, categorical_features, categorical_values, categorical_names = generate_dataset(dataset_name)
+        x, y, class_names, regression, multiclass, continuous_features, categorical_features, categorical_values, categorical_names, transformations = generate_dataset(dataset_name)
         for nb_model, model in enumerate(models):
             model_name = type(model).__name__
             if growing_sphere:
@@ -92,7 +91,8 @@ if __name__ == "__main__":
                                                             continuous_features=continuous_features,
                                                             categorical_features=categorical_features, categorical_values=categorical_values, 
                                                             feature_names=dataset.feature_names, categorical_names=categorical_names,
-                                                            verbose=verbose, threshold_precision=threshold_interpretability)
+                                                            verbose=verbose, threshold_precision=threshold_interpretability, 
+                                                            transformations=transformations)
             for instance_to_explain in x_test:
                 if cnt == max_instance_to_explain:
                     break

@@ -16,11 +16,12 @@ from typing import Dict, Tuple
 from scipy.stats import multinomial
 import pickle
 import random
+from sklearn.metrics import precision_score
 
 def compute_other_linear_explanation_precision_coverage(ape_tabular, nb_testing_instance_in_sphere, position_instances_in_sphere,
                                                             instances_in_sphere, labels_in_sphere, nb_instance_test_data_label_as_target, 
                                                             nb_testing_instance_in_sphere_label_as_target, labels_testing_instance_in_sphere, 
-                                                            nb_features_employed):
+                                                            nb_features_employed, growing_spheres):
     """
     Computation of precision and coverage to compare multiple local surrogate explanation model
     Args: ape_tabular: Ape tabular object used to explain instance
@@ -39,27 +40,45 @@ def compute_other_linear_explanation_precision_coverage(ape_tabular, nb_testing_
     local_surrogate = ape_tabular.lime_explainer.explain_instance(ape_tabular.closest_counterfactual, 
                                                                 ape_tabular.black_box_predict_proba, num_features=nb_features_employed)
     prediction_inside_sphere = ape_tabular.modify_instance_for_linear_model(local_surrogate, instances_in_sphere)
+    print(ape_tabular.target_class)
     precision_local_surrogate = ape_tabular.compute_linear_regression_precision(prediction_inside_sphere, labels_in_sphere)
 
+    """
     # Trained a local surrogate model over training data using a linear regression (by default on Lime)
     local_surogate_linear_regression = ape_tabular.lime_explainer.explain_instance_training_dataset(ape_tabular.closest_counterfactual, 
-                                                                ape_tabular.black_box_predict_proba, num_features=nb_features_employed)
+                                                                ape_tabular.black_box_predict_proba, num_features=nb_features_employed,
+                                                                model_regressor=LogisticRegression())
     prediction_inside_sphere = ape_tabular.modify_instance_for_linear_model(local_surogate_linear_regression, instances_in_sphere)
     precision_local_surogate_linear_regression = ape_tabular.compute_linear_regression_precision(prediction_inside_sphere, labels_in_sphere)
-
+    """
+    # Trained a local surrogate model over training data using a linear regression (by default on Lime)
+    local_surogate_raw_data = ape_tabular.lime_explainer.explain_instance_training_dataset(ape_tabular.closest_counterfactual, 
+                                                                ape_tabular.black_box_predict_proba, num_features=nb_features_employed,
+                                                                instances_in_sphere=instances_in_sphere,
+                                                                ape=ape_tabular)
+    prediction_inside_sphere = ape_tabular.modify_instance_for_linear_model(local_surogate_raw_data, instances_in_sphere)
+    precision_local_surogate_raw_data = ape_tabular.compute_linear_regression_precision(prediction_inside_sphere, labels_in_sphere)
+    
     # Compute precision for a local Surrogate model with a Logistic Regression model as explanation model over binary data
     local_surrogate_exp_regression = ape_tabular.lime_explainer.explain_instance(ape_tabular.closest_counterfactual,  
                                                             ape_tabular.black_box_predict, num_features=nb_features_employed,
                                                             model_regressor = LogisticRegression())
     prediction_inside_sphere = ape_tabular.modify_instance_for_linear_model(local_surrogate_exp_regression, instances_in_sphere)
-    precision_ls_linear_regression = ape_tabular.compute_linear_regression_precision(prediction_inside_sphere, labels_in_sphere)
+    precision_local_surrogate_logistic_regression = max(precision_score(labels_in_sphere, prediction_inside_sphere, pos_label=ape_tabular.target_class),
+                                                        precision_score(labels_in_sphere, prediction_inside_sphere, pos_label=1-ape_tabular.target_class))
     
+    precision_ls_raw_data, lime_extending_coverage, f2_lime_extending, ls_explanation, radius = ape_tabular.compute_lime_extending_precision_coverage(instances_in_sphere,
+                                                ape_tabular.closest_counterfactual, labels_in_sphere, growing_spheres, 
+                                                nb_features_employed, 1, 10, nb_instance_test_data_label_as_target)
+
     if ape_tabular.verbose: print("Computing multiple linear explanation models precision and coverage.")
     linear_coverage = nb_testing_instance_in_sphere_label_as_target/nb_instance_test_data_label_as_target
-    f2_lime_regression = (2*precision_ls_linear_regression+linear_coverage)/3
-    f2_not_bin_lime = (2*precision_local_surogate_linear_regression+linear_coverage)/3
+    f2_lime_regression = (2*precision_local_surrogate_logistic_regression+linear_coverage)/3
+    f2_not_bin_lime = (2*precision_local_surogate_raw_data+linear_coverage)/3
     f2_local_surrogate = (2*precision_local_surrogate+linear_coverage)/3
-    return [precision_ls_linear_regression, precision_local_surogate_linear_regression, precision_local_surrogate], [linear_coverage, linear_coverage, linear_coverage], [f2_lime_regression, f2_not_bin_lime, f2_local_surrogate]
+    return [precision_local_surrogate, precision_local_surrogate_logistic_regression, precision_local_surogate_raw_data, precision_ls_raw_data], \
+                [linear_coverage, linear_coverage, linear_coverage, lime_extending_coverage], \
+                    [f2_local_surrogate, f2_lime_regression, f2_not_bin_lime, f2_lime_extending]
 
 def compute_all_explanation_method_precision(ape_tabular, instance, growing_sphere, dicrease_radius, radius,
                                                 nb_training_instance_in_sphere, nb_instance_test_data_label_as_target,
@@ -138,13 +157,15 @@ def compute_local_surrogate_precision_coverage(ape_tabular, instance, growing_sp
     nb_instance_test_data_label_as_target = sum(x == ape_tabular.target_class for x in labels_instance_test_data)
     
     nb_testing_instance_in_sphere_label_as_target, labels_testing_instance_in_sphere = ape_tabular.compute_labels_inside_sphere(nb_testing_instance_in_sphere, 
-                                                                                                                                position_testing_instances_in_sphere)    
+                                                                                                                                position_testing_instances_in_sphere,
+                                                                                                                                ape_tabular.test_data)    
     
     precision, coverage, f2 = compute_other_linear_explanation_precision_coverage(ape_tabular,
                                                             nb_testing_instance_in_sphere, position_testing_instances_in_sphere, 
                                                             test_instances_in_sphere, test_labels_in_sphere, nb_instance_test_data_label_as_target, 
                                                             nb_testing_instance_in_sphere_label_as_target, 
-                                                            labels_testing_instance_in_sphere, nb_features_employed)
+                                                            labels_testing_instance_in_sphere, nb_features_employed,
+                                                            growing_sphere)
     return precision, coverage, f2
 
 

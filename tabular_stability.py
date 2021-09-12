@@ -38,16 +38,16 @@ if __name__ == "__main__":
     # Datasets used for the experiments
     dataset_names = ["compas", "titanic", "adult", "generate_moons", "generate_blob", "generate_blobs", "artificial", "blood", "diabete", "iris", "compas"]
     # array of the models used for the experiments
-    models = [RandomForestClassifier(n_estimators=20), #LogisticRegression(),
+    models = [RandomForestClassifier(n_estimators=20, random_state=1), #LogisticRegression(),
                 VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('dt', tree.DecisionTreeClassifier())], voting="soft"),
                 #Sequential(),
-                GradientBoostingClassifier(n_estimators=20, learning_rate=1.0),
+                GradientBoostingClassifier(n_estimators=20, learning_rate=1.0, random_state=1),
                 #tree.DecisionTreeClassifier(), 
-                #RidgeClassifier(), 
+                RidgeClassifier(random_state=1), 
                 MLPClassifier(random_state=1)]
     #models=[RandomForestClassifier(n_estimators=20), LogisticRegression()]
     # Number of instances explained by each model on each dataset
-    max_instance_to_explain = 25
+    max_instance_to_explain = 50
     # Number of perturbed instances around the instances to explain for which we compute the test of unimodality
     number_of_perturb_instances = 5
     # The ratio of distance for the radius of the field
@@ -64,13 +64,14 @@ if __name__ == "__main__":
     stability_name = ["Local Surrogate", "Anchors", 'APE']
     #interpretability_name = ['ls log reg', 'ls raw data']
     # Initialize all the variable needed to store the result in graph
-    if graph: 
-        #experimental_informations = store_experimental_informations(len(models), len(interpretability_name), interpretability_name, len(models))
-        stability_informations = store_experimental_informations(len(models), len(stability_name), stability_name, len(models))
+    
     for dataset_name in dataset_names:
+        if graph: 
+            #experimental_informations = store_experimental_informations(len(models), len(interpretability_name), interpretability_name, len(models))
+            stability_informations = store_experimental_informations(len(models), len(stability_name), stability_name, len(models))    
         models_name = []
         # Store dataset inside x and y (x data and y labels), with aditional information
-        x, y, class_names, regression, multiclass, continuous_features, categorical_features, categorical_values, categorical_names = generate_dataset(dataset_name)
+        x, y, class_names, regression, multiclass, continuous_features, categorical_features, categorical_values, categorical_names, transformations = generate_dataset(dataset_name)
         for nb_model, model in enumerate(models):
             model_name = type(model).__name__
             filename = "./results/"+dataset_name+"/"+model_name+"/"+str(threshold_interpretability)+"/"
@@ -104,7 +105,8 @@ if __name__ == "__main__":
                                                             continuous_features=continuous_features, 
                                                             categorical_features=categorical_features, categorical_values=categorical_values, 
                                                             feature_names=dataset.feature_names, categorical_names=categorical_names,
-                                                            verbose=verbose_ape, threshold_precision=threshold_interpretability)            
+                                                            verbose=verbose_ape, threshold_precision=threshold_interpretability,
+                                                            transformation=transformations)            
             for instance_to_explain in x_test:
                 if cnt == max_instance_to_explain:
                     break

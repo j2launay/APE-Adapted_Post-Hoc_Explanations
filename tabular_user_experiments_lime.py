@@ -49,10 +49,10 @@ if __name__ == "__main__":
     interpretability_name = ['lime', 'random', 'Local Surrogate']
 
     # Initialize variable to store the results for the graph representation
-    if graph: experimental_informations = store_experimental_informations(len(models), len(interpretability_name), interpretability_name, len(models))
     for dataset_name in dataset_names:
+        if graph: experimental_informations = store_experimental_informations(len(models), len(interpretability_name), interpretability_name, len(models))
         # Store dataset information such as class names and the list of categerical features as well as variables (x for input and y for labels)
-        x, y, class_names, regression, multiclass, continuous_features, categorical_features, categorical_values, categorical_names = generate_dataset(dataset_name)
+        x, y, class_names, regression, multiclass, continuous_features, categorical_features, categorical_values, categorical_names, transformations = generate_dataset(dataset_name)
         for nb_model, model in enumerate(models):
             cnt = 0
             model_name = models_name[nb_model]
@@ -74,7 +74,8 @@ if __name__ == "__main__":
             explainer = ape_tabular.ApeTabularExplainer(x_test, class_names, black_box.predict, black_box.predict_proba, continuous_features=continuous_features, 
                                                             categorical_features=categorical_features, categorical_values=categorical_values, 
                                                             feature_names=dataset.feature_names, categorical_names=categorical_names,
-                                                            verbose=verbose, linear_separability_index=threshold_interpretability)
+                                                            verbose=verbose, linear_separability_index=threshold_interpretability,
+                                                            transformations=transformations)
             for instance_to_explain in x_test: 
                 if cnt == max_instance_to_explain:
                     break

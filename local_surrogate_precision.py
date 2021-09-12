@@ -19,25 +19,26 @@ if __name__ == "__main__":
     # Filter the warning from matplotlib
     warnings.filterwarnings("ignore")
     # Datasets used for the experiments
-    dataset_names = [ "compas", "titanic", "adult", "blood", "diabete", "generate_moons", "generate_blob", "generate_blobs",]
+    dataset_names = ["blood", "generate_moons", "generate_circles", "diabete", "generate_blobs"]# "compas", "titanic", "adult", "blood", "diabete", "generate_moons", "generate_blob", "generate_blobs",]
     # array of the models used for the experiments
-    models = [RandomForestClassifier(n_estimators=20), #LogisticRegression(),
-                GradientBoostingClassifier(n_estimators=20, learning_rate=1.0),
-                #tree.DecisionTreeClassifier(),
-                RidgeClassifier(),
-                #Sequential(),
+    models = [GradientBoostingClassifier(n_estimators=20, learning_rate=1.0, random_state=1),
+                RandomForestClassifier(n_estimators=20, random_state=1),
                 VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('rc', RidgeClassifier())], voting="hard"),
-                MLPClassifier(random_state=1)]
+                MLPClassifier(random_state=1),
+                RidgeClassifier(random_state=1)]#,
+                #LogisticRegression(),
+                #tree.DecisionTreeClassifier(),
+                #Sequential(),
     #models=[RidgeClassifier(), MLPClassifier(random_state=1)]
     # Number of instances explained by each model on each dataset
-    max_instance_to_explain = 5
+    max_instance_to_explain = 50
     # Print explanation result
     illustrative_example = False
     """ All the variable necessaries for generating the graph results """
     # Store results inside graph if set to True
     graph = True
     verbose = False
-    growing_sphere = False
+    growing_sphere = True
     if growing_sphere:
         label_graph = "growing spheres "
         growing_method = "GS"
@@ -46,16 +47,16 @@ if __name__ == "__main__":
         growing_method = "GF"
     # Threshold for explanation method precision
     threshold_interpretability = 0.99
-    linear_separability_index = 0.99
+    linear_separability_index = 1
     linear_models_name = ['local surrogate', 'lime extending', 'lime regression', 'lime not binarize', 'lime traditional']
     interpretability_name = ['Local Surrogate']
     #interpretability_name = ['ls log reg', 'ls raw data']
     # Initialize all the variable needed to store the result in graph
-    if graph: experimental_informations = store_experimental_informations(len(models), len(interpretability_name), interpretability_name, len(models))
     for dataset_name in dataset_names:
+        if graph: experimental_informations = store_experimental_informations(len(models), len(interpretability_name), interpretability_name, len(models))
         models_name = []
         # Store dataset inside x and y (x data and y labels), with aditional information
-        x, y, class_names, regression, multiclass, continuous_features, categorical_features, categorical_values, categorical_names = generate_dataset(dataset_name)
+        x, y, class_names, regression, multiclass, continuous_features, categorical_features, categorical_values, categorical_names, transformations = generate_dataset(dataset_name)
         for nb_model, model in enumerate(models):
             model_name = type(model).__name__
             if growing_sphere:
@@ -94,7 +95,8 @@ if __name__ == "__main__":
                                                             categorical_features=categorical_features, categorical_values=categorical_values, 
                                                             feature_names=dataset.feature_names, categorical_names=categorical_names,
                                                             verbose=verbose, threshold_precision=threshold_interpretability,
-                                                            linear_separability_index=linear_separability_index)
+                                                            linear_separability_index=linear_separability_index, 
+                                                            transformations=transformations)
             
             linear_explainer = limes.lime_tabular.LimeTabularExplainer(x_train, feature_names=dataset.feature_names, 
                                                                 categorical_features=categorical_features, categorical_names=categorical_names,

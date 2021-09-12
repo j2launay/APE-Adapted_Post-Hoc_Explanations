@@ -19,14 +19,14 @@ if __name__ == "__main__":
     # Filter the warning from matplotlib
     warnings.filterwarnings("ignore")
     # Datasets used for the experiments
-    dataset_names = ["blood", "titanic", "generate_circles", "compas", "generate_blobs", "generate_moons", "diabete", "adult"]
+    dataset_names = ["generate_circles", "generate_moons", "blood", "diabete", "generate_blobs"]# "compas", "adult", "titanic"
     # array of the models used for the experiments
-    models = [GradientBoostingClassifier(n_estimators=20, learning_rate=1.0, random_state=1),
-                RandomForestClassifier(n_estimators=20, random_state=1), 
-                MLPClassifier(random_state=1, activation="logistic"),
-                VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('rc', RidgeClassifier())], voting="hard"),
-                MLPClassifier(random_state=1),
-                RidgeClassifier(random_state=1)]#,
+    models = [GradientBoostingClassifier(n_estimators=20, learning_rate=1.0),
+                RandomForestClassifier(n_estimators=20), 
+                #MLPClassifier(random_state=1, activation="logistic"),
+                VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('rc', LogisticRegression())], voting="soft"),
+                MLPClassifier(random_state=1)]
+                #RidgeClassifier()]#,
                 #LogisticRegression(),
                 #tree.DecisionTreeClassifier(),
                 #Sequential(),
@@ -49,8 +49,7 @@ if __name__ == "__main__":
     # Threshold for explanation method precision
     threshold_interpretability = 0.99
     linear_separability_index = 1
-    linear_models_name = ['local surrogate', 'lime extending', 'lime regression', 'lime not binarize', 'lime traditional']
-    interpretability_name = ['LS extend', 'anchor', 'APE']
+    interpretability_name = ['ls', 'ls regression', 'ls raw data', 'ls extend']
     #interpretability_name = ['ls log reg', 'ls raw data']
     # Initialize all the variable needed to store the result in graph
     for dataset_name in dataset_names:
@@ -92,15 +91,14 @@ if __name__ == "__main__":
                 score = black_box.score
             print('### Accuracy:', score(x_test, y_test))
             cnt = 0
-            explainer = ape_tabular.ApeTabularExplainer(x_train, class_names, predict, #black_box.predict_proba,
+            explainer = ape_tabular.ApeTabularExplainer(x_train, class_names, predict, black_box.predict_proba,
                                                             continuous_features=continuous_features,
                                                             categorical_features=categorical_features, categorical_values=categorical_values, 
                                                             feature_names=dataset.feature_names, categorical_names=categorical_names,
                                                             verbose=verbose, threshold_precision=threshold_interpretability,
                                                             linear_separability_index=linear_separability_index, 
                                                             transformations=transformations)
-            for instance_to_explain in x_test:
-
+            for instance_to_explain in x_test[17:]:
                 if cnt == max_instance_to_explain:
                     break
                 print("### Instance number:", cnt + 1, "over", max_instance_to_explain)
@@ -108,24 +106,18 @@ if __name__ == "__main__":
                 print("instance to explain:", instance_to_explain)
 
                 try:
-
-                    precision, coverage, f2, multimodal_result, radius, separability, pvalue = explainer.explain_instance(instance_to_explain, 
+                    test +=2
+                except:
+                    precision, coverage, f2 = explainer.explain_instance(instance_to_explain, 
                                                     growing_method=growing_method, 
-                                                    all_explanations_model=True)
+                                                    local_surrogate_experiment=True)
                     print("precision", precision)
                     print("coverage", coverage)
                     print("f2", f2)
-                    print("multimodal", multimodal_result)
-                    print("radius", radius)
-                    print("separability", separability)
-                    print("pvalue", pvalue)
-                    print("folding statistic", explainer.folding_statistics)
-                    if graph: experimental_informations.store_experiments_information_instance(precision, coverage, f2, 
-                                                    multimodal=[precision[0], precision[1], precision[2], multimodal_result, 
-                                                                                    radius, pvalue, separability, explainer.folding_statistics])
+                    if graph: experimental_informations.store_experiments_information_instance_sup_map(precision, coverage, f2)
                     cnt += 1
-                except Exception as inst:
-                    print(inst)
+                #except Exception as inst:
+                #    print(inst)
 
             if graph: experimental_informations.store_experiments_information(max_instance_to_explain, nb_model, filename_all=filename_all)
 
