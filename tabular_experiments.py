@@ -145,9 +145,9 @@ if __name__ == "__main__":
                     print("si bon", si_bon)
                     # Evaluate whether the unimodality test returns truely the case where the precision of LS is better than Anchors
                     fold_bon = evaluate_test_unimodality(explainer.friends_folding_statistics >= 1 and explainer.counterfactual_folding_statistics >=1,  
-                                                                        precision[1], precision[2])
+                                                                        precision[1], precision[3])
                     print("fold bon", fold_bon)
-                    ape_bon = 1 if (precision[3] >= precision[1] and precision[3] >= precision[2]) else 0
+                    ape_bon = 1 if (precision[4] >= precision[1] and precision[4] >= precision[3]) else 0
                     print("ape bon", ape_bon)
                     if graph: experimental_informations.store_experiments_information_instance(precision, 'precision.csv', coverage, 
                                                     'coverage.csv', f2, 'f2.csv', real_precisions, 'real_precisions.csv',

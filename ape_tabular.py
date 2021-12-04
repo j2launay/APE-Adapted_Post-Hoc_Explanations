@@ -701,9 +701,10 @@ class ApeTabularExplainer(object):
         precision_ls_raw_data_log = {'real':None}
         if position_training_instances_in_sphere != []:
             real_prediction_inside_sphere = self.modify_instance_for_linear_model(ls_raw_data, self.train_data[position_training_instances_in_sphere])
+            real_prediction_inside_sphere_log = self.modify_instance_for_linear_model(ls_raw_data_log, self.train_data[position_training_instances_in_sphere])
             real_labels_in_sphere = self.black_box_predict(self.train_data[position_training_instances_in_sphere])
             precision_ls_raw_data["real"] = self.compute_linear_regression_precision(real_prediction_inside_sphere, real_labels_in_sphere)
-            precision_ls_raw_data_log['real'] = precision_score(real_labels_in_sphere, real_prediction_inside_sphere, pos_label=self.target_class) 
+            precision_ls_raw_data_log['real'] = precision_score(real_labels_in_sphere, real_prediction_inside_sphere_log, pos_label=self.target_class) 
         #print("prediction inside sphere", prediction_inside_sphere[:20])
         #print("TEST", test_labels_in_sphere)
         precision_ls_raw_data["all"] = self.compute_linear_regression_precision(prediction_inside_sphere, test_labels_in_sphere)
@@ -755,7 +756,7 @@ class ApeTabularExplainer(object):
                 temp_precision_ls_raw_data["real"] = self.compute_linear_regression_precision(real_temp_prediction_inside_sphere, \
                     real_temp_labels_in_sphere)
                 real_temp_prediction_inside_sphere_log = self.modify_instance_for_linear_model(ls_raw_data_log, self.train_data[position_training_instances_in_sphere])
-                temp_precision_ls_raw_data_log = precision_score(real_temp_labels_in_sphere, real_temp_prediction_inside_sphere_log, pos_label=self.target_class) 
+                temp_precision_ls_raw_data_log['real'] = precision_score(real_temp_labels_in_sphere, real_temp_prediction_inside_sphere_log, pos_label=self.target_class) 
             temp_precision_ls_raw_data["all"] = self.compute_linear_regression_precision(prediction_inside_sphere, test_labels_in_sphere)
             temp_precision_ls_raw_data_log['all'] = precision_score(test_labels_in_sphere, prediction_inside_sphere_log, pos_label=self.target_class)
             #temp_precision_ls_raw_data = precision_score(test_labels_in_sphere, prediction_inside_sphere, pos_label=self.target_class)#, average='micro')
