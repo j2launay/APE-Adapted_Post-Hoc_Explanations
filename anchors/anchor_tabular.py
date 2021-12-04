@@ -257,6 +257,7 @@ class AnchorTabularExplainer(object):
                         # names[idx] = '%s > %s' % (self.feature_names[f], v)
             else:
                 idx = len(mapping)
+                f = int(f)
                 mapping[idx] = (f, 'eq', data_row[f])
             # names[idx] = '%s = %s' % (
             #     self.feature_names[f],

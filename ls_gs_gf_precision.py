@@ -28,15 +28,15 @@ if __name__ == "__main__":
                 RidgeClassifier(random_state=1),
                 #Sequential(),
                 VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('rc', RidgeClassifier())], voting="hard"),
-                MLPClassifier(random_state=1, random_state=1)]
+                MLPClassifier(random_state=1)]
     #models=[RidgeClassifier(), MLPClassifier(random_state=1)]
     # Number of instances explained by each model on each dataset
-    max_instance_to_explain = 50
+    max_instance_to_explain = 5
     # Print explanation result
     illustrative_example = False
     """ All the variable necessaries for generating the graph results """
     # Store results inside graph if set to True
-    graph = False
+    graph = True
     verbose = False
     growing_sphere = False
     if growing_sphere:
@@ -114,7 +114,6 @@ if __name__ == "__main__":
                 print("distance gf", distances(closest_counterfactual_gf, instance_to_explain, explainer))
                 radius = max(radius_gs, radius_gf)
                 target_class = predict(instance_to_explain.reshape(1, -1))
-                print(target_class)
                 opponent_class = predict(closest_counterfactual_gs.reshape(1, -1))
                 print("opponent class", opponent_class)
                 farthest_distance = get_farthest_distance(instance_to_explain, x_train, categorical_features, explainer, metric='manhattan')
@@ -136,11 +135,11 @@ if __name__ == "__main__":
                 #print("precision", precision)
                 #print("coverage", coverage)
                 #print("f2", f2)
-                if graph: experimental_informations.store_experiments_information_instance(precision, [], [], local_surrogate=True)
+                if graph: experimental_informations.store_experiments_information_instance(precision, 'precision.csv')
                 cnt += 1
                 #except Exception as inst:
                 #    print(inst)
 
-            if graph: experimental_informations.store_experiments_information(max_instance_to_explain, nb_model, 
+            if graph: experimental_informations.store_experiments_information(max_instance_to_explain, nb_model, 'precision.csv',
                             filename_all=filename_all)#, local_surrogate=True)
             

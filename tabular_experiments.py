@@ -7,32 +7,44 @@ from sklearn.naive_bayes import GaussianNB
 import matplotlib.pyplot as plt
 import numpy as np
 from generate_dataset import generate_dataset, preparing_dataset
-from storeExperimentalInformations import store_experimental_informations, prepare_legends
-import baseGraph
+from storeExperimentalInformations import store_experimental_informations
 import ape_tabular
 import warnings
-import pickle
 #from keras.models import Sequential
 #from keras.layers import Dense
+
+def evaluate_test_unimodality(bool, precision_ls, precision_anchor):
+    if bool:
+        if precision_ls >= precision_anchor:
+            return 1
+        else:
+            return 0
+    else:
+        if precision_ls <= precision_anchor:
+            return 1
+        else:
+            return 0
 
 if __name__ == "__main__":
     # Filter the warning from matplotlib
     warnings.filterwarnings("ignore")
     # Datasets used for the experiments
-    dataset_names = ["blood", "titanic", "generate_circles", "compas", "generate_blobs", "generate_moons", "diabete", "adult"]
+    # "generate_circles", "generate_moons", "generate_blob", "diabete", "generate_blobs", 
+    dataset_names = ['diabete']#["adult", "compas", "titanic", "mortality", 'categorical_generate_blobs', "blood"]
     # array of the models used for the experiments
-    models = [GradientBoostingClassifier(n_estimators=20, learning_rate=1.0, random_state=1),
+    models = [VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('svm', svm.SVC(probability=True))], voting='soft'),#('rc', RidgeClassifier())], voting="soft"),
+                GradientBoostingClassifier(n_estimators=20, learning_rate=1.0, random_state=1),
+                #MLPClassifier(random_state=1, activation="logistic"),
                 RandomForestClassifier(n_estimators=20, random_state=1), 
-                MLPClassifier(random_state=1, activation="logistic"),
-                VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('rc', RidgeClassifier())], voting="hard"),
                 MLPClassifier(random_state=1),
-                RidgeClassifier(random_state=1)]#,
-                #LogisticRegression(),
-                #tree.DecisionTreeClassifier(),
+                svm.SVC(probability=True, random_state=1)]
+                #RidgeClassifier(random_state=1)]
                 #Sequential(),
-    #models=[RidgeClassifier(), MLPClassifier(random_state=1)]
+                #GaussianNB
+                #KNeighborsClassifier
+                #LinearDiscriminantAnalysis
     # Number of instances explained by each model on each dataset
-    max_instance_to_explain = 50
+    max_instance_to_explain = 30
     # Print explanation result
     illustrative_example = False
     """ All the variable necessaries for generating the graph results """
@@ -50,20 +62,21 @@ if __name__ == "__main__":
     threshold_interpretability = 0.99
     linear_separability_index = 1
     linear_models_name = ['local surrogate', 'lime extending', 'lime regression', 'lime not binarize', 'lime traditional']
-    interpretability_name = ['LS extend', 'anchor', 'APE']
+    interpretability_name = ['LS', 'LSe log', 'LSe lin', 'Anchors', 'APE', 'DT']
     #interpretability_name = ['ls log reg', 'ls raw data']
     # Initialize all the variable needed to store the result in graph
     for dataset_name in dataset_names:
         if graph: experimental_informations = store_experimental_informations(len(models), len(interpretability_name), interpretability_name, len(models))
         models_name = []
         # Store dataset inside x and y (x data and y labels), with aditional information
-        x, y, class_names, regression, multiclass, continuous_features, categorical_features, categorical_values, categorical_names, transformations = generate_dataset(dataset_name)
-        for nb_model, model in enumerate(models):
-            model_name = type(model).__name__
+        x, y, class_names, regression, multiclass, continuous_features, categorical_features, categorical_values, categorical_names, \
+                    feature_names, transformations = generate_dataset(dataset_name)
+        for nb_model, black_box in enumerate(models):
+            model_name = type(black_box).__name__
             if "MLP" in model_name and nb_model <=2 :
                 model_name += "logistic"
             if growing_sphere:
-                filename = "./results/"+dataset_name+"/"+model_name+"/growing_spheres/"+str(threshold_interpretability)+"/"
+                filename = "./results/"+dataset_name+"/growing_spheres/"+model_name+"/"+str(threshold_interpretability)+"/"
                 filename_all = "./results/"+dataset_name+"/growing_spheres/"+str(threshold_interpretability)+"/"
             else:
                 filename="./results/"+dataset_name+"/"+model_name+"/"+str(threshold_interpretability)+"/"
@@ -71,7 +84,9 @@ if __name__ == "__main__":
             if graph: experimental_informations.initialize_per_models(filename)
             models_name.append(model_name)
             # Split the dataset inside train and test set (50% each set)
-            dataset, black_box, x_train, x_test, y_train, y_test = preparing_dataset(x, y, dataset_name, model)
+            x_train, x_test, y_train, y_test = preparing_dataset(x, y, dataset_name)
+            print()
+            print()
             print("###", model_name, "training on", dataset_name, "dataset.")
             if 'Sequential' in model_name:
                 # Train a neural network classifier with 2 relu and a sigmoid activation function
@@ -92,10 +107,10 @@ if __name__ == "__main__":
                 score = black_box.score
             print('### Accuracy:', score(x_test, y_test))
             cnt = 0
-            explainer = ape_tabular.ApeTabularExplainer(x_train, class_names, predict, #black_box.predict_proba,
+            explainer = ape_tabular.ApeTabularExplainer(x_train, class_names, predict, black_box.predict_proba,
                                                             continuous_features=continuous_features,
                                                             categorical_features=categorical_features, categorical_values=categorical_values, 
-                                                            feature_names=dataset.feature_names, categorical_names=categorical_names,
+                                                            feature_names=feature_names, categorical_names=categorical_names,
                                                             verbose=verbose, threshold_precision=threshold_interpretability,
                                                             linear_separability_index=linear_separability_index, 
                                                             transformations=transformations)
@@ -106,85 +121,48 @@ if __name__ == "__main__":
                 print("### Instance number:", cnt + 1, "over", max_instance_to_explain)
                 print("### Models ", nb_model + 1, "over", len(models))
                 print("instance to explain:", instance_to_explain)
+                print("class", black_box.predict_proba(instance_to_explain.reshape(1, -1))[0])
 
                 try:
-
-                    precision, coverage, f2, multimodal_result, radius, separability, pvalue = explainer.explain_instance(instance_to_explain, 
+                    test+=2
+                except:
+                    precision, coverage, f2, multimodal_result, radius, real_precisions = explainer.explain_instance(instance_to_explain, 
                                                     growing_method=growing_method, 
                                                     all_explanations_model=True)
                     print("precision", precision)
+                    print("real precision", real_precisions)
                     print("coverage", coverage)
                     print("f2", f2)
                     print("multimodal", multimodal_result)
                     print("radius", radius)
-                    print("separability", separability)
-                    print("pvalue", pvalue)
-                    print("folding statistic", explainer.folding_statistics)
-                    if graph: experimental_informations.store_experiments_information_instance(precision, coverage, f2, 
-                                                    multimodal=[precision[0], precision[1], precision[2], multimodal_result, 
-                                                                                    radius, pvalue, separability, explainer.folding_statistics])
+                    print("separability", explainer.separability_index)
+                    print("friends pvalue", explainer.friends_pvalue)
+                    print("counterfactual pvalue", explainer.counterfactual_pvalue)
+                    print("friends folding statistic", explainer.friends_folding_statistics)
+                    print("counterfactual folding statistic", explainer.counterfactual_folding_statistics)
+                    # Evaluate whether the linear separability index returns truely the case where the precision of LS is better than Anchors
+                    si_bon = evaluate_test_unimodality(explainer.separability_index >= linear_separability_index, precision[1], precision[2])
+                    print("si bon", si_bon)
+                    # Evaluate whether the unimodality test returns truely the case where the precision of LS is better than Anchors
+                    fold_bon = evaluate_test_unimodality(explainer.friends_folding_statistics >= 1 and explainer.counterfactual_folding_statistics >=1,  
+                                                                        precision[1], precision[2])
+                    print("fold bon", fold_bon)
+                    ape_bon = 1 if (precision[3] >= precision[1] and precision[3] >= precision[2]) else 0
+                    print("ape bon", ape_bon)
+                    if graph: experimental_informations.store_experiments_information_instance(precision, 'precision.csv', coverage, 
+                                                    'coverage.csv', f2, 'f2.csv', real_precisions, 'real_precisions.csv',
+                                                    multimodal=[precision[0], precision[1], precision[2], precision[3], precision[4], precision[5],
+                                                                                    multimodal_result, radius, explainer.friends_pvalue, 
+                                                                                    explainer.counterfactual_pvalue,
+                                                                                    explainer.separability_index, explainer.friends_folding_statistics,
+                                                                                    explainer.counterfactual_folding_statistics, si_bon, fold_bon, ape_bon,
+                                                                                    model_name])
                     cnt += 1
-                except Exception as inst:
-                    print(inst)
+                #except Exception as inst:
+                #    print(inst)
 
-            if graph: experimental_informations.store_experiments_information(max_instance_to_explain, nb_model, filename_all=filename_all)
+            if graph: experimental_informations.store_experiments_information(max_instance_to_explain, nb_model, filename1='precision.csv', 
+                    filename2='coverage.csv', filename3='f2.csv', filename4='real_precisions.csv', filename_multimodal="multimodal.csv", 
+                    filename_all=filename_all)
 
-            if graph:
-                plt.show(block=False)
-                plt.pause(1)
-                plt.close('all')
-                color = ['black', 'red', 'green', 'blue', 'cyan', 'yellow']
-                
-                graph_coverage = baseGraph.BaseGraph(title="Results of coverage for LS, APE and Anchors ", y_label="Coverage", 
-                                        model=model_name, accuracy=score(x_test, y_test), 
-                                        dataset=dataset_name, threshold=threshold_interpretability)
-                graph_coverage.show_coverage(model=interpretability_name, mean_coverage=experimental_informations.final_coverage, 
-                                        color=color[:len(interpretability_name)], title= label_graph + "coverage")
-
-                graph_f2 = baseGraph.BaseGraph(title="Results of F2 score for LS, APE and Anchors", y_label="F2 score", 
-                                        model=model_name, accuracy=score(x_test, y_test), 
-                                        dataset=dataset_name, threshold=threshold_interpretability)
-                graph_f2.show_coverage(model=interpretability_name, mean_coverage=experimental_informations.final_f2, 
-                                        color=color[:len(interpretability_name)], title= label_graph + "f2")
-                                
-                graph_roc = baseGraph.BaseGraph(title="Results of accuracy score for LS, APE and Anchors", y_label="Precision", 
-                                        model=model_name, accuracy=score(x_test, y_test), 
-                                        dataset=dataset_name, threshold=threshold_interpretability)
-                graph_roc.show_coverage(model=interpretability_name, mean_coverage=experimental_informations.final_precision, 
-                                        color=color[:len(interpretability_name)], title= label_graph + "Precision")
-
-        if len(models) > 1 and graph:
-            # In case of multiple models we compare results for each model
-            color, bars, y_pos = prepare_legends(experimental_informations.final_coverages, models, interpretability_name)
-            plt.show(block=False)
-            plt.pause(1)
-            plt.close('all')
-            graph_models_coverage = baseGraph.BaseGraph(title="Results of coverage for LS, APE and Anchors on multiple models", y_label="Coverage", 
-                                        model=model_name, accuracy=score(x_test, y_test), 
-                                        dataset=dataset_name, threshold=threshold_interpretability)
-            graph_models_coverage.show_multiple_models(models_name=models_name, interpretability_name=interpretability_name, 
-                                        mean=experimental_informations.final_coverages, color=color, 
-                                        title= label_graph + "coverage", bars=bars, y_pos=y_pos)
-
-            graph_models_f2 = baseGraph.BaseGraph(title="Results of F2 score for LS, APE and Anchors on multiple models", y_label="F2", 
-                                        model=model_name, accuracy=score(x_test, y_test), 
-                                        dataset=dataset_name, threshold=threshold_interpretability)
-            graph_models_f2.show_multiple_models(models_name=models_name, interpretability_name=interpretability_name, 
-                                        mean=experimental_informations.final_f2s, color=color, 
-                                        title= label_graph + "F2 score", bars=bars, y_pos=y_pos)
-
-            graph_models_precision = baseGraph.BaseGraph(title="Results of precision for LS, APE and Anchors on multiple models", y_label="Precision", 
-                                        model=model_name, accuracy=score(x_test, y_test), 
-                                        dataset=dataset_name, threshold=threshold_interpretability)
-            graph_models_precision.show_multiple_models(models_name=models_name, interpretability_name=interpretability_name, 
-                                        mean=experimental_informations.final_precisions, color=color, 
-                                        title= label_graph + "precision", bars=bars, y_pos=y_pos)
-
-            y_pos = range(len(interpretability_name))
-            graph_models_multimodal = baseGraph.BaseGraph(title="Proportion of times APE returns a multimodal explanation over multiple models", y_label="Multimodal",
-                                        model=model_name, accuracy=score(x_test, y_test),
-                                        dataset=dataset_name, threshold=threshold_interpretability)
-            graph_models_multimodal.show_proportion_multimodal(model=models_name, 
-                                        proportions_multimodal=experimental_informations.final_multimodals, 
-                                        color=color[:len(models)], title= label_graph + "Proportion of Multimodal")
             

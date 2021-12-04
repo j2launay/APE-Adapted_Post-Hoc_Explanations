@@ -36,18 +36,18 @@ if __name__ == "__main__":
     # Filter the warning from matplotlib
     warnings.filterwarnings("ignore")
     # Datasets used for the experiments
-    dataset_names = ["compas", "titanic", "adult", "generate_moons", "generate_blob", "generate_blobs", "artificial", "blood", "diabete", "iris", "compas"]
+    dataset_names = ["generate_moons", "compas", "titanic", "adult", "generate_moons", "generate_blob", "generate_blobs", "artificial", "blood", "diabete", "iris", "compas"]
     # array of the models used for the experiments
     models = [RandomForestClassifier(n_estimators=20, random_state=1), #LogisticRegression(),
                 VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('dt', tree.DecisionTreeClassifier())], voting="soft"),
                 #Sequential(),
                 GradientBoostingClassifier(n_estimators=20, learning_rate=1.0, random_state=1),
                 #tree.DecisionTreeClassifier(), 
-                RidgeClassifier(random_state=1), 
+                #RidgeClassifier(random_state=1), 
                 MLPClassifier(random_state=1)]
     #models=[RandomForestClassifier(n_estimators=20), LogisticRegression()]
     # Number of instances explained by each model on each dataset
-    max_instance_to_explain = 50
+    max_instance_to_explain = 25
     # Number of perturbed instances around the instances to explain for which we compute the test of unimodality
     number_of_perturb_instances = 5
     # The ratio of distance for the radius of the field
@@ -68,7 +68,7 @@ if __name__ == "__main__":
     for dataset_name in dataset_names:
         if graph: 
             #experimental_informations = store_experimental_informations(len(models), len(interpretability_name), interpretability_name, len(models))
-            stability_informations = store_experimental_informations(len(models), len(stability_name), stability_name, len(models))    
+            stability_informations = store_experimental_informations(len(models), len(stability_name), stability_name, len(models), columns_name_file3=['APE'])    
         models_name = []
         # Store dataset inside x and y (x data and y labels), with aditional information
         x, y, class_names, regression, multiclass, continuous_features, categorical_features, categorical_values, categorical_names, transformations = generate_dataset(dataset_name)
@@ -106,7 +106,7 @@ if __name__ == "__main__":
                                                             categorical_features=categorical_features, categorical_values=categorical_values, 
                                                             feature_names=dataset.feature_names, categorical_names=categorical_names,
                                                             verbose=verbose_ape, threshold_precision=threshold_interpretability,
-                                                            transformation=transformations)            
+                                                            transformations=transformations)            
             for instance_to_explain in x_test:
                 if cnt == max_instance_to_explain:
                     break
@@ -118,7 +118,8 @@ if __name__ == "__main__":
                 #try:
                 msi, csi, vsi = explainer.explain_instance(instance_to_explain, lime_stability=True, model_stability_index=True)
                 print("msi, csi, vsi", msi, csi, vsi)
-                if graph: stability_informations.store_stability_coefficient_information_instance(msi, csi, vsi)
+                if graph: stability_informations.store_experiments_information_instance(csi, 'csi_ape.csv', vsi, 'vsi_ape.csv', msi, 'msi_ape.csv' )
+                #if graph: stability_informations.store_stability_coefficient_information_instance(msi, csi, vsi)
                 """multimodal_result, original_features_employed = explainer.explain_instance(instance_to_explain, stability=True)
                 farthest_distance = get_farthest_distance(instance_to_explain, x_train, categorical_features, metric='manhattan')
                 if verbose:
@@ -163,4 +164,5 @@ if __name__ == "__main__":
             filename_all = "./results/"+dataset_name+"/"+str(threshold_interpretability)+"/"
             if graph: 
                 #experimental_informations.store_experiments_information(max_instance_to_explain, nb_model, filename_all=filename_all)
-                stability_informations.store_experiments_information(max_instance_to_explain, nb_model, filename_all=filename_all)
+                stability_informations.store_experiments_information(max_instance_to_explain, nb_model, 'csi_ape.csv', 'vsi_ape.csv', 
+                                    'msi_ape.csv', filename_all=filename_all)

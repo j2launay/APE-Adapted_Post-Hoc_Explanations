@@ -3,12 +3,16 @@
 import copy
 import sklearn
 import numpy as np
+import pandas as pd
 from . import limes
 from .limes import lime_tabular
+
 # import string
 import os
 os.environ['SPACY_WARNING_IGNORE'] = 'W008'
 import sys
+sys.path.append(os.getcwd()+'/dataset/mortality')
+import loadnhanes
 
 if (sys.version_info > (3, 0)):
     def unicode(s, errors=None):
@@ -329,6 +333,24 @@ def load_dataset(dataset_name, balance=False, discretize=True, dataset_folder='.
         dataset.class_names = ['Recidiv', 'Disappear']
         dataset.transformations = transformations
 
+    elif dataset_name == 'mortality':
+        x_data = pd.read_csv('./dataset/mortality/mortality.csv')
+        y_data = x_data['label']
+        x_data = x_data.drop('label', axis=1)
+        feature_names = x_data.columns
+        x_data = x_data.to_numpy()
+        y_data = y_data.to_numpy()     
+        categorical_features = [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, \
+            20, 21, 23, 25, 26, 27, 28, 29, 30, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, \
+                48, 49, 50, 51, 52, 53, 55, 56, 57, 58, 59, 61, 63, 64]        
+        continuous_features = [1, 19, 22, 24, 31, 32, 33, 34, 35, 54, 60, 62, 65, 66, 67]
+
+        dataset = Bunch({})
+        dataset.train, dataset.labels_train = x_data, y_data
+        dataset.categorical_features, dataset.continuous_features = categorical_features, continuous_features
+        dataset.class_names = ['surviving', 'not surviving']
+        dataset.feature_names = feature_names
+        
     elif dataset_name == 'blood':
         feature_names = ["Recency", "Frequency",  "Monetary", "Time", "Class"]
         

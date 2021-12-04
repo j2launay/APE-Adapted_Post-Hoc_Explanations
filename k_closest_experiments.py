@@ -30,7 +30,7 @@ if __name__ == "__main__":
     #models = [RandomForestClassifier(n_estimators=20), MLPClassifier(random_state=1)]
 
     # Number of instances explained by each model on each dataset
-    max_instance_to_explain = 50
+    max_instance_to_explain = 5
     # Print explanation result
     illustrative_example = False
     """ All the variable necessaries for generating the graph results """
@@ -47,7 +47,7 @@ if __name__ == "__main__":
     # Threshold for explanation method precision
     threshold_interpretability = 0.99
     linear_models_name = ['local surrogate', 'lime extending', 'lime regression', 'lime not binarize', 'lime traditional']
-    interpretability_name = ['Growing Fields', 'Growing Spheres']
+    interpretability_name = ['Growing Spheres', 'Growing Fields']
     #interpretability_name = ['ls log reg', 'ls raw data']
     # Initialize all the variable needed to store the result in graph
     for dataset_name in dataset_names:
@@ -111,9 +111,10 @@ if __name__ == "__main__":
                 try:
                     if average_distance != average_distance_spheres:
                         print("GF", "better" if average_distance < average_distance_spheres else "worse", "than GS")
-                    if graph: experimental_informations.store_average_distance_instance(average_distance, average_distance_spheres)
+                    if graph: #experimental_informations.store_average_distance_instance(average_distance, average_distance_spheres)
+                        experimental_informations.store_experiments_information_instance([average_distance_spheres, average_distance], 'average_distance.csv')
                     cnt += 1
                 except Exception as inst:
                     print(inst)
-            if graph: experimental_informations.store_experiments_information(max_instance_to_explain, nb_model, 
+            if graph: experimental_informations.store_experiments_information(max_instance_to_explain, nb_model, 'average_distance.csv',
                                                                         filename_all=filename_all)

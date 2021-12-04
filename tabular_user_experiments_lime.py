@@ -1,18 +1,11 @@
-from sklearn import tree, svm
-from sklearn.neural_network import MLPClassifier
-from sklearn.multiclass import OneVsRestClassifier
-from sklearn.ensemble import GradientBoostingClassifier
+from sklearn import tree
 from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier
-import matplotlib.pyplot as plt
-import numpy as np
 from generate_dataset import generate_dataset, preparing_dataset
-from storeExperimentalInformations import store_experimental_informations, prepare_legends
-import baseGraph
+from storeExperimentalInformations import store_experimental_informations
 import ape_tabular
 import warnings
 import random
-from ape_tabular_experiments import simulate_user_experiments_lime_ls, modify_dataset, decision_tree_function
+from ape_tabular_experiments import modify_dataset, decision_tree_function
 from sklearn import tree
 
 def compute_score_interpretability_method(features_employed_by_explainer, features_employed_black_box):
@@ -29,7 +22,7 @@ if __name__ == "__main__":
     # Filter the warning from matplotlib
     warnings.filterwarnings("ignore")
     # Dataset used for the experiments
-    dataset_names = ["compas", "generate_blobs", "adult", "diabete"]
+    dataset_names = ["generate_blobs", "compas", "generate_blobs", "adult", "diabete"]
     # Black box models for which we generate explanation
     models = [tree.DecisionTreeClassifier(max_depth=4), tree.DecisionTreeClassifier(), LogisticRegression()]
     models_name = ['DecisionTreeClassifier_depth4', 'DecisionTreeClassifier', 'LogisticRegression']
@@ -40,7 +33,7 @@ if __name__ == "__main__":
     # If set to True store the results inside a graph
     graph = True
     # Number of instance for which explanations are computed
-    max_instance_to_explain = 50
+    max_instance_to_explain = 5
     # If set to True print detailed information
     verbose = False
     # Precision threshold for explanation models and linear separability test 
@@ -91,8 +84,6 @@ if __name__ == "__main__":
 
                 
                 try:
-                    test += 2
-                except:
                     # Get the list of features employed by Lime and Local Surrogate 
                     features_employed_in_lime, features_employed_in_local_surrogate = explainer.explain_instance(instance_to_explain, 
                                                                 lime_vs_local_surrogate=True, nb_features_employed=len(features_employed_black_box))
@@ -101,10 +92,6 @@ if __name__ == "__main__":
 
                     # Selects randomly as many features as the black box model is actually chosen among all the features
                     random_explainer = random.sample(range(len(instance_to_explain)), len(features_employed_black_box))
-                    if verbose:
-                        print("features employed by Local Surrogate", features_employed_in_local_surrogate)
-                        print("features employed by lime", features_employed_in_lime)
-                        print("features employed randomly", random_explainer)
                     print("features employed by Local Surrogate", features_employed_in_local_surrogate)
                     print("features employed by lime", features_employed_in_lime)
                     print("features employed randomly", random_explainer)
@@ -113,35 +100,12 @@ if __name__ == "__main__":
                     score_local_surrogate = compute_score_interpretability_method(features_employed_in_local_surrogate, features_employed_black_box)
                     score_random = compute_score_interpretability_method(random_explainer, features_employed_black_box)
                     cnt += 1
-
-                try:
-                    if graph: experimental_informations.store_user_experiments_information_instance([score_lime, score_random, score_local_surrogate], lime=True)
+                
+                    if graph: #experimental_informations.store_user_experiments_information_instance([score_lime, score_random, score_local_surrogate], lime=True)
+                        experimental_informations.store_experiments_information_instance([score_lime, score_random, score_local_surrogate], 'recall_lime.csv')
+                
                 except Exception as inst:
                     print(inst)
                     
             filename_all="./results/"+dataset_name+"/"+str(threshold_interpretability)+"/"
-            if graph: experimental_informations.store_user_experiments_information(max_instance_to_explain, nb_model, filename_all=filename_all, lime=True)
-
-            if graph:
-                plt.show(block=False)
-                plt.pause(1)
-                plt.close('all')
-                graph_score = baseGraph.BaseGraph(title="Results of simulated user experiments for Lime, Local Surrogate and a baseline.", y_label="Recall score", 
-                                        model=model_name, accuracy=black_box.score(x_test, y_test), 
-                                        dataset=dataset_name, threshold=threshold_interpretability)
-                color = ['black', 'red', 'green', 'blue', 'cyan', 'yellow']
-                graph_score.show_coverage(model=interpretability_name, mean_coverage=experimental_informations.final_recall, color=color[:len(interpretability_name)], title="Recall lime ls")
-
-        if len(models) > 1 and graph:
-            # In case of multiple model used to classify we store in graph all the results in order to compare the impact of the black box model
-            color, bars, y_pos = prepare_legends(experimental_informations.final_recalls, models, interpretability_name)
-            plt.show(block=False)
-            plt.pause(1)
-            plt.close('all')
-            graph_models_coverage = baseGraph.BaseGraph(title="Results of simulated user experiments for Lime, Local Surrogate and a baseline on multiple models",
-                                        y_label="Recall", model=model_name, accuracy=black_box.score(x_test, y_test), 
-                                        dataset=dataset_name, threshold=threshold_interpretability)
-            
-            graph_models_coverage.show_multiple_models(models_name=models_name, interpretability_name=interpretability_name, 
-                                        mean=experimental_informations.final_recalls, color=color, 
-                                        title="recall lime ls", bars=bars, y_pos=y_pos)
+            if graph: experimental_informations.store_experiments_information(max_instance_to_explain, nb_model, 'recall_lime.csv', filename_all=filename_all)

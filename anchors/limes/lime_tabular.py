@@ -702,7 +702,10 @@ class LimeTabularExplainer(object):
                         model_regressor=None,
                         n_calls=10,
                         index_verbose=False,
-                        verbose=False):
+                        verbose=False,
+                        ls=False,
+                        ape=None,
+                        instances_in_sphere=[]):
 
         """
         Method to calculate stability indices for a trained LIME instance.
@@ -753,8 +756,22 @@ class LimeTabularExplainer(object):
         self.base.verbose = verbose
 
         confidence_intervals = []
+        print("searching for vsi and csi indicators...")
         for i in range(n_calls):
-            alpha = self.explain_instance(data_row,
+            if ls :
+                alpha = self.explain_instance_training_dataset(data_row,
+                                  predict_fn,
+                                  labels,
+                                  top_labels,
+                                  num_features,
+                                  num_samples,
+                                  distance_metric,
+                                  model_regressor,
+                                  instances_in_sphere=instances_in_sphere,
+                                  ape=ape,
+                                  stability=True).easy_model.alpha
+            else:
+                alpha = self.explain_instance(data_row,
                                   predict_fn,
                                   labels,
                                   top_labels,
@@ -769,7 +786,7 @@ class LimeTabularExplainer(object):
                 if alpha is None:
                     raise LocalModelError("""Lime Local Model is not a Weighted Ridge Regression (WRR),
                     Stability indices may not be computed: the formula is model specific""")
-
+            
             confidence_intervals.append(self.confidence_intervals())
 
         csi, vsi = compare_confints(confidence_intervals=confidence_intervals,

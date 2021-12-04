@@ -1,27 +1,163 @@
-import copy
-import os
-import re
+from threading import local
 import numpy as np
-import pandas as pd
 from sklearn.cluster import KMeans
-from sklearn.metrics import roc_auc_score, f1_score
-from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from yellowbrick.cluster import KElbowVisualizer
-from anchors import utils, anchor_tabular, anchor_base, limes
 from growingspheres import counterfactuals as cf
 from growingspheres.utils.gs_utils import generate_inside_field, generate_categoric_inside_ball
-import pyfolding as pf
-from typing import Dict, Tuple
-from scipy.stats import multinomial
-import pickle
 import random
 from sklearn.metrics import precision_score
+from growingspheres.utils.gs_utils import distances
+
+def find_closest_counterfactual(ape, instance, growing_method):
+    ape.target_class = ape.black_box_predict(instance.reshape(1, -1))[0]
+    # Computes the distance to the farthest instance from the training dataset to bound generating instances 
+    farthest_distance = 0
+    for training_instance in ape.train_data:
+        farthest_distance_now = distances(training_instance, instance, ape)
+        if farthest_distance_now > farthest_distance:
+            farthest_distance = farthest_distance_now
+    growing_sphere = cf.CounterfactualExplanation(instance, ape.black_box_predict, method=growing_method, target_class=None, 
+                                                continuous_features=ape.continuous_features, 
+                                                categorical_features=ape.categorical_features, 
+                                                categorical_values=ape.categorical_values,
+                                                max_features=ape.max_features,
+                                                min_features=ape.min_features)
+
+    growing_sphere.fit(n_in_layer=2000, first_radius=0.001, dicrease_radius=10, sparse=True, 
+                                                verbose=ape.verbose, feature_variance=ape.feature_variance, 
+                                                farthest_distance_training_dataset=farthest_distance, 
+                                                probability_categorical_feature=ape.probability_categorical_feature, 
+                                                min_counterfactual_in_sphere=ape.nb_min_instance_per_class_in_sphere)
+    closest_counterfactual = growing_sphere.enemy
+    min_instance_per_class = ape.nb_min_instance_per_class_in_sphere
+    position_training_instances_in_sphere, nb_training_instance_in_sphere = ape.instances_from_dataset_inside_sphere(instance, 
+                                                                                                growing_sphere.radius, ape.train_data)
+    training_instances_in_sphere, train_labels_in_sphere, percentage_distribution, instances_in_sphere_libfolding = \
+                                                                                ape.generate_instances_inside_sphere(growing_sphere.radius, 
+                                                                                                instance, ape.train_data, farthest_distance, 
+                                                                                                min_instance_per_class, position_training_instances_in_sphere, 
+                                                                                                nb_training_instance_in_sphere, libfolding=True,
+                                                                                                growing_method=growing_method)
+    position_testing_instances_in_sphere, nb_testing_instance_in_sphere = ape.instances_from_dataset_inside_sphere(instance, 
+                                                                                                growing_sphere.radius, ape.test_data)
+    test_instances_in_sphere, test_labels_in_sphere, test_percentage_distribution, _ = ape.generate_instances_inside_sphere(growing_sphere.radius, 
+                                                                                                instance, ape.test_data,
+                                                                                                farthest_distance, 
+                                                                                                ape.nb_min_instance_per_class_in_sphere,
+                                                                                                position_testing_instances_in_sphere, 
+                                                                                                nb_testing_instance_in_sphere,
+                                                                                                growing_method=growing_method)
+    return closest_counterfactual, growing_sphere, training_instances_in_sphere, train_labels_in_sphere, test_instances_in_sphere,\
+            test_labels_in_sphere, instances_in_sphere_libfolding, farthest_distance, position_training_instances_in_sphere, nb_training_instance_in_sphere
+
+def user_experiments_gs_gf(instance, ape, nb_features_employed):
+    target_class = ape.black_box_predict(instance.reshape(1, -1))[0]
+    growing_methods = ['GS', 'GF']
+    features_employed = []
+    for growing_method in growing_methods:
+        closest_counterfactual, growing_sphere, training_instances_in_sphere, train_labels_in_sphere, test_instances_in_sphere, \
+                                                    test_labels_in_sphere, instances_in_sphere_libfolding, _, \
+                                                    _, _\
+                                                    =find_closest_counterfactual(ape, instance, growing_method)
+        local_surrogate_exp = ape.lime_explainer.explain_instance_training_dataset(closest_counterfactual, 
+                                                                                ape.black_box_predict_proba, 
+                                                                                num_features=nb_features_employed, 
+                                                                                instances_in_sphere=training_instances_in_sphere,
+                                                                                ape=ape)
+        features_local_surrogate_employed = []
+        for feature_local_surrogate_employed in local_surrogate_exp.as_list():
+            features_local_surrogate_employed.append(feature_local_surrogate_employed[0])
+        rules, training_instances_pandas_frame, features_employed_in_local_surrogate = ape.generate_rule_and_data_for_anchors(features_local_surrogate_employed, 
+                                                                                                    target_class, ape.train_data, 
+                                                                                                    simulated_user_experiment=True)
+
+        features_employed_in_local_surrogate.sort()
+        features_employed_in_local_surrogate = list(set(features_employed_in_local_surrogate))
+        anchor_exp = ape.anchor_explainer.explain_instance(instance, ape.black_box_predict, threshold=ape.threshold_precision, 
+                                delta=0.1, tau=0.15, batch_size=100, max_anchor_size=None, stop_on_first=False,
+                                desired_label=None, beam_size=4)
+        print("rule by anchor", anchor_exp.names())
+        #print("rule by anchor", anchor_exp.names()) => To print the rules returned by Anchors
+        # Transform the explanation generated by Anchors to know what are the features employed by Anchors
+        rules, training_instances_pandas_frame, features_employed_in_rule = ape.generate_rule_and_data_for_anchors(anchor_exp.names(), 
+                                                                                                ape.target_class, ape.train_data, 
+                                                                                                simulated_user_experiment=True)
+        features_employed_in_rule = list(set(features_employed_in_rule))
+        features_employed.append(features_employed_in_local_surrogate)
+        features_employed.append(features_employed_in_rule)
+    return features_employed[0], features_employed[2], features_employed[1], features_employed[3]
+
+def ape_center(ape, instance, growing_method='GF', nb_features_employed=None):
+    closest_counterfactual, growing_sphere, training_instances_in_sphere, train_labels_in_sphere, test_instances_in_sphere, \
+                            test_labels_in_sphere, instances_in_sphere_libfolding, farthest_distance, \
+                            position_training_instances_in_sphere, nb_training_instance_in_sphere = \
+                                                    find_closest_counterfactual(ape, instance, growing_method)
+    """ Generates or store instances in the area of the hyperfield and their corresponding labels """
+    
+    if instances_in_sphere_libfolding != []:
+        # In case of categorical data, we transform categorical values into probability distribution (continuous values for libfolding)
+        index_counterfactual_instances_in_sphere = ape.store_counterfactual_instances_in_sphere(training_instances_in_sphere, libfolding=True)
+        counterfactual_instances_in_sphere = training_instances_in_sphere[index_counterfactual_instances_in_sphere]
+        counterfactual_libfolding = instances_in_sphere_libfolding[index_counterfactual_instances_in_sphere]
+        #print("start of unimodality test")
+        unimodal_test = ape.check_test_unimodal_data(np.array(counterfactual_instances_in_sphere), training_instances_in_sphere, growing_sphere.radius,
+                                                        counterfactual_libfolding=counterfactual_libfolding)
+    else:
+        counterfactual_instances_in_sphere = ape.store_counterfactual_instances_in_sphere(training_instances_in_sphere)
+        unimodal_test = ape.check_test_unimodal_data(np.array(counterfactual_instances_in_sphere), training_instances_in_sphere, growing_sphere.radius)
+    nb = 0
+    min_instance_per_class = ape.nb_min_instance_per_class_in_sphere
+    while not unimodal_test:
+        # While the libfolding test is not able to declare that data are multimodal or unimodal we extend the number of instances that are generated
+        min_instance_per_class *= 1.5
+        training_instances_in_sphere, train_labels_in_sphere, percentage_distribution, instances_in_sphere_libfolding = \
+                                    ape.generate_instances_inside_sphere(growing_sphere.radius, instance, ape.train_data, farthest_distance, 
+                                                                                                min_instance_per_class, position_training_instances_in_sphere, 
+                                                                                                nb_training_instance_in_sphere, libfolding=True,
+                                                                                                growing_method=growing_method)
+        
+        if instances_in_sphere_libfolding != []:
+            index_counterfactual_instances_in_sphere = ape.store_counterfactual_instances_in_sphere(training_instances_in_sphere, libfolding=True)
+            counterfactual_instances_in_sphere = training_instances_in_sphere[index_counterfactual_instances_in_sphere]
+            counterfactual_libfolding = instances_in_sphere_libfolding[index_counterfactual_instances_in_sphere]
+            unimodal_test = ape.check_test_unimodal_data(np.array(counterfactual_instances_in_sphere), 
+                                                            training_instances_in_sphere, growing_sphere.radius,
+                                                            counterfactual_libfolding=counterfactual_libfolding)
+        else:
+            counterfactual_instances_in_sphere = ape.store_counterfactual_instances_in_sphere(training_instances_in_sphere)
+            unimodal_test = ape.check_test_unimodal_data(np.array(counterfactual_instances_in_sphere), training_instances_in_sphere, growing_sphere.radius)
+        if ape.verbose:
+            print("nb times libfolding is not able to determine wheter datas are unimodal or multimodal:", nb)
+            print("There are ", len(counterfactual_instances_in_sphere), " instances in the datas given to libfolding.")
+            print()
+        nb += 1
+    """ Computes the labels for instances from the dataset to compute precision for explanation method """
+    labels_instance_test_data = ape.black_box_predict(ape.test_data)
+    nb_instance_test_data_label_as_target = sum(x == ape.target_class for x in labels_instance_test_data)
+    
+    
+    anchor_precision, anchor_coverage, anchor_f2, anchor_explanation = ape.compute_anchor_precision_coverage(instance, 
+                                    labels_instance_test_data, len(test_instances_in_sphere), 
+                                    farthest_distance, percentage_distribution, nb_instance_test_data_label_as_target,
+                                    growing_method=growing_method)
+    ls_precision, ls_coverage, ls_f2, ls_explanation, ape.extended_radius = ape.compute_lime_extending_precision_coverage(training_instances_in_sphere, 
+                                    instance, train_labels_in_sphere, growing_sphere, nb_features_employed,
+                                    farthest_distance, growing_method)
+    if ape.multimodal_results:
+        # In case of multimodal data, we generate a rule based explanation and compute precision and coverage of this explanation model
+        ape_precision, ape_coverage, ape_f2, ape_explanation = anchor_precision, anchor_coverage, anchor_f2, anchor_explanation
+
+    else:
+        # In case of unimodal data, we generate linear explanation and compute precision and coverage of this explanation model
+        ape_precision, ape_coverage, ape_f2, ape_explanation = ls_precision, ls_coverage, ls_f2, ls_explanation
+    return [ls_precision, anchor_precision, ape_precision], [ls_coverage, anchor_coverage, ape_coverage], [ls_f2, anchor_f2, ape_f2], \
+                ape.multimodal_results, ape.extended_radius, ape.separability_index, ape.pvalue 
 
 def compute_other_linear_explanation_precision_coverage(ape_tabular, nb_testing_instance_in_sphere, position_instances_in_sphere,
                                                             instances_in_sphere, labels_in_sphere, nb_instance_test_data_label_as_target, 
                                                             nb_testing_instance_in_sphere_label_as_target, labels_testing_instance_in_sphere, 
-                                                            nb_features_employed, growing_spheres):
+                                                            nb_features_employed, growing_spheres, growing_method):
     """
     Computation of precision and coverage to compare multiple local surrogate explanation model
     Args: ape_tabular: Ape tabular object used to explain instance
@@ -40,7 +176,6 @@ def compute_other_linear_explanation_precision_coverage(ape_tabular, nb_testing_
     local_surrogate = ape_tabular.lime_explainer.explain_instance(ape_tabular.closest_counterfactual, 
                                                                 ape_tabular.black_box_predict_proba, num_features=nb_features_employed)
     prediction_inside_sphere = ape_tabular.modify_instance_for_linear_model(local_surrogate, instances_in_sphere)
-    print(ape_tabular.target_class)
     precision_local_surrogate = ape_tabular.compute_linear_regression_precision(prediction_inside_sphere, labels_in_sphere)
 
     """
@@ -69,7 +204,7 @@ def compute_other_linear_explanation_precision_coverage(ape_tabular, nb_testing_
     
     precision_ls_raw_data, lime_extending_coverage, f2_lime_extending, ls_explanation, radius = ape_tabular.compute_lime_extending_precision_coverage(instances_in_sphere,
                                                 ape_tabular.closest_counterfactual, labels_in_sphere, growing_spheres, 
-                                                nb_features_employed, 1, 10, nb_instance_test_data_label_as_target)
+                                                nb_features_employed, 1, growing_method)
 
     if ape_tabular.verbose: print("Computing multiple linear explanation models precision and coverage.")
     linear_coverage = nb_testing_instance_in_sphere_label_as_target/nb_instance_test_data_label_as_target
@@ -83,7 +218,8 @@ def compute_other_linear_explanation_precision_coverage(ape_tabular, nb_testing_
 def compute_all_explanation_method_precision(ape_tabular, instance, growing_sphere, dicrease_radius, radius,
                                                 nb_training_instance_in_sphere, nb_instance_test_data_label_as_target,
                                                 position_instances_in_sphere, instances_in_sphere, labels_in_sphere,
-                                                farthest_distance,  farthest_distance_cf, percentage_distribution, nb_features_employed):
+                                                farthest_distance,  farthest_distance_cf, percentage_distribution, nb_features_employed,
+                                                growing_method):
     """
     Compute Precision, Coverage and F1 for APE, Anchors and the best Local Surrogate explanation models
     Args: ape_tabular: Ape tabular object used to explain the target instance
@@ -105,41 +241,71 @@ def compute_all_explanation_method_precision(ape_tabular, instance, growing_sphe
     labels_instance_test_data = ape_tabular.black_box_predict(ape_tabular.test_data)
     ape_tabular.instance_to_explain = instance
     
-    # Compute precision, coverage and F1 of local surrogate trained over raw data, with an extending sphere and a logistic regression model as explanation
-    local_surrogate_extend_raw_precision, local_surrogate_extend_raw_coverage, f2_local_surrogate_extend_raw, _, ape_tabular.extended_radius = ape_tabular.compute_lime_extending_precision_coverage(instances_in_sphere, 
-                                            instance, labels_in_sphere, growing_sphere, nb_features_employed, 
-                                            farthest_distance_cf, dicrease_radius, 
-                                            nb_instance_test_data_label_as_target)
+    # Compute precision, coverage and F2 of local surrogate trained over raw data, with an extending sphere and a logistic regression model as explanation
+    local_surrogate_extend_raw_precision, local_surrogate_extend_raw_precision_log, local_surrogate_extend_raw_coverage, f2_local_surrogate_extend_raw, _, \
+                        ape_tabular.extended_radius = ape_tabular.compute_lime_extending_precision_coverage(instances_in_sphere, 
+                                            ape_tabular.closest_counterfactual, labels_in_sphere, growing_sphere, nb_features_employed, 
+                                            farthest_distance_cf, growing_method, position_instances_in_sphere)
 
-    # Compute precision, coverage and F1 for Anchors
+    # Compute precision, coverage and F2 for Anchors
     anchor_precision, anchor_coverage, f2_anchor, _ = ape_tabular.compute_anchor_precision_coverage(instance, 
                                     labels_instance_test_data, len(instances_in_sphere), 
-                                    farthest_distance, percentage_distribution, nb_instance_test_data_label_as_target)
+                                    farthest_distance, percentage_distribution, nb_instance_test_data_label_as_target,
+                                    growing_method)
+    
+    # Compute precision, coverage and F2 for Decision Tree
+    decision_tree_precision, decision_tree_coverage, f2_decision_tree, _, \
+                decision_tree_radius = ape_tabular.compute_decision_tree_precision_coverage(instances_in_sphere, labels_in_sphere, 
+                                        ape_tabular.closest_counterfactual, growing_sphere.radius, position_instances_in_sphere)
+
+    # Compute precision for classic Local Surrogate
+    local_surrogate = ape_tabular.lime_explainer.explain_instance(ape_tabular.closest_counterfactual,
+                                                                ape_tabular.black_box_predict_proba, 
+                                                                #ape_tabular.black_box_predict, model_regressor = LogisticRegression(),
+                                                                num_features=nb_features_employed)
+    prediction_inside_sphere = ape_tabular.modify_instance_for_linear_model(local_surrogate, instances_in_sphere)
+    precision_local_surrogate = {'real':None}
+    if position_instances_in_sphere != []:
+        real_prediction_in_fields = ape_tabular.modify_instance_for_linear_model(local_surrogate, ape_tabular.train_data[position_instances_in_sphere])
+        real_labels_in_sphere = ape_tabular.black_box_predict(ape_tabular.train_data[position_instances_in_sphere])
+        precision_local_surrogate["real"] = ape_tabular.compute_linear_regression_precision(real_prediction_in_fields, real_labels_in_sphere)
+        #precision_score(real_labels_in_sphere, real_prediction_in_fields, pos_label=ape_tabular.target_class) 
+    precision_local_surrogate['all'] = ape_tabular.compute_linear_regression_precision(prediction_inside_sphere, labels_in_sphere)
+    #precision_score(labels_in_sphere, prediction_inside_sphere, pos_label=ape_tabular.target_class)
+
+    # Compute coverage and F2 for classic Local Surrogate
+    position_testing_instances_in_sphere, nb_testing_instance_in_sphere = ape_tabular.instances_from_dataset_inside_sphere(ape_tabular.closest_counterfactual, 
+                                                                                                                growing_sphere.radius, ape_tabular.test_data)
+    nb_testing_instance_in_sphere_label_as_target, labels_testing_instance_in_sphere = ape_tabular.compute_labels_inside_sphere(nb_testing_instance_in_sphere, 
+                                                                                                                                position_testing_instances_in_sphere,
+                                                                                                                                ape_tabular.test_data)
+    linear_coverage = nb_testing_instance_in_sphere_label_as_target/nb_instance_test_data_label_as_target
+    f2_linear_surrogate = (2%precision_local_surrogate['all'] + linear_coverage)/3
+
+    # Select values for APE depending on the unimodality test
     ape_precision = anchor_precision if ape_tabular.multimodal_results else local_surrogate_extend_raw_precision
     ape_coverage = anchor_coverage if ape_tabular.multimodal_results else local_surrogate_extend_raw_coverage
     f2_ape = f2_anchor if ape_tabular.multimodal_results else f2_local_surrogate_extend_raw
-    
-    if ape_tabular.verbose:
-        print("Anchor precision ", np.round(anchor_precision, decimals=3))
-        print("Anchors coverage : ", np.round(anchor_coverage, decimals=3))
-        print("F1 score for anchor:", np.round(f2_anchor, decimals=3))
-        print("Local Surrogate extended precision :", np.round(local_surrogate_extend_raw_precision, decimals=3))
-        print("The coverage of the sphere is : ", np.round(local_surrogate_extend_raw_coverage, decimals=3))
-        print("F1 score for lime extending:", np.round(f2_local_surrogate_extend_raw, decimals=3))
-        print("ERL precision : ", np.round(ape_precision, decimals=3))
-        print("ERL coverage : ", np.round(ape_coverage, decimals=3))
-        print("ERL F1 score:", np.round(f2_ape, decimals=3))
+    """
+    ape_precision = decision_tree_precision if ape_tabular.multimodal_results else local_surrogate_extend_raw_precision
+    ape_coverage = decision_tree_coverage if ape_tabular.multimodal_results else local_surrogate_extend_raw_coverage
+    f2_ape = f2_decision_tree if ape_tabular.multimodal_results else f2_local_surrogate_extend_raw
+    """
 
-    precisions = [local_surrogate_extend_raw_precision, anchor_precision, ape_precision]
-    coverages = [local_surrogate_extend_raw_coverage, anchor_coverage, ape_coverage]
-    f2s = [f2_local_surrogate_extend_raw, f2_anchor, f2_ape]
+    precisions = [precision_local_surrogate['all'], local_surrogate_extend_raw_precision_log['all'], local_surrogate_extend_raw_precision['all'], \
+                anchor_precision['all'], ape_precision['all'], decision_tree_precision['all']]
+    coverages = [linear_coverage, local_surrogate_extend_raw_coverage, local_surrogate_extend_raw_coverage, anchor_coverage, ape_coverage, decision_tree_coverage]
+    f2s = [f2_linear_surrogate, (local_surrogate_extend_raw_precision_log['all'] + local_surrogate_extend_raw_coverage)/2, f2_local_surrogate_extend_raw,  \
+                f2_anchor, f2_ape, f2_decision_tree]
     multimodal = 1 if ape_tabular.multimodal_results else 0
-    return precisions, coverages, f2s, multimodal, ape_tabular.extended_radius, ape_tabular.separability_index, ape_tabular.pvalue
+    precisions_real = [precision_local_surrogate['real'], local_surrogate_extend_raw_precision['real'], local_surrogate_extend_raw_precision['real'], \
+                anchor_precision['real'], ape_precision['real'], decision_tree_precision['real']]
+    return precisions, coverages, f2s, multimodal, ape_tabular.extended_radius, precisions_real
 
 def compute_local_surrogate_precision_coverage(ape_tabular, instance, growing_sphere,
                                                 test_instances_in_sphere, test_labels_in_sphere,
                                                 position_testing_instances_in_sphere, nb_testing_instance_in_sphere, 
-                                                nb_features_employed):
+                                                nb_features_employed, growing_method):
     """
     Compute precision, coverage and f2 for multiple linear explanation models
     Args: ape_tabular: ape tabular object used to explain the target instance
@@ -165,13 +331,13 @@ def compute_local_surrogate_precision_coverage(ape_tabular, instance, growing_sp
                                                             test_instances_in_sphere, test_labels_in_sphere, nb_instance_test_data_label_as_target, 
                                                             nb_testing_instance_in_sphere_label_as_target, 
                                                             labels_testing_instance_in_sphere, nb_features_employed,
-                                                            growing_sphere)
+                                                            growing_sphere, growing_method)
     return precision, coverage, f2
 
 
 
 def simulate_user_experiments(ape_tabular, instance, nb_features_employed, farthest_distance, closest_counterfactual, growing_sphere,
-                              position_instances_in_sphere, nb_training_instance_in_sphere, only_anchors=False, only_lse=True):
+                              position_instances_in_sphere, nb_training_instance_in_sphere, only_anchors=False, only_lse=False):
     """
     Function that generate a classic local surrogate explanation, an anchor explanation and an APE explanation and 
     returns the features that are used by these explanation models

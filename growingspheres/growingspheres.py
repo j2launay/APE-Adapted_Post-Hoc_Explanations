@@ -76,6 +76,7 @@ class GrowingSpheres:
             out = self.feature_selection(ennemies[0])
         else:
             out = ennemies[0]
+        print("I AM IN GS")
         return out, ennemies, radius
     
     

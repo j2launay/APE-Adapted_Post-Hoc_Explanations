@@ -45,6 +45,7 @@ def find_closest_counterfactual(instance, explainer, method='GF', radius=False):
         return growing_sphere.enemy, growing_sphere.radius
 
 def get_farthest_distance(instance, train_data, categorical_features, explainer, metric='euclidean'):
+    print("TEST")
     farthest_distance = 0
     for training_instance in train_data:
         # get_distance is similar to pairwise distance (i.e: it is the same results for euclidean distance) 
@@ -118,7 +119,7 @@ if __name__ == "__main__":
     #models = [RandomForestClassifier(n_estimators=20), RidgeClassifier()]
 
     # Number of instances explained by each model on each dataset
-    max_instance_to_explain = 50
+    max_instance_to_explain = 5
     # Print explanation result
     illustrative_example = False
     """ All the variable necessaries for generating the graph results """
@@ -204,11 +205,13 @@ if __name__ == "__main__":
                         if local_surrogate_precision >= lime_precision:
                             #print("YEAH")
                             local_surrogate_best_ratio += 1
-                        if graph: experimental_informations.store_lime_vs_local_surrogate(lime_precision, local_surrogate_precision, radius)
+                        if graph: 
+                            experimental_informations.store_experiments_information_instance([radius, lime_precision, 
+                                        local_surrogate_precision], 'lime_vs_ls_radius.csv')
                     cnt += 1
                 #except Exception as inst:
                 #    print(inst)
-            #print("ratio local surrogate better", local_surrogate_best_ratio/max_instance_to_explain)
             filename_all = "./results/"+dataset_name+"/"+str(threshold_interpretability)+"/"
             
-            if graph: experimental_informations.store_experiments_information(max_instance_to_explain, nb_model, filename_all=filename_all)
+            if graph: experimental_informations.store_experiments_information(max_instance_to_explain, 
+                        nb_model, 'lime_vs_ls_radius.csv', filename_all=filename_all)

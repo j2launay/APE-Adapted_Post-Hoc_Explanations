@@ -196,7 +196,8 @@ class LimeBase(object):
                         how_many = len(neighborhood_labels) - len(neighborhood_data_index_minorities_class)
                         idx = np.random.randint(len(neighborhood_data_index_minorities_class), size=how_many)
                         labels_test = neighborhood_labels[index_class_counterfactual]
-                        add_index_for_oversampling = labels_test[idx,:]
+                        add_index_for_oversampling = labels_test[idx]
+                        #add_index_for_oversampling = labels_test[idx,:]
                         weights_values_for_oversampling = weights[neighborhood_data_index_minorities_class]
                     else:
                         index_class_counterfactual = list(set(list(range(0, len(neighborhood_labels)))) - set(neighborhood_data_index_minorities_class))
@@ -204,7 +205,8 @@ class LimeBase(object):
                         how_many =  len(neighborhood_data_index_minorities_class) - (len(neighborhood_labels) - len(neighborhood_data_index_minorities_class))
                         idx = np.random.randint(len(index_class_counterfactual), size=how_many)
                         labels_test = neighborhood_labels[index_class_counterfactual]
-                        add_index_for_oversampling = labels_test[idx,:]
+                        add_index_for_oversampling = labels_test[idx]
+                        #add_index_for_oversampling = labels_test[idx,:]
                         weights_values_for_oversampling = weights[index_class_counterfactual]
                     add_instance_for_oversampling = test[idx,:]
                     add_sample_weight = weights_values_for_oversampling[idx]
@@ -243,7 +245,6 @@ class LimeBase(object):
         #print("TEST", inverse_features)
         if stability:
             # For Lime stability computation
-            print("searching for vsi and csi indicators...")
             try:
                 assert isinstance(easy_model, Ridge)
             except AssertionError:
