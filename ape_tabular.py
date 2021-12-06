@@ -61,7 +61,7 @@ class ApeTabularExplainer(object):
         self.black_box_labels = black_box_predict(self.train_data)
         if self.verbose: print("Setting interpretability methods")
         self.anchor_explainer = anchor_tabular.AnchorTabularExplainer(class_names, feature_names, train_data, 
-                                                                    copy.copy(categorical_names), discretizer="quartile", 
+                                                                    copy.copy(categorical_names), discretizer="MDLP", 
                                                                     black_box_labels=self.black_box_labels, ordinal_features=continuous_features)
         
         if categorical_features != []:
@@ -106,8 +106,10 @@ class ApeTabularExplainer(object):
                 self.probability_categorical_feature.append(probability_instance_per_feature)
         self.min_features = []
         self.max_features = []
+        self.mean_features = []
         continuous_features = [x for x in set(range(train_data.shape[1])).difference(categorical_features)]
         for continuous_feature in continuous_features:
+            self.mean_features.append(np.mean(train_data[:,continuous_feature]))
             self.max_features.append(max(train_data[:,continuous_feature]))
             self.min_features.append(min(train_data[:,continuous_feature]))
 
@@ -337,7 +339,7 @@ class ApeTabularExplainer(object):
             # If counterfactual instances are unimodal we test a linear separability problem
             #print("nb instances in hyper field", len(instances_in_sphere))
             
-        """
+        
         neigh = NearestNeighbors(n_neighbors=10, algorithm='ball_tree', metric=distances, metric_params={"ape": self})
         labels_in_sphere = self.black_box_predict(instances_in_sphere)
         target_class_in_sphere = []
@@ -378,7 +380,7 @@ class ApeTabularExplainer(object):
         
         if not self.multimodal_results:
             self.multimodal_results = mean < self.linear_separability_index
-        """
+        
         if self.verbose: print("The libfolding test indicates that data are ", "multimodal." if self.multimodal_results else "unimodal.")
         """
         if self.counterfactual_pvalue > 0.05 or self.friends_pvalue > 0.05:
@@ -538,7 +540,7 @@ class ApeTabularExplainer(object):
         except ValueError:
             thresholds_regression = [min_threshold_regression, max_threshold_regression]
         
-        thresholds_regression = [0.5]
+        thresholds_regression = [(max_threshold_regression - min_threshold_regression)/2]
         precisions_regression = []
         for threshold_regression in thresholds_regression:
             prediction_inside_sphere_regression_test_sup_0 = []
@@ -597,13 +599,14 @@ class ApeTabularExplainer(object):
         # Generate rules and data frame for applying anchors on training data
 
         rules, testing_instances_pandas_frame = self.generate_rule_and_data_for_anchors(anchor_exp.names(), self.target_class, self.test_data)
+        print("anchor rule", rules)
         # Apply anchors and returns instances from testing instances pandas frame with corresponding labels 
         labels_test_instances = self.black_box_predict(self.test_data)
         testing_instances_pandas_frame = pd.concat([testing_instances_pandas_frame, pd.DataFrame(labels_test_instances, columns=["label"])], axis=1)
 
         testing_instances_in_anchor = self.get_base_model_data(rules, testing_instances_pandas_frame)
         # Computes the number of instances from the training set that are classified as the target instance and validate the anchor rules.
-        labels_instance_test_data = self.black_box_predict(self.test_data)
+        #labels_instance_test_data = self.black_box_predict(self.test_data)
         index_instances_test_data_labels_as_target = np.where([x == self.target_class for x in labels_instance_test_data])
         instances_from_index = self.test_data[index_instances_test_data_labels_as_target]
         testing_instances_in_anchor = testing_instances_in_anchor.drop(columns=['label'])
@@ -622,8 +625,6 @@ class ApeTabularExplainer(object):
                                                 rules, farthest_distance, percentage_distribution, growing_method=growing_method)
         labels_in_anchor = self.black_box_predict(instances_in_anchor)
         anchor_coverage = nb_test_instances_in_anchor/nb_instance_test_data_label_as_target
-        #print(list(range(self.target_class))[:20])
-        #print(len(list(range(self.target_class))))
         anchor_precision = {'real':None}
         # Compute precision over real test instances
         real_labels = []
@@ -633,6 +634,9 @@ class ApeTabularExplainer(object):
                 real_labels.append(label)
         if real_labels != []:
             anchor_precision["real"] = precision_score(real_labels, [self.target_class]*len(real_labels), pos_label=self.target_class)
+        #print("instances in anchor", instances_in_anchor)
+        #print("labels in anchors", labels_in_anchor)
+        #print("anchors prediction", self.target_class)
         anchor_precision['all'] = precision_score(labels_in_anchor, [self.target_class]*len(labels_in_anchor), pos_label=self.target_class)#, average='micro') #sum(labels_in_anchor == self.target_class)/len(labels_in_anchor)
         f2_anchor = (anchor_coverage+2*anchor_precision["all"])/3
         return anchor_precision, anchor_coverage, f2_anchor, anchor_exp.names()
@@ -718,7 +722,7 @@ class ApeTabularExplainer(object):
         last_radius = radius
         extending = False
         nb_not_increasing = 0
-        while (precision_ls_raw_data["all"] > self.threshold_precision or precision_ls_raw_data["all"] < 0.85) and radius < 1:
+        while precision_ls_raw_data["all"] > self.threshold_precision  and radius < 1: #or precision_ls_raw_data["all"] < 0.85)
             #print("EXTENDING the hypersphere")
             extending = True
             """ Extending the hypersphere radius until the precision inside the hypersphere is lower than the threshold 
@@ -896,6 +900,7 @@ class ApeTabularExplainer(object):
                 APE's F1
                 Indicate whether counter factual instances are multimodal: 1 or unimodal: 0
         """
+        self.farthest_distance = None
         nb_features_employed = len(instance) if nb_features_employed == None else nb_features_employed
         self.target_class = self.black_box_predict(instance.reshape(1, -1))[0]
         # Computes the distance to the farthest instance from the training dataset to bound generating instances 
@@ -928,6 +933,7 @@ class ApeTabularExplainer(object):
             if farthest_distance_cf_now > farthest_distance_cf:
                 farthest_distance_cf = farthest_distance_cf_now
       #print("farthest distance from counterfactual", farthest_distance_cf)
+        self.farthest_distance = farthest_distance_cf
         if self.verbose:
             print("The farthest instance from the training dataset is ", farthest_distance, " away from the target.")
             if opponent_class == None:

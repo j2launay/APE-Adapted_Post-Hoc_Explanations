@@ -45,9 +45,9 @@ class store_experimental_informations(object):
         columns_name_file3 = columns_name_file1 if columns_name_file3 is None else columns_name_file3
         columns_name_file4 = columns_name_file1
 
-        self.multimodal_columns = ["LS", "LSe log", "LSe lin", "Anchors", "APE", "DT", "Multimodal",
+        self.multimodal_columns = ["LS", "LSe log", "LSe lin", "Anchors", 'APE SI', 'APE CF', 'APE FOLD', 'APE FULL', 'APE FULL pvalue', "DT", "Multimodal",
                                     "radius", "fr pvalue", "cf pvalue", "separability", "fr fold",
-                                    "cf fold", "SI bon", "fold bon", "ape bon", "bb"] if columns_multimodal == None else columns_multimodal
+                                    "cf fold", "SI bon", "CF bon", "fold bon", "ape bon", "ape pvalue bon", "bb"] if columns_multimodal == None else columns_multimodal
         self.columns_name_file1 = columns_name_file1
         self.columns_name_file2 = columns_name_file2
         self.columns_name_file3 = columns_name_file3

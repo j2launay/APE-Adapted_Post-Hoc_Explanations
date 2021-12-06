@@ -280,26 +280,38 @@ def compute_all_explanation_method_precision(ape_tabular, instance, growing_sphe
                                                                                                                                 position_testing_instances_in_sphere,
                                                                                                                                 ape_tabular.test_data)
     linear_coverage = nb_testing_instance_in_sphere_label_as_target/nb_instance_test_data_label_as_target
-    f2_linear_surrogate = (2%precision_local_surrogate['all'] + linear_coverage)/3
+    f2_linear_surrogate = (2*precision_local_surrogate['all'] + linear_coverage)/3
 
     # Select values for APE depending on the unimodality test
     ape_precision = anchor_precision if ape_tabular.multimodal_results else local_surrogate_extend_raw_precision
     ape_coverage = anchor_coverage if ape_tabular.multimodal_results else local_surrogate_extend_raw_coverage
     f2_ape = f2_anchor if ape_tabular.multimodal_results else f2_local_surrogate_extend_raw
+
+    ape_si = anchor_precision if ape_tabular.separability_index < ape_tabular.linear_separability_index else local_surrogate_extend_raw_precision
+    ape_cf = anchor_precision if ape_tabular.multimodal_counterfactual_results else local_surrogate_extend_raw_precision
+    ape_fold = anchor_precision if (ape_tabular.multimodal_counterfactual_results or ape_tabular.multimodal_friends_results) else local_surrogate_extend_raw_precision
+    ape_pvalue = anchor_precision if (ape_tabular.counterfactual_pvalue > 0.05 or ape_tabular.friends_pvalue > 0.05) else ape_precision
+    def compute_f2(precision, coverage):
+        return (2* precision + coverage )/3
     """
     ape_precision = decision_tree_precision if ape_tabular.multimodal_results else local_surrogate_extend_raw_precision
     ape_coverage = decision_tree_coverage if ape_tabular.multimodal_results else local_surrogate_extend_raw_coverage
     f2_ape = f2_decision_tree if ape_tabular.multimodal_results else f2_local_surrogate_extend_raw
     """
 
+    # 'APE SI', 'APE CF', 'APE FOLD', 'APE FULL', 'APE FULL pvalue',
     precisions = [precision_local_surrogate['all'], local_surrogate_extend_raw_precision_log['all'], local_surrogate_extend_raw_precision['all'], \
-                anchor_precision['all'], ape_precision['all'], decision_tree_precision['all']]
-    coverages = [linear_coverage, local_surrogate_extend_raw_coverage, local_surrogate_extend_raw_coverage, anchor_coverage, ape_coverage, decision_tree_coverage]
+                anchor_precision['all'], ape_si['all'], ape_cf['all'], ape_fold['all'], ape_precision['all'], ape_pvalue['all'], 
+                decision_tree_precision['all']]
+    coverages = [linear_coverage, local_surrogate_extend_raw_coverage, local_surrogate_extend_raw_coverage, anchor_coverage, ape_coverage,
+                ape_coverage, ape_coverage, ape_coverage, ape_coverage, decision_tree_coverage]
     f2s = [f2_linear_surrogate, (local_surrogate_extend_raw_precision_log['all'] + local_surrogate_extend_raw_coverage)/2, f2_local_surrogate_extend_raw,  \
-                f2_anchor, f2_ape, f2_decision_tree]
+                f2_anchor, compute_f2(ape_si['all'], ape_coverage), compute_f2(ape_cf['all'], ape_coverage), compute_f2(ape_fold['all'], ape_coverage), f2_ape, 
+                compute_f2(ape_pvalue['all'], ape_coverage), f2_decision_tree]
     multimodal = 1 if ape_tabular.multimodal_results else 0
     precisions_real = [precision_local_surrogate['real'], local_surrogate_extend_raw_precision['real'], local_surrogate_extend_raw_precision['real'], \
-                anchor_precision['real'], ape_precision['real'], decision_tree_precision['real']]
+                anchor_precision['real'], ape_si['real'], ape_cf['real'], ape_fold['real'], ape_precision['real'], ape_pvalue['real'], 
+                decision_tree_precision['real']]
     return precisions, coverages, f2s, multimodal, ape_tabular.extended_radius, precisions_real
 
 def compute_local_surrogate_precision_coverage(ape_tabular, instance, growing_sphere,

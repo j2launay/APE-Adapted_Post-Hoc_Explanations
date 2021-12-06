@@ -62,7 +62,7 @@ if __name__ == "__main__":
     threshold_interpretability = 0.99
     linear_separability_index = 1
     linear_models_name = ['local surrogate', 'lime extending', 'lime regression', 'lime not binarize', 'lime traditional']
-    interpretability_name = ['LS', 'LSe log', 'LSe lin', 'Anchors', 'APE', 'DT']
+    interpretability_name = ['LS', 'LSe log', 'LSe lin', 'Anchors', 'APE SI', 'APE CF', 'APE FOLD', 'APE FULL', 'APE FULL pvalue', 'DT']
     #interpretability_name = ['ls log reg', 'ls raw data']
     # Initialize all the variable needed to store the result in graph
     for dataset_name in dataset_names:
@@ -121,7 +121,7 @@ if __name__ == "__main__":
                 print("### Instance number:", cnt + 1, "over", max_instance_to_explain)
                 print("### Models ", nb_model + 1, "over", len(models))
                 print("instance to explain:", instance_to_explain)
-                print("class", black_box.predict_proba(instance_to_explain.reshape(1, -1))[0])
+                #print("class", black_box.predict_proba(instance_to_explain.reshape(1, -1))[0])
 
                 try:
                     test+=2
@@ -131,8 +131,9 @@ if __name__ == "__main__":
                                                     all_explanations_model=True)
                     print("precision", precision)
                     print("real precision", real_precisions)
-                    print("coverage", coverage)
+                    """print("coverage", coverage)
                     print("f2", f2)
+                    
                     print("multimodal", multimodal_result)
                     print("radius", radius)
                     print("separability", explainer.separability_index)
@@ -142,21 +143,30 @@ if __name__ == "__main__":
                     print("counterfactual folding statistic", explainer.counterfactual_folding_statistics)
                     # Evaluate whether the linear separability index returns truely the case where the precision of LS is better than Anchors
                     si_bon = evaluate_test_unimodality(explainer.separability_index >= linear_separability_index, precision[1], precision[2])
-                    print("si bon", si_bon)
                     # Evaluate whether the unimodality test returns truely the case where the precision of LS is better than Anchors
                     fold_bon = evaluate_test_unimodality(explainer.friends_folding_statistics >= 1 and explainer.counterfactual_folding_statistics >=1,  
                                                                         precision[1], precision[3])
-                    print("fold bon", fold_bon)
+                    cf_bon = evaluate_test_unimodality(explainer.counterfactual_folding_statistics >=1, precision[1], )
+                    """
+                    cf_bon = 1 if (precision[5] >= precision[1] and precision[5] >= precision[3]) else 0
                     ape_bon = 1 if (precision[4] >= precision[1] and precision[4] >= precision[3]) else 0
+                    si_bon = 1 if (precision[7] >= precision[1] and precision[7] >= precision[3]) else 0
+                    fold_bon = 1 if (precision[6] >= precision[1] and precision[6] >= precision[3]) else 0
+                    ape_pvalue_bon = 1 if (precision[8] >= precision[1] and precision[8] >= precision[3]) else 0
+                    print("separability index bon", si_bon)
+                    print("counterfactual folding bon", cf_bon)
+                    print("fold bon", fold_bon)
                     print("ape bon", ape_bon)
+                    print("ape pvalue bon", ape_pvalue_bon)
                     if graph: experimental_informations.store_experiments_information_instance(precision, 'precision.csv', coverage, 
                                                     'coverage.csv', f2, 'f2.csv', real_precisions, 'real_precisions.csv',
                                                     multimodal=[precision[0], precision[1], precision[2], precision[3], precision[4], precision[5],
+                                                                                    precision[6], precision[7], precision[8], precision[9],
                                                                                     multimodal_result, radius, explainer.friends_pvalue, 
                                                                                     explainer.counterfactual_pvalue,
                                                                                     explainer.separability_index, explainer.friends_folding_statistics,
-                                                                                    explainer.counterfactual_folding_statistics, si_bon, fold_bon, ape_bon,
-                                                                                    model_name])
+                                                                                    explainer.counterfactual_folding_statistics, si_bon, cf_bon,
+                                                                                    fold_bon, ape_bon, ape_pvalue_bon, model_name])
                     cnt += 1
                 #except Exception as inst:
                 #    print(inst)

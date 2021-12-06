@@ -6,17 +6,45 @@ from scipy.stats import kendalltau
 from sklearn.metrics.pairwise import pairwise_distances
 from random import randrange, randint, choices, uniform, random
 from scipy.stats import multinomial
+import math
 
-def distances(x, y, ape):
+def distances(x, y, ape, metrics='w_euclidian'):
+    
     continuous_features = [x for x in set(range(len(x))).difference(ape.categorical_features)]
     x_categorical, y_categorical = x[ape.categorical_features], y[ape.categorical_features]
     x_continuous, y_continuous = x[continuous_features], y[continuous_features]
-    same_coordinates_categorical = x_categorical.shape[0] - sum(x_categorical == y_categorical)
+    # We divide by 2 since the categorical data must have been one hot encoded before
+    same_coordinates_categorical = (x_categorical.shape[0] - sum(x_categorical == y_categorical)) /2
+    
     distance = 0
     for nb_feature in range(x_continuous.shape[0]):
         distance += abs(x_continuous[nb_feature] - y_continuous[nb_feature])/(ape.max_features[nb_feature] - ape.min_features[nb_feature])
     distance = distance + same_coordinates_categorical
     distance = distance/x.shape[0]
+
+    if metrics == 'w_manhattan':
+        distance = 0
+        for nb_feature in range(x_continuous.shape[0]):
+            distance += abs(x_continuous[nb_feature] - y_continuous[nb_feature])/(ape.max_features[nb_feature] - ape.min_features[nb_feature])
+        distance = distance + same_coordinates_categorical
+        distance = distance/x.shape[0]
+    else:
+        distance = 0
+        for nb_feature in range(x_continuous.shape[0]):
+            temp_distance = ((x_continuous[nb_feature] - ape.mean_features[nb_feature]) - (y_continuous[nb_feature] - ape.mean_features[nb_feature])\
+                / ape.feature_variance[continuous_features[nb_feature]])
+            distance += temp_distance * temp_distance
+        distance = math.sqrt(distance)
+        distance += same_coordinates_categorical
+        try:
+            distance = distance/ape.farthest_distance
+        except AttributeError:
+            # la distance au contrefactuelle le plus loin n'est pas encore calculé
+            pass
+        except TypeError:
+            #On passe a une nouvelle instance et la distance max doit être mesurée de nouveau
+            pass
+    
     return distance
 
 def get_distances(x1, x2, metrics=None, categorical_features=[]):
