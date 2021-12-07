@@ -30,7 +30,7 @@ if __name__ == "__main__":
     warnings.filterwarnings("ignore")
     # Datasets used for the experiments
     # "generate_circles", "generate_moons", "generate_blob", "diabete", "generate_blobs", 
-    dataset_names = ['titanic', 'generate_circles', 'generate_moons']#["adult", "compas", "titanic", "mortality", 'categorical_generate_blobs', "blood"]
+    dataset_names = ['titanic']#["adult", "compas", "titanic", "mortality", 'categorical_generate_blobs', "blood"]
     # array of the models used for the experiments
     models = [VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('svm', svm.SVC(probability=True))], voting='soft'),#('rc', RidgeClassifier())], voting="soft"),
                 GradientBoostingClassifier(n_estimators=20, learning_rate=1.0, random_state=1),
@@ -124,8 +124,8 @@ if __name__ == "__main__":
                 #print("class", black_box.predict_proba(instance_to_explain.reshape(1, -1))[0])
 
                 try:
-                    test+=2
-                except:
+                    #test+=2
+                #except:
                     precision, coverage, f2, multimodal_result, radius, real_precisions = explainer.explain_instance(instance_to_explain, 
                                                     growing_method=growing_method, 
                                                     all_explanations_model=True)
@@ -168,8 +168,8 @@ if __name__ == "__main__":
                                                                                     explainer.counterfactual_folding_statistics, si_bon, cf_bon,
                                                                                     fold_bon, ape_bon, ape_pvalue_bon, model_name])
                     cnt += 1
-                #except Exception as inst:
-                #    print(inst)
+                except Exception as inst:
+                    print(inst)
 
             if graph: experimental_informations.store_experiments_information(max_instance_to_explain, nb_model, filename1='precision.csv', 
                     filename2='coverage.csv', filename3='f2.csv', filename4='real_precisions.csv', filename_multimodal="multimodal.csv", 

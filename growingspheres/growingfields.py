@@ -106,7 +106,7 @@ class GrowingFields:
         """
         n_ennemies_ = 999
         radius_ = self.first_radius
-
+        
         while n_ennemies_ > 0:
             first_layer_ = self.ennemies_in_layer_((0, radius_), self.caps, self.n_in_layer, reducing_sphere=True)
             n_ennemies_ = first_layer_.shape[0]
@@ -123,6 +123,10 @@ class GrowingFields:
                 layer = self.ennemies_in_layer_((radius_, radius_ + step_), self.caps, self.n_in_layer)
                 n_ennemies_ = layer.shape[0]
                 radius_ = min(1, radius_ + step_)
+                #print("n ennemies", n_ennemies_)
+                #print("radius", radius_)
+                if (radius_ == 1) and n_ennemies_ == 0:
+                    return True
         if self.verbose == True:
             print("Final radius: ", (radius_ - step_, radius_))
             print("Final number of ennemies: ", n_ennemies_)

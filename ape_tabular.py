@@ -191,18 +191,18 @@ class ApeTabularExplainer(object):
         instances_in_anchors = x_data_frame.copy()
         for category, rules in set_rules.items():
             for rule in rules:
-                    if ">=" in rule[0]:
-                        instances_in_anchors = instances_in_anchors.loc[instances_in_anchors[category] >= rule[1]]
-                    elif "<=" in rule[0]:
-                        instances_in_anchors = instances_in_anchors.loc[instances_in_anchors[category] <= rule[1]]
-                    elif "=" in rule[0]:
-                        instances_in_anchors = instances_in_anchors.loc[instances_in_anchors[category] == rule[1]]
-                    elif "<" in rule[0]:
-                        instances_in_anchors = instances_in_anchors.loc[instances_in_anchors[category] < rule[1]]
-                    elif ">" in rule[0]:
-                        instances_in_anchors = instances_in_anchors.loc[instances_in_anchors[category] > rule[1]]
-                    else:
-                        print("Invalid rule detected: {}".format(rule))
+                if ">=" in rule[0]:
+                    instances_in_anchors = instances_in_anchors.loc[instances_in_anchors[category] >= rule[1]]
+                elif "<=" in rule[0]:
+                    instances_in_anchors = instances_in_anchors.loc[instances_in_anchors[category] <= rule[1]]
+                elif "=" in rule[0]:
+                    instances_in_anchors = instances_in_anchors.loc[instances_in_anchors[category] == rule[1]]
+                elif "<" in rule[0]:
+                    instances_in_anchors = instances_in_anchors.loc[instances_in_anchors[category] < rule[1]]
+                elif ">" in rule[0]:
+                    instances_in_anchors = instances_in_anchors.loc[instances_in_anchors[category] > rule[1]]
+                else:
+                    print("Invalid rule detected: {}".format(rule))
         instances_in_anchors = instances_in_anchors.reset_index(drop=True)
         return instances_in_anchors
     
@@ -720,6 +720,7 @@ class ApeTabularExplainer(object):
             print("taille de l'échantillon pour mesurer la précision", len(test_labels_in_sphere), len(prediction_inside_sphere))
             print("radius", growing_sphere.radius)
         radius = growing_sphere.radius
+        
         last_radius = radius
         extending = False
         nb_not_increasing = 0
@@ -794,7 +795,6 @@ class ApeTabularExplainer(object):
         if extending:#final_precision > precision_ls_raw_data and final_precision != 0.8 and precision_ls_raw_data < self.threshold_precision:
             precision_ls_raw_data = final_precision
             radius = last_radius
-        
         
         test_data_target_label = self.test_data[np.where([x == self.target_class for x in self.black_box_predict(self.test_data)])]
         lime_extending_coverage = self.compute_coverage(test_data_target_label, instance_at_center_of_field, radius)
@@ -992,7 +992,7 @@ class ApeTabularExplainer(object):
         while not unimodal_test:
             # While the libfolding test is not able to declare that data are multimodal or unimodal we extend the number of instances that are generated
             min_instance_per_class *= 1.5
-            print("Generating instances for libfolding test")
+            #print("Generating instances for libfolding test")
             training_instances_in_sphere, train_labels_in_sphere, percentage_distribution, instances_in_sphere_libfolding = self.generate_instances_inside_sphere(growing_sphere.radius, 
                                                                                                     self.closest_counterfactual, self.train_data, farthest_distance_cf, 
                                                                                                     min_instance_per_class, position_training_instances_in_sphere, 
