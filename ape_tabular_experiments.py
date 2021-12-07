@@ -240,37 +240,42 @@ def compute_all_explanation_method_precision(ape_tabular, instance, growing_sphe
     """
     labels_instance_test_data = ape_tabular.black_box_predict(ape_tabular.test_data)
     ape_tabular.instance_to_explain = instance
+    #print("preparing precision computation")
     
     # Compute precision, coverage and F2 of local surrogate trained over raw data, with an extending sphere and a logistic regression model as explanation
     local_surrogate_extend_raw_precision, local_surrogate_extend_raw_precision_log, local_surrogate_extend_raw_coverage, f2_local_surrogate_extend_raw, _, \
                         ape_tabular.extended_radius = ape_tabular.compute_lime_extending_precision_coverage(instances_in_sphere, 
                                             ape_tabular.closest_counterfactual, labels_in_sphere, growing_sphere, nb_features_employed, 
                                             farthest_distance_cf, growing_method, position_instances_in_sphere)
-
+    #print("computing local surrogate extending done")
+    
     # Compute precision, coverage and F2 for Anchors
     anchor_precision, anchor_coverage, f2_anchor, _ = ape_tabular.compute_anchor_precision_coverage(instance, 
                                     labels_instance_test_data, len(instances_in_sphere), 
                                     farthest_distance, percentage_distribution, nb_instance_test_data_label_as_target,
                                     growing_method)
+    #print("compute anchors done")
     
     # Compute precision, coverage and F2 for Decision Tree
     decision_tree_precision, decision_tree_coverage, f2_decision_tree, _, \
                 decision_tree_radius = ape_tabular.compute_decision_tree_precision_coverage(instances_in_sphere, labels_in_sphere, 
                                         ape_tabular.closest_counterfactual, growing_sphere.radius, position_instances_in_sphere)
-
+    #print("compute decision tree done")
+    
     # Compute precision for classic Local Surrogate
     local_surrogate = ape_tabular.lime_explainer.explain_instance(ape_tabular.closest_counterfactual,
-                                                                ape_tabular.black_box_predict_proba, 
-                                                                #ape_tabular.black_box_predict, model_regressor = LogisticRegression(),
+                                                                #ape_tabular.black_box_predict_proba, 
+                                                                ape_tabular.black_box_predict, model_regressor = LogisticRegression(),
                                                                 num_features=nb_features_employed)
     prediction_inside_sphere = ape_tabular.modify_instance_for_linear_model(local_surrogate, instances_in_sphere)
     precision_local_surrogate = {'real':None}
     if position_instances_in_sphere != []:
         real_prediction_in_fields = ape_tabular.modify_instance_for_linear_model(local_surrogate, ape_tabular.train_data[position_instances_in_sphere])
         real_labels_in_sphere = ape_tabular.black_box_predict(ape_tabular.train_data[position_instances_in_sphere])
-        precision_local_surrogate["real"] = ape_tabular.compute_linear_regression_precision(real_prediction_in_fields, real_labels_in_sphere)
-        #precision_score(real_labels_in_sphere, real_prediction_in_fields, pos_label=ape_tabular.target_class) 
-    precision_local_surrogate['all'] = ape_tabular.compute_linear_regression_precision(prediction_inside_sphere, labels_in_sphere)
+        precision_local_surrogate["real"] = precision_score(real_labels_in_sphere, real_prediction_in_fields, pos_label=ape_tabular.target_class)
+        #ape_tabular.compute_linear_regression_precision(real_prediction_in_fields, real_labels_in_sphere)     
+    precision_local_surrogate['all'] = precision_score(labels_in_sphere, prediction_inside_sphere, pos_label=ape_tabular.target_class)
+    #ape_tabular.compute_linear_regression_precision(prediction_inside_sphere, labels_in_sphere)
     #precision_score(labels_in_sphere, prediction_inside_sphere, pos_label=ape_tabular.target_class)
 
     # Compute coverage and F2 for classic Local Surrogate

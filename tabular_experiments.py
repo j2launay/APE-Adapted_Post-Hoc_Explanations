@@ -30,7 +30,7 @@ if __name__ == "__main__":
     warnings.filterwarnings("ignore")
     # Datasets used for the experiments
     # "generate_circles", "generate_moons", "generate_blob", "diabete", "generate_blobs", 
-    dataset_names = ['diabete']#["adult", "compas", "titanic", "mortality", 'categorical_generate_blobs', "blood"]
+    dataset_names = ['titanic', 'generate_circles', 'generate_moons']#["adult", "compas", "titanic", "mortality", 'categorical_generate_blobs', "blood"]
     # array of the models used for the experiments
     models = [VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('svm', svm.SVC(probability=True))], voting='soft'),#('rc', RidgeClassifier())], voting="soft"),
                 GradientBoostingClassifier(n_estimators=20, learning_rate=1.0, random_state=1),
