@@ -19,7 +19,7 @@ if __name__ == "__main__":
     # Filter the warning from matplotlib
     warnings.filterwarnings("ignore")
     # Datasets used for the experiments
-    dataset_names = ["generate_blobs", "generate_circles", "blood", "diabete", "generate_moons", "compas", "titanic", "adult"]
+    dataset_names = ["generate_circles", "generate_blobs", "blood", "diabete", "generate_moons", "compas", "titanic", "adult"]
     # array of the models used for the experiments
     models = [RandomForestClassifier(n_estimators=20, random_state=1), #LogisticRegression(),
                 GradientBoostingClassifier(n_estimators=20, learning_rate=1.0, random_state=1),
@@ -30,7 +30,8 @@ if __name__ == "__main__":
     #models = [RandomForestClassifier(n_estimators=20), MLPClassifier(random_state=1)]
 
     # Number of instances explained by each model on each dataset
-    max_instance_to_explain = 5
+    max_instance_to_explain = 50
+    k_closest = 5
     # Print explanation result
     illustrative_example = False
     """ All the variable necessaries for generating the graph results """
@@ -54,9 +55,10 @@ if __name__ == "__main__":
         if graph: experimental_informations = store_experimental_informations(len(models), len(interpretability_name), interpretability_name, len(models))
         models_name = []
         # Store dataset inside x and y (x data and y labels), with aditional information
-        x, y, class_names, regression, multiclass, continuous_features, categorical_features, categorical_values, categorical_names, transformations = generate_dataset(dataset_name)
-        for nb_model, model in enumerate(models):
-            model_name = type(model).__name__
+        x, y, class_names, regression, multiclass, continuous_features, categorical_features, categorical_values, \
+            categorical_names, feature_names, transformations = generate_dataset(dataset_name)
+        for nb_model, black_box in enumerate(models):
+            model_name = type(black_box).__name__
             if growing_sphere:
                 filename = "./results/"+dataset_name+"/"+model_name+"/growing_spheres/"+str(threshold_interpretability)+"/"
                 filename_all = "./results/"+dataset_name+"/growing_spheres/"+str(threshold_interpretability)+"/"
@@ -66,7 +68,7 @@ if __name__ == "__main__":
             if graph: experimental_informations.initialize_per_models(filename)
             models_name.append(model_name)
             # Split the dataset inside train and test set (50% each set)
-            dataset, black_box, x_train, x_test, y_train, y_test = preparing_dataset(x, y, dataset_name, model)
+            x_train, x_test, y_train, y_test = preparing_dataset(x, y, dataset_name)
             print("###", model_name, "training on", dataset_name, "dataset.")
             if 'Sequential' in model_name:
                 # Train a neural network classifier with 2 relu and a sigmoid activation function
@@ -90,7 +92,7 @@ if __name__ == "__main__":
             explainer = ape_tabular.ApeTabularExplainer(x_train, class_names, predict, #black_box.predict_proba,
                                                             continuous_features=continuous_features,
                                                             categorical_features=categorical_features, categorical_values=categorical_values, 
-                                                            feature_names=dataset.feature_names, categorical_names=categorical_names,
+                                                            feature_names=feature_names, categorical_names=categorical_names,
                                                             verbose=verbose, threshold_precision=threshold_interpretability, 
                                                             transformations=transformations)
             for instance_to_explain in x_test:
@@ -102,7 +104,7 @@ if __name__ == "__main__":
                 
                 try:
                     average_distance, all_average_distance, average_distance_spheres, all_average_distance_spheres = explainer.explain_instance(instance_to_explain, 
-                                                            growing_method=growing_method, k_closest=1)
+                                                            growing_method=growing_method, k_closest=k_closest)
                 except Exception as inst:
                     print(inst)
                     
@@ -112,9 +114,9 @@ if __name__ == "__main__":
                     if average_distance != average_distance_spheres:
                         print("GF", "better" if average_distance < average_distance_spheres else "worse", "than GS")
                     if graph: #experimental_informations.store_average_distance_instance(average_distance, average_distance_spheres)
-                        experimental_informations.store_experiments_information_instance([average_distance_spheres, average_distance], 'average_distance.csv')
+                        experimental_informations.store_experiments_information_instance([average_distance_spheres, average_distance], 'average_distance_' + str(k_closest) + '.csv')
                     cnt += 1
                 except Exception as inst:
                     print(inst)
-            if graph: experimental_informations.store_experiments_information(max_instance_to_explain, nb_model, 'average_distance.csv',
+            if graph: experimental_informations.store_experiments_information(max_instance_to_explain, nb_model, 'average_distance_' + str(k_closest) + '.csv',
                                                                         filename_all=filename_all)
