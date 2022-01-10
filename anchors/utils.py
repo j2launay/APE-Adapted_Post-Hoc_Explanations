@@ -336,20 +336,51 @@ def load_dataset(dataset_name, balance=False, discretize=True, dataset_folder='.
     elif dataset_name == 'mortality':
         x_data = pd.read_csv('./dataset/mortality/mortality.csv')
         y_data = x_data['label']
-        x_data = x_data.drop('label', axis=1)
+        x_data = x_data.drop(['label'], axis=1)
         feature_names = x_data.columns
         x_data = x_data.to_numpy()
-        y_data = y_data.to_numpy()     
-        categorical_features = [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, \
-            20, 21, 23, 25, 26, 27, 28, 29, 30, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, \
-                48, 49, 50, 51, 52, 53, 55, 56, 57, 58, 59, 61, 63, 64]        
-        continuous_features = [1, 19, 22, 24, 31, 32, 33, 34, 35, 54, 60, 62, 65, 66, 67]
+        y_data = y_data.to_numpy()
+        categorical_features = [1, 4, 5, 6, 7, 8, 9, 10, 11, 12, 16, 17, 18,
+            24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 37, 38, 39, 40, 41, 42]        
+        continuous_features = [2, 3, 13, 14, 15, 19, 20, 21, 22, 23, 36, 43, 44, 45]
 
+        categorical_names = {}
+        for feature in categorical_features:
+            le = sklearn.preprocessing.LabelEncoder()
+            le.fit(x_data[:, feature])
+            x_data[:, feature] = le.transform(x_data[:, feature])
+            categorical_names[feature] = [str(x) for x in le.classes_]
+            
+        data = x_data.astype(float)
+        ordinal_features = []
+        if discretize:
+            disc = limes.lime_tabular.QuartileDiscretizer(data,
+                                                        categorical_features,
+                                                        feature_names)
+            data = disc.discretize(data)
+            ordinal_features = [x for x in range(data.shape[1])
+                                if x not in categorical_features]
+            categorical_features = range(data.shape[1])
+            categorical_names.update(disc.names)
+        for x in categorical_names:
+            categorical_names[x] = [y.decode() if type(y) == np.bytes_ else y for y in categorical_names[x]]
+        
+        categorical_values =[]
+        for nb, features in enumerate(categorical_features):
+            try:
+                tab = list(set(x_data[:,features]))
+            except ValueError:
+                tab = [i for i in range(len(categorical_names[features]))]
+            if not 0 in tab:
+                tab.insert(0, 0)
+            categorical_values.append(tab)
+        
         dataset = Bunch({})
         dataset.train, dataset.labels_train = x_data, y_data
         dataset.categorical_features, dataset.continuous_features = categorical_features, continuous_features
         dataset.class_names = ['surviving', 'not surviving']
         dataset.feature_names = feature_names
+        dataset.categorical_names, dataset.categorical_values = categorical_names, categorical_values
         
     elif dataset_name == 'blood':
         feature_names = ["Recency", "Frequency",  "Monetary", "Time", "Class"]
@@ -480,6 +511,7 @@ def load_csv_dataset(data, target_idx, delimiter=',',
     """if not feature names, takes 1st line as feature names
     if not features_to_use, use all except for target
     if not categorical_features, consider everything < 20 as categorical"""
+    print("TEST UTILS")
     if feature_transformations is None:
         feature_transformations = {}
     if data_generate == None:
@@ -562,6 +594,7 @@ def load_csv_dataset(data, target_idx, delimiter=',',
     ret.ordinal_features = ordinal_features
     ret.categorical_features = categorical_features
     ret.categorical_names = categorical_names
+    print("je suis dans anchors utils", categorical_names)
     ret.feature_names = feature_names
     np.random.seed(1)
     if balance:

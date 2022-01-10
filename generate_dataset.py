@@ -205,7 +205,7 @@ def generate_dataset(dataset_name, multiclass=False):
         dataset = utils.load_dataset("mortality", balance=False, discretize=False, dataset_folder="./dataset/")
         x_data, y_data = dataset.train, dataset.labels_train
         continuous_features, categorical_features = dataset.continuous_features, dataset.categorical_features
-        #categorical_names, categorical_values = dataset.categorical_names, dataset.categorical_values
+        categorical_names, categorical_values = dataset.categorical_names, dataset.categorical_values
         class_names = dataset.class_names
         feature_names = dataset.feature_names
 
@@ -230,7 +230,7 @@ def generate_dataset(dataset_name, multiclass=False):
         categorical_feature_names = [feature_names[index] for index in categorical_features]
         continuous_features = [x for x in range(len(x_data[0])) if x not in categorical_features]
         continuous_feature_names = [feature_names[index] for index in continuous_features]
-        enc = OneHotEncoder(handle_unknown='ignore')
+        """enc = OneHotEncoder(handle_unknown='ignore')
         categorical_x = x_data[:,categorical_features]
         enc.fit(categorical_x)
         x_transform = enc.transform(categorical_x).toarray()
@@ -244,7 +244,7 @@ def generate_dataset(dataset_name, multiclass=False):
         feature_names = np.append(enc.get_feature_names(categorical_feature_names), continuous_feature_names)
         categorical_names = {}
         for key, values in zip(categorical_features, categorical_values):
-            categorical_names[key] = [str(value) for value in values]
+            categorical_names[key] = [str(value) for value in values]"""
     #elif 'mortality' not in dataset_name:
     else:
         continuous_features = [x for x in range(len(x_data[0]))]
