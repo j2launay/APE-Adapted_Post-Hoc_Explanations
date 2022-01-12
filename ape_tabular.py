@@ -93,7 +93,7 @@ class ApeTabularExplainer(object):
         # Compute and store variance of each feature
         self.feature_variance = []
         for feature in range(len(train_data[0])):
-            self.feature_variance.append(np.var(train_data[:,feature]))
+            self.feature_variance.append(np.std(train_data[:,feature]))
         # Compute and store the probability of each value for each categorical feature
         self.probability_categorical_feature = []
         if self.categorical_features is not None:
@@ -944,6 +944,7 @@ class ApeTabularExplainer(object):
                 farthest_distance_cf = farthest_distance_cf_now
         #print("farthest distance from counterfactual", farthest_distance_cf)
         self.farthest_distance = farthest_distance_cf
+        
         if self.verbose:
             print("The farthest instance from the training dataset is ", farthest_distance, " away from the target.")
             if opponent_class == None:
@@ -1128,7 +1129,7 @@ class ApeTabularExplainer(object):
                 dists = []
                 for ennemis in closest_ennemis:
                     dists.append(distances(self.closest_counterfactual, ennemis, self))
-
+                    
                 #mean_dists, mean_neighs = kdt.query(train_data_counterfactual_class, k_closest+1)
                 mean_dists, mean_neighs = neigh.kneighbors(train_data_counterfactual_class, k_closest+1)
                 avg_dists = np.mean(dists)

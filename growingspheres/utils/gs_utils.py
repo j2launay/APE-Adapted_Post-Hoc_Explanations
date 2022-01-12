@@ -31,8 +31,8 @@ def distances(x, y, ape, metrics='w_euclidian'):
     else:
         distance = 0
         for nb_feature in range(x_continuous.shape[0]):
-            temp_distance = ((x_continuous[nb_feature] - ape.mean_features[nb_feature]) - (y_continuous[nb_feature] - ape.mean_features[nb_feature])\
-                / ape.feature_variance[continuous_features[nb_feature]])
+            temp_distance = ((x_continuous[nb_feature] - ape.mean_features[nb_feature]) - (y_continuous[nb_feature] - ape.mean_features[nb_feature]))\
+                / ape.feature_variance[continuous_features[nb_feature]]
             distance += temp_distance * temp_distance
         distance = math.sqrt(distance)
         distance += same_coordinates_categorical

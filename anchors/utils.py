@@ -511,7 +511,6 @@ def load_csv_dataset(data, target_idx, delimiter=',',
     """if not feature names, takes 1st line as feature names
     if not features_to_use, use all except for target
     if not categorical_features, consider everything < 20 as categorical"""
-    print("TEST UTILS")
     if feature_transformations is None:
         feature_transformations = {}
     if data_generate == None:
@@ -594,7 +593,6 @@ def load_csv_dataset(data, target_idx, delimiter=',',
     ret.ordinal_features = ordinal_features
     ret.categorical_features = categorical_features
     ret.categorical_names = categorical_names
-    print("je suis dans anchors utils", categorical_names)
     ret.feature_names = feature_names
     np.random.seed(1)
     if balance:
