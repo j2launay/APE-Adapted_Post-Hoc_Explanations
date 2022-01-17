@@ -891,7 +891,7 @@ class ApeTabularExplainer(object):
     def explain_instance(self, instance, opponent_class=None, growing_method='GF', n_instance_per_layer=2000, first_radius=0.01, 
                         nb_features_employed=None, dicrease_radius=10, all_explanations_model=False, user_experiments=False, 
                         lime_vs_local_surrogate=False, local_surrogate_experiment=False, illustrative_results=False, stability=False,
-                        lime_stability=False, k_closest=False, model_stability_index=False, nb_iteration=0):
+                        lime_stability=False, k_closest=False, model_stability_index=False, nb_iteration=0, time_k_closest=False):
         """
         Returns either an explanation from anchors or lime along with one or multiple counter factual explanation
         Args: instance: Target instance to explain
@@ -910,6 +910,7 @@ class ApeTabularExplainer(object):
                 APE's F1
                 Indicate whether counter factual instances are multimodal: 1 or unimodal: 0
         """
+        start_time = time.time()
         self.farthest_distance = None
         nb_features_employed = len(instance) if nb_features_employed == None else nb_features_employed
         self.target_class = self.black_box_predict(instance.reshape(1, -1))[0]
@@ -932,6 +933,11 @@ class ApeTabularExplainer(object):
                                                     farthest_distance_training_dataset=farthest_distance, 
                                                     probability_categorical_feature=self.probability_categorical_feature, 
                                                     min_counterfactual_in_sphere=self.nb_min_instance_per_class_in_sphere)
+        time_to_find_counterfactual = time.time() - start_time
+        if time_k_closest:
+            return time_to_find_counterfactual
+        print("temps trouver le contrefactuel le plus proche", np.round(time.time() - start_time, 2))
+        start_time = time.time()
         #print("done searching for closest counterfactual")
         self.closest_counterfactual = growing_sphere.enemy
         # Computes the distance to the farthest instance from the training dataset to bound generating instances 
@@ -944,7 +950,71 @@ class ApeTabularExplainer(object):
                 farthest_distance_cf = farthest_distance_cf_now
         #print("farthest distance from counterfactual", farthest_distance_cf)
         self.farthest_distance = farthest_distance_cf
-        
+
+        if k_closest is not False:
+            #closest_instances = np.concatenate((instances_in_sphere, self.train_data), axis=0)
+            if 'S' in growing_method:
+                growing_method_other = 'GF'
+            else:
+                growing_method_other = 'GS'
+            
+            index_train_data_counterfactual_class = np.where([x != self.target_class for x in self.black_box_predict(self.train_data)])
+            train_data_counterfactual_class = self.train_data[index_train_data_counterfactual_class]
+
+            start_time = time.time()
+
+            neigh = NearestNeighbors(n_neighbors=k_closest+1, algorithm='ball_tree', metric=distances, metric_params={"ape": self})
+            neigh.fit(train_data_counterfactual_class[:1000], self.black_box_predict(train_data_counterfactual_class[:1000]))
+            print("temps pour faire le fitting", np.round(time.time() - start_time, 2))
+            start_time = time.time()
+            
+            if nb_iteration == 0:
+                #kdt = scipy.spatial.cKDTree(train_data_counterfactual_class)
+                try:
+                    dists, neighs = neigh.kneighbors(self.clusters_centers, k_closest+1)
+                  #print("dists, neighs of knn", dists, neighs)
+                    #dists, neighs = kdt.query(self.clusters_centers, k_closest+1)
+                    #print("dists, neighs of tree", dists, neighs)
+                except AttributeError:
+                    dists, neighs = neigh.kneighbors(self.closest_counterfactual.reshape(1, -1), k_closest+1)
+                    #dists, neighs = kdt.query(self.closest_counterfactual.reshape(1, -1), k_closest+1)
+                mean_dists, mean_neighs = neigh.kneighbors(train_data_counterfactual_class, k_closest+1)
+                #mean_dists, mean_neighs = kdt.query(train_data_counterfactual_class, k_closest+1)
+                print("temps pour trouver les voisins dans GF", np.round(time.time() - start_time, 2))
+                start_time = time.time()
+                closest_ennemis = train_data_counterfactual_class[neighs[0]]
+                dists = []
+                for ennemis in closest_ennemis:
+                    dists.append(distances(self.closest_counterfactual, ennemis, self))
+                
+                avg_dists = np.mean(dists)
+                mean_avg_dists = np.mean(mean_dists[:, 1:], axis=1)
+                avg_dists_other, avg_dists_all_other = self.explain_instance(instance, growing_method=growing_method_other, 
+                                                            k_closest=k_closest, nb_iteration=nb_iteration+1)
+                return avg_dists, np.mean(mean_avg_dists), avg_dists_other, avg_dists_all_other
+            else:
+                #kdt = scipy.spatial.cKDTree(train_data_counterfactual_class)
+                try:
+                    #dists, neighs = kdt.query(self.clusters_centers, k_closest+1)
+                    dists, neighs = neigh.kneighbors(self.clusters_centers, k_closest+1)
+                except AttributeError:
+                    #dists, neighs = kdt.query(self.closest_counterfactual.reshape(1, -1), k_closest+1)
+                    dists, neighs = neigh.kneighbors(self.closest_counterfactual.reshape(1, -1), k_closest+1)
+                print("temps pour trouver les voisins dans GS", np.round(time.time() - start_time, 2))
+                start_time = time.time()
+                closest_ennemis = train_data_counterfactual_class[neighs[0]]
+                dists = []
+                for ennemis in closest_ennemis:
+                    dists.append(distances(self.closest_counterfactual, ennemis, self))
+                    
+                #mean_dists, mean_neighs = kdt.query(train_data_counterfactual_class, k_closest+1)
+                mean_dists, mean_neighs = neigh.kneighbors(train_data_counterfactual_class, k_closest+1)
+                avg_dists = np.mean(dists)
+                mean_avg_dists = np.mean(mean_dists[:, 1:], axis=1)
+                return avg_dists, np.mean(mean_avg_dists)
+
+        print("temps pour mesurer la distance la plus éloignée du counterfactual", np.round(time.time() - start_time, 2))
+        start_time = time.time()
         if self.verbose:
             print("The farthest instance from the training dataset is ", farthest_distance, " away from the target.")
             if opponent_class == None:
@@ -959,7 +1029,8 @@ class ApeTabularExplainer(object):
         position_training_instances_in_sphere, nb_training_instance_in_sphere = self.instances_from_dataset_inside_sphere(self.closest_counterfactual, 
                                                                                                     growing_sphere.radius, self.train_data)
         #print("Generating first set of train instances")
-
+        print("temps pour générer l'ensemble d'entraînement", np.round(time.time() - start_time, 2))
+        start_time = time.time()
         training_instances_in_sphere, train_labels_in_sphere, percentage_distribution, instances_in_sphere_libfolding = self.generate_instances_inside_sphere(growing_sphere.radius, 
                                                                                                     self.closest_counterfactual, self.train_data, farthest_distance_cf, 
                                                                                                     min_instance_per_class, position_training_instances_in_sphere, 
@@ -989,6 +1060,8 @@ class ApeTabularExplainer(object):
         """ Compute the libfolding test to verify wheter instances in the area of the hyper sphere is multimodal or unimodal """
 
         unimodal_test = self.check_test_unimodal_data(training_instances_in_sphere, instances_in_sphere_libfolding)
+        print("temps pour faire le test d'unimodalité", np.round(time.time() - start_time, 2))
+        start_time = time.time()
         nb = 0
         while not unimodal_test:
             # While the libfolding test is not able to declare that data are multimodal or unimodal we extend the number of instances that are generated
@@ -1006,7 +1079,7 @@ class ApeTabularExplainer(object):
                 #print("There are ", len(counterfactual_instances_in_sphere), " instances in the datas given to libfolding.")
                 print()
             nb += 1
-        #print("unimodality test done")
+        print("unimodality test done")
         
         if model_stability_index or lime_stability:
             print("compute model stability index...")
@@ -1080,61 +1153,6 @@ class ApeTabularExplainer(object):
                 vsi = [vsi_ls, vsi_anchors, vsi_ls]
                 csi = [csi_ls, None, None]
             return model_stability_score, csi, vsi
-
-        elif k_closest is not False:
-            #closest_instances = np.concatenate((instances_in_sphere, self.train_data), axis=0)
-            if 'S' in growing_method:
-                growing_method_other = 'GF'
-            else:
-                growing_method_other = 'GS'
-            
-            index_train_data_counterfactual_class = np.where([x != self.target_class for x in self.black_box_predict(self.train_data)])
-            train_data_counterfactual_class = self.train_data[index_train_data_counterfactual_class]
-
-            neigh = NearestNeighbors(n_neighbors=k_closest+1, algorithm='ball_tree', metric=distances, metric_params={"ape": self})
-            neigh.fit(train_data_counterfactual_class[:1000], self.black_box_predict(train_data_counterfactual_class[:1000]))
-            if nb_iteration == 0:
-                #kdt = scipy.spatial.cKDTree(train_data_counterfactual_class)
-                try:
-                    dists, neighs = neigh.kneighbors(self.clusters_centers, k_closest+1)
-                  #print("dists, neighs of knn", dists, neighs)
-                    #dists, neighs = kdt.query(self.clusters_centers, k_closest+1)
-                    #print("dists, neighs of tree", dists, neighs)
-                except AttributeError:
-                    dists, neighs = neigh.kneighbors(self.closest_counterfactual.reshape(1, -1), k_closest+1)
-                    #dists, neighs = kdt.query(self.closest_counterfactual.reshape(1, -1), k_closest+1)
-                mean_dists, mean_neighs = neigh.kneighbors(train_data_counterfactual_class, k_closest+1)
-                #mean_dists, mean_neighs = kdt.query(train_data_counterfactual_class, k_closest+1)
-
-                closest_ennemis = train_data_counterfactual_class[neighs[0]]
-                dists = []
-                for ennemis in closest_ennemis:
-                    dists.append(distances(self.closest_counterfactual, ennemis, self))
-                
-                avg_dists = np.mean(dists)
-                mean_avg_dists = np.mean(mean_dists[:, 1:], axis=1)
-                avg_dists_other, avg_dists_all_other = self.explain_instance(instance, growing_method=growing_method_other, 
-                                                            k_closest=k_closest, nb_iteration=nb_iteration+1)
-                return avg_dists, np.mean(mean_avg_dists), avg_dists_other, avg_dists_all_other
-            else:
-                #kdt = scipy.spatial.cKDTree(train_data_counterfactual_class)
-                try:
-                    #dists, neighs = kdt.query(self.clusters_centers, k_closest+1)
-                    dists, neighs = neigh.kneighbors(self.clusters_centers, k_closest+1)
-                except AttributeError:
-                    #dists, neighs = kdt.query(self.closest_counterfactual.reshape(1, -1), k_closest+1)
-                    dists, neighs = neigh.kneighbors(self.closest_counterfactual.reshape(1, -1), k_closest+1)
-                
-                closest_ennemis = train_data_counterfactual_class[neighs[0]]
-                dists = []
-                for ennemis in closest_ennemis:
-                    dists.append(distances(self.closest_counterfactual, ennemis, self))
-                    
-                #mean_dists, mean_neighs = kdt.query(train_data_counterfactual_class, k_closest+1)
-                mean_dists, mean_neighs = neigh.kneighbors(train_data_counterfactual_class, k_closest+1)
-                avg_dists = np.mean(dists)
-                mean_avg_dists = np.mean(mean_dists[:, 1:], axis=1)
-                return avg_dists, np.mean(mean_avg_dists)
 
 
         if self.multimodal_results:

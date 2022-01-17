@@ -19,28 +19,21 @@ if __name__ == "__main__":
     # Filter the warning from matplotlib
     warnings.filterwarnings("ignore")
     # Datasets used for the experiments
-    dataset_names = ["mega_generate_blobs"]#"blood"]#"generate_blobs"]#"diabetes"]#"generate_moons"]#"generate_circles"]#"generate_blob"]#
+    dataset_names = ["blood"]#"diabetes"]#"generate_moons"]#"generate_circles"]#"generate_blob"]#"mega_generate_blobs"]#"generate_blobs"]#
     # array of the models used for the experiments
-    models = [RandomForestClassifier(n_estimators=20, random_state=1), #LogisticRegression(),
+    models = [#RandomForestClassifier(n_estimators=20, random_state=1)]#, #LogisticRegression(),
                 GradientBoostingClassifier(n_estimators=20, learning_rate=1.0, random_state=1)]#,
                 #RidgeClassifier(random_state=1)]#,
                 #VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('rc', RidgeClassifier())], voting="hard")]#,
                 #MLPClassifier(random_state=1)]
     #models = [RandomForestClassifier(n_estimators=20), MLPClassifier(random_state=1)]
 
-    # k = 1
-    # Circles fait, Moons fait, Blob fait
-    # Blobs fait, Blood fait, Diabetes  fait
-    # Mega Blobs RF, GB, RC, MLP fait
-
-    # k =  5 
     # Circles fait, Moons fait, Blob fait
     # Blobs fait, Blood fait, Diabetes fait
-    # Mega Blobs RF, GB, RC, MLP fait mais RF a mélanger avec temp
+    # Mega Blobs fait
 
     # Number of instances explained by each model on each dataset
     max_instance_to_explain = 60
-    k_closest = 5
     # Print explanation result
     illustrative_example = False
     """ All the variable necessaries for generating the graph results """
@@ -111,21 +104,21 @@ if __name__ == "__main__":
                 print("### Models ", nb_model + 1, "over", len(models))
                 print("instance to explain:", instance_to_explain)
                 
-                average_distance, all_average_distance, average_distance_spheres, all_average_distance_spheres = explainer.explain_instance(instance_to_explain, 
-                                                            growing_method=growing_method, k_closest=k_closest)
-                    
-                print("average distance for GF", average_distance)
-                print("average distance for GS", average_distance_spheres)
+                time_gs = explainer.explain_instance(instance_to_explain, time_k_closest=True,
+                                                            growing_method="GS")
+                time_gf = explainer.explain_instance(instance_to_explain, time_k_closest=True,
+                                                            growing_method="GF")
+
+                print("average time for GF", time_gf)
+                print("average time for GS", time_gs)
                 print("model", model_name)
                 print("dataset", dataset_name)
-                print("nb voisin", k_closest)
                 try:
-                    if average_distance != average_distance_spheres:
-                        print("GF", "better" if average_distance < average_distance_spheres else "worse", "than GS")
+                    print("GF", "better" if time_gf < time_gs else "worse", "than GS")
                     if graph: #experimental_informations.store_average_distance_instance(average_distance, average_distance_spheres)
-                        experimental_informations.store_experiments_information_instance([average_distance_spheres, average_distance], 'average_distance_' + str(k_closest) + '.csv')
+                        experimental_informations.store_experiments_information_instance([time_gs, time_gf], 'average_time.csv')
                     cnt += 1
                 except Exception as inst:
                     print(inst)
-            if graph: experimental_informations.store_experiments_information(max_instance_to_explain, nb_model, 'average_distance_' + str(k_closest) + '.csv',
+            if graph: experimental_informations.store_experiments_information(max_instance_to_explain, nb_model, 'average_time.csv',
                                                                         filename_all=filename_all)
