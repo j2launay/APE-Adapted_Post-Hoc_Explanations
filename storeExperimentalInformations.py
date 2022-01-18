@@ -1,53 +1,28 @@
 import pandas as pd
 import os
 
-def prepare_legends(mean_models, models, interpretability_name):
-    bars = []
-    y_pos = []
-    index_bars = 0
-    for nb, i in enumerate(mean_models):
-        if nb % len(models) == int(len(models)/2):
-            bars.append(interpretability_name[index_bars])
-            index_bars += 1
-        else:
-            bars.append('')
-        if nb < len(mean_models)/len(interpretability_name):
-            y_pos.append(nb)
-        elif nb < 2*len(mean_models)/len(interpretability_name):
-            y_pos.append(nb+1)
-        elif nb < 3*len(mean_models)/len(interpretability_name):
-            y_pos.append(nb+2)
-        elif nb < 4*len(mean_models)/len(interpretability_name):
-            y_pos.append(nb+3)
-        elif nb < 5*len(mean_models)/len(interpretability_name):
-            y_pos.append(nb+4)
-        else:
-            y_pos.append(nb+5)
-        
-    colors = ['black', 'red', 'green', 'blue', 'yellow', 'grey', 'purple', 'cyan', 'gold', 'brown']
-    color= []
-    for nb, model in enumerate(models):
-        color.append(colors[nb])
-    return color, bars, y_pos
-
 class store_experimental_informations(object):
     """
-    Class to store the experimental results of precision, coverage and F1 score for graph representation
+    Class to store the experimental results of accuracy, coverage and F1 score for graph representation
     """
-    def __init__(self, len_models, len_interpretability_name, columns_name_file1, nb_models, columns_name_file2=None, columns_name_file3=None, columns_multimodal=None):
+    def __init__(self, len_models, len_interpretability_name, columns_name_file1, nb_models, 
+                columns_name_file2=None, columns_name_file3=None, columns_multimodal=None):
         """
         Initialize all the variable that will be used to store experimental results
         Args: len_models: Number of black box models that we are explaining during experiments
               len_interpretability_name: Number of explanation methods used to explain each model
-              interpretability_name: List of the name of the explanation methods used to explain each model 
+              columns_name_file1: List of the name of the explanation methods used to explain each model
+              nb_models: Number of black box models on which experiments are computed
+              columns_name_file2 and columns_name_file3 are the columns name used in case there are multiple files with different columns name.
+              columns_multimodal: Corresponds to the columns name of the complex file containing supplementary informations such as the result of the separability test 
         """
         columns_name_file2 = columns_name_file1 if columns_name_file2 is None else columns_name_file2
         columns_name_file3 = columns_name_file1 if columns_name_file3 is None else columns_name_file3
         columns_name_file4 = columns_name_file1
 
-        self.multimodal_columns = ["LS", "LSe log", "LSe lin", "Anchors", 'APE SI', 'APE CF', 'APE FOLD', 'APE FULL', 'APE FULL pvalue', "DT", "Multimodal",
+        self.multimodal_columns = ["LS", "LSe", "Anchors", "DT", 'APE', "Multimodal",
                                     "radius", "fr pvalue", "cf pvalue", "separability", "fr fold",
-                                    "cf fold", "SI bon", "CF bon", "fold bon", "ape bon", "ape pvalue bon", "bb"] if columns_multimodal == None else columns_multimodal
+                                    "cf fold", "bb"] if columns_multimodal == None else columns_multimodal
         self.columns_name_file1 = columns_name_file1
         self.columns_name_file2 = columns_name_file2
         self.columns_name_file3 = columns_name_file3
@@ -75,11 +50,9 @@ class store_experimental_informations(object):
     def store_experiments_information_instance(self, results1, filename1, results2=None, filename2=None, results3=None,  
                         filename3=None, results4=None, filename4=None, multimodal=None, multimodal_filename="multimodal.csv"):
         """
-        Store precisions, coverages, f2s and multimodal results inside dictionary 
-        Args: precisions: list of precision result for each explanation method on a single instance
-              coverages: list of coverage result for each explanation method on a single instance
-              f2s: list of f2 score for each explanation method on a single instance
-              multimodal: 1 if APE selected a multimodal distribution, otherwise 0
+        Store experimental results inside dictionary 
+        Args: results1: list of result for each explanation method on a single instance
+              filename1: Name of the csv file that will be stored in the results folder
         """
         
         self.pd_results1 = self.pd_results1.append(pd.DataFrame([results1], columns=self.columns_name_file1))
@@ -101,12 +74,11 @@ class store_experimental_informations(object):
             self.pd_multimodal = self.pd_multimodal.append(pd.DataFrame([multimodal], columns=self.multimodal_columns))
             self.pd_multimodal.to_csv(self.filename + multimodal_filename, index=False)
 
-    def store_experiments_information(self, nb_instance, nb_model, filename1, filename2=None, filename3=None, 
+    def store_experiments_information(self, filename1, filename2=None, filename3=None, 
             filename4=None, filename_multimodal=None, filename_all="", multimodal_filename="multimodal.csv"):
         """ 
-        Compute the mean coverage, precision and f2 per model 
-        Args: nb_instance: Number of instance for which we generate explanation for each model
-              nb_model: Numerous of the black box model for which we generate explanation (first model employed = 0 , second model employed = 1, etc...)
+        Compute the mean results per model 
+        Args: filename1: Name of the csv file that will be stored in the results folder
         """
         os.makedirs(os.path.dirname(self.filename), exist_ok=True)
         os.makedirs(os.path.dirname(filename_all), exist_ok=True)

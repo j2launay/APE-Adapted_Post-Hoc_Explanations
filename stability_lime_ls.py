@@ -1,23 +1,12 @@
-from numpy.core.einsumfunc import _parse_possible_contraction
-from sklearn import tree, svm
 from sklearn.neural_network import MLPClassifier
-from sklearn.multiclass import OneVsRestClassifier
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier, VotingClassifier
-from sklearn.linear_model import LogisticRegression, RidgeClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import GaussianNB
-import matplotlib.pyplot as plt
-import numpy as np
 from generate_dataset import generate_dataset, preparing_dataset
-from storeExperimentalInformations import store_experimental_informations, prepare_legends
-import baseGraph
+from storeExperimentalInformations import store_experimental_informations
 import warnings
-from anchors import limes
 import ape_tabular
-from growingspheres import counterfactuals as cf
-from growingspheres.utils.gs_utils import distances
 from lime_vs_local_surrogate import find_closest_counterfactual, get_farthest_distance
-#from keras.models import Sequential
-#from keras.layers import Dense
 
 if __name__ == "__main__":
     # Filter the warning from matplotlib
@@ -74,30 +63,14 @@ if __name__ == "__main__":
                 filename_all="./results/"+dataset_name+"/"+str(threshold_interpretability)+"/"
             if graph: experimental_informations.initialize_per_models(filename)
             models_name.append(model_name)
-            # Split the dataset inside train and test set (50% each set)
+            # Split the dataset inside train and test set (70% training and 30% test)
             dataset, black_box, x_train, x_test, y_train, y_test = preparing_dataset(x, y, dataset_name, model)
             print("###", model_name, "training on", dataset_name, "dataset.")
-            if 'Sequential' in model_name:
-                # Train a neural network classifier with 2 relu and a sigmoid activation function
-                black_box.add(Dense(8, input_dim=len(x_train[0]), activation='relu'))
-                black_box.add(Dense(8, activation='relu'))
-                black_box.add(Dense(1, activation='sigmoid'))
-                black_box.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
-                black_box.fit(x_train, y_train, epochs=50, batch_size=10)
-                def predict(x):
-                    if x.shape[0] > 1:
-                        return np.asarray([prediction[0] for prediction in black_box.predict_classes(x)])
-                    return black_box.predict_classes(x)[0]
-                def score(x, y):
-                    return sum(predict(x) == y)/len(y)
-            else:
-                black_box = black_box.fit(x_train, y_train)
-                predict = black_box.predict
-                score = black_box.score
-            print('### Accuracy:', score(x_test, y_test))
+            black_box = black_box.fit(x_train, y_train)
+            print('### Accuracy:', black_box.score(x_test, y_test))
             cnt = 0
             
-            explainer = ape_tabular.ApeTabularExplainer(x_train, class_names, predict, #black_box.predict_proba,
+            explainer = ape_tabular.ApeTabularExplainer(x_train, class_names, black_box.predict, #black_box.predict_proba,
                                                             continuous_features=continuous_features,
                                                             categorical_features=categorical_features, categorical_values=categorical_values, 
                                                             feature_names=dataset.feature_names, categorical_names=categorical_names,
@@ -114,23 +87,25 @@ if __name__ == "__main__":
                 print("instance to explain:", instance_to_explain)
             
                 try:
+                    # Search for the closest counterfactual in order to compute the csi and vsi of the linear explanation over the closest counterfactual
                     closest_counterfactual, radius = find_closest_counterfactual(instance_to_explain, explainer, method='GS', radius=True)
                     farthest_distance = get_farthest_distance(instance_to_explain, x_train, categorical_features, explainer, metric='manhattan')
                     
-                    csi_lime, vsi_lime = explainer.lime_explainer.check_stability(instance_to_explain, black_box.predict_proba, 
+                    csi_lime, vsi_lime = explainer.linear_explainer.check_stability(instance_to_explain, black_box.predict_proba, 
                                             n_calls=10, index_verbose=False, ls=False, ape=explainer)
 
-                    csi_ls, vsi_ls = explainer.lime_explainer.check_stability(closest_counterfactual, black_box.predict_proba, 
+                    csi_ls, vsi_ls = explainer.linear_explainer.check_stability(closest_counterfactual, black_box.predict_proba, 
                                             n_calls=10, index_verbose=False, ls=False, ape=explainer)
                     
-                    explainer.target_class = predict(instance_to_explain.reshape(1, -1))
-                    position_instances_in_sphere, nb_training_instance_in_sphere = explainer.instances_from_dataset_inside_sphere(
+                    # Generate artificial instances in the fields close to the closest counterfactual to compute the Extended Local Surrogate
+                    explainer.target_class = black_box.predict(instance_to_explain.reshape(1, -1))
+                    position_instances_in_field, nb_training_instance_in_field = explainer.instances_from_dataset_inside_field(
                                             closest_counterfactual, radius, x_train)
-                    instances_in_sphere = explainer.generate_instances_inside_sphere(radius, closest_counterfactual, x_train, 
-                                        farthest_distance, 100, position_instances_in_sphere, nb_training_instance_in_sphere, growing_method="GF", 
+                    instances_in_field = explainer.generate_instances_inside_field(radius, closest_counterfactual, x_train, 
+                                        farthest_distance, 100, position_instances_in_field, nb_training_instance_in_field, growing_method="GF", 
                                             libfolding=False, lime_ls=False)
-                    csi_lse, vsi_lse = explainer.lime_explainer.check_stability(closest_counterfactual, black_box.predict_proba, 
-                                            n_calls=10, index_verbose=False, ls=False, ape=explainer, instances_in_sphere=instances_in_sphere)
+                    csi_lse, vsi_lse = explainer.linear_explainer.check_stability(closest_counterfactual, black_box.predict_proba, 
+                                            n_calls=10, index_verbose=False, ls=False, ape=explainer, instances_in_field=instances_in_field)
                     print("csi LIME", csi_lime)
                     print("vsi LIME", vsi_lime)
                     print("csi LS", csi_ls)
@@ -144,6 +119,6 @@ if __name__ == "__main__":
                 except Exception as inst:
                     print(inst)
 
-            if graph: experimental_informations.store_experiments_information(max_instance_to_explain, nb_model, filename1='csi_ls.csv', 
+            if graph: experimental_informations.store_experiments_information(filename1='csi_ls.csv', 
                                     filename2='vsi_ls.csv', filename_all=filename_all)
            

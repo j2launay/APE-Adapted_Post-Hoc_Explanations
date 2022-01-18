@@ -1,18 +1,13 @@
-from sklearn import tree, svm
-from sklearn.neural_network import MLPClassifier
-from sklearn.multiclass import OneVsRestClassifier
+from sklearn import tree
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
-from storeExperimentalInformations import prepare_legends, store_experimental_informations
-import matplotlib.pyplot as plt
-import numpy as np
+from storeExperimentalInformations import store_experimental_informations
 from generate_dataset import generate_dataset, preparing_dataset
-import baseGraph
 import ape_tabular
 import warnings
 import random
-from ape_tabular_experiments import simulate_user_experiments_lime_ls, modify_dataset, decision_tree_function, simulate_user_experiments
+from ape_tabular_experiments import modify_dataset, decision_tree_function
 
 def compute_score_interpretability_method(features_employed_by_explainer, features_employed_black_box):
     """
@@ -32,24 +27,21 @@ if __name__ == "__main__":
     # Filter the warning from matplotlib
     warnings.filterwarnings("ignore")
     # The datasets employed for experiments
-    dataset_names = ["generate_moons", "generate_blobs", "diabetes", "compas", "adult"]
+    dataset_names = ["generate_blobs", "diabetes", "compas", "adult", "mega_generate_blobs"]
     # Models employed for experiments
-    #models = [LogisticRegression(random_state=1), tree.DecisionTreeClassifier(random_state=1)]#, tree.DecisionTreeClassifier(max_depth=4)]
     models = [RandomForestClassifier(n_estimators=20, random_state=1), tree.DecisionTreeClassifier(random_state=1), \
             LogisticRegression(random_state=1), GradientBoostingClassifier(n_estimators=20, random_state=1)]# tree.DecisionTreeClassifier(max_depth=4)]
 
-    #models_name = ['LogisticRegression', 'DecisionTreeClassifier']#, 'DecisionTreeClassifier_depth4']    
     # Number of instance for which explanations are computed
-    max_instance_to_explain = 2
+    max_instance_to_explain = 60
     # Number of feature from the dataset that are modified (values are set to 0 to train the decision model)
-    nb_feature_to_train = 1
+    nb_feature_to_train = 4
     # If set to True store the results inside a graph
     graph = True
     # If set to True print detailed information
     verbose = False
     # Precision threshold for explanation models and linear separability test 
     threshold_interpretability = 0.99
-    interpretability_name = ['local surrogate', 'anchors', 'random', 'ape', 'local surrogate', 'anchors', 'random', 'ape']
     interpretability_name = ['LSe prec', 'Anc. prec', 'rand. prec', 'APE prec', 'LSe reca', 'Anc. reca', 
                                     'rand. reca', 'APE reca']
     # Initialize variable to store the results for the graph representation
@@ -58,11 +50,12 @@ if __name__ == "__main__":
         # Store dataset information such as class names and the list of categerical features as well as variables (x for input and y for labels)
         x, y, class_names, regression, multiclass, continuous_features, categorical_features, categorical_values, \
             categorical_names, feature_names, transformations = generate_dataset(dataset_name)
+        
         for nb_model, black_box in enumerate(models):
-            model_name = type(black_box).__name__#models_name[nb_model]
+            model_name = type(black_box).__name__
             filename = "./results/"+dataset_name+"/"+model_name+"/"+str(threshold_interpretability)+"/"
             if graph: experimental_informations.initialize_per_models(filename)
-            # Split the dataset in test and train set (50% each)
+            # Split the dataset inside train and test set (70% training and 30% test)
             x_train, x_test, y_train, y_test = preparing_dataset(x, y, dataset_name)
             print("###", model_name, "training on", dataset_name, "dataset.")
             # Modify the dataset to train the "black box" model only on a subset of features
@@ -84,6 +77,7 @@ if __name__ == "__main__":
                                                             categorical_features=categorical_features, categorical_values=categorical_values, 
                                                             feature_names=feature_names, categorical_names=categorical_names,
                                                             verbose=False, linear_separability_index=1, transformations=transformations)
+            
             for instance_to_explain in x_test: 
                 if cnt == max_instance_to_explain:
                     break
@@ -101,17 +95,11 @@ if __name__ == "__main__":
                 try:
                     # Get the list of features employed by the 3 explanation models 
                     features_employed_in_local_surrogate, features_employed_by_ape, features_employed_anchors = explainer.explain_instance(instance_to_explain,
-                    #features_employed_in_local_surrogate = explainer.explain_instance(instance_to_explain, 
                                                                     user_experiments=True, 
                                                                     nb_features_employed=len(features_employed_black_box))
                     # Selects randomly as many features as the black box model is actually chosen among all the features
                     random_explainer = random.sample(range(len(instance_to_explain)), len(features_employed_black_box))
                     
-                    #if verbose:
-                        #print("features employed by Local Surrogate", features_employed_in_local_surrogate)
-                        #print("features employed by APE", features_employed_by_ape)
-                        #print("features employed by anchors", features_employed_anchors)
-                        #print("features employed randomly", random_explainer)
                     print("features employed by the black box", features_employed_black_box)
                     print("features employed by Local Surrogate", features_employed_in_local_surrogate)
                     print("features employed by APE", features_employed_by_ape)
@@ -126,9 +114,9 @@ if __name__ == "__main__":
 
                     if graph: experimental_informations.store_experiments_information_instance([precision_local_surrogate,
                                     precision_anchor, precision_random, precision_ape, recall_local_surrogate, recall_anchor, 
-                                    recall_random, recall_ape], 'recall.csv')
+                                    recall_random, recall_ape], 'user_experiments.csv')
                 except Exception as inst:
                     print(inst)
                     
             filename_all="./results/"+dataset_name+"/"+str(threshold_interpretability)+"/"
-            if graph: experimental_informations.store_experiments_information(max_instance_to_explain, nb_model, 'recall.csv', filename_all=filename_all)
+            if graph: experimental_informations.store_experiments_information('user_experiments.csv', filename_all=filename_all)

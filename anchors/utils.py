@@ -392,7 +392,7 @@ def load_dataset(dataset_name, balance=False, discretize=True, dataset_folder='.
             balance=balance)
         dataset.class_names = ['Donated', 'Not donated']
 
-    elif dataset_name == 'diabete':
+    elif dataset_name == 'diabetes':
         feature_names = ["Pregnancies", "Glucose",  "Blood pressure", "Skin Thickness", "Insulin",
                         "BMI", "Diabetes Pedigree Function", "Age", "Outcome"]
         
@@ -516,7 +516,7 @@ def load_csv_dataset(data, target_idx, delimiter=',',
     if data_generate == None:
         if "blood" in data:
             data = np.genfromtxt("dataset/blood_transfusion_service.csv", delimiter=",", dtype='|S128')
-        elif "diabete" in data:
+        elif "diabetes" in data:
             data = np.genfromtxt("dataset/diabetes.csv", delimiter=",", dtype='|S128')
         #elif "compas" in data:
 

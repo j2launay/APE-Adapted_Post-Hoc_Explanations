@@ -1,8 +1,8 @@
 from sklearn import tree
 from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier, VotingClassifier
+from sklearn.ensemble import RandomForestClassifier
 from storeExperimentalInformations import store_experimental_informations
-from generate_dataset import generate_dataset, preparing_dataset
+from generate_dataset import generate_dataset
 from sklearn.model_selection import train_test_split
 import ape_tabular
 import warnings
@@ -53,7 +53,7 @@ if __name__ == "__main__":
             model_name = models_name[nb_model]
             filename="./results/"+dataset_name+"/"+model_name+"/"+str(threshold_interpretability)+"/"
             if graph: experimental_informations.initialize_per_models(filename)
-            # Split the dataset in test and train set (50% each)
+            # Split the dataset inside train and test set (70% training and 30% test)
             x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.3, random_state=10)
             print("###", model_name, "training on", dataset_name, "dataset.")
             # Modify the dataset to train the "black box" model only on a subset of features
@@ -98,17 +98,13 @@ if __name__ == "__main__":
                     # Selects randomly as many features as the black box model is actually chosen among all the features
                     random_explainer = random.sample(range(len(instance_to_explain)), len(features_employed_black_box))
                     
-                    #if verbose:
-                        #print("features employed by Local Surrogate", features_employed_in_local_surrogate)
-                        #print("features employed by APE", features_employed_by_ape)
-                        #print("features employed by anchors", features_employed_anchors)
-                        #print("features employed randomly", random_explainer)
                     print("features employed by the black box", features_employed_black_box)
                     print("features employed by Local Surrogate GS", features_employed_in_ls_gs)
                     print("features employed by Local Surrogate GF", features_employed_in_ls_gf)
                     print("features employed by anchors GS", features_employed_anchors_gs)
                     print("features employed by anchors GF", features_employed_anchors_gf)
                     print("features employed randomly", random_explainer)
+                    
                     precision_ls_gs, recall_ls_gs = compute_score_interpretability_method(features_employed_in_ls_gs, 
                                                         features_employed_black_box)
                     precision_ls_gf, recall_ls_gf = compute_score_interpretability_method(features_employed_in_ls_gf, 
@@ -126,4 +122,4 @@ if __name__ == "__main__":
                     print(inst)
                     
             filename_all="./results/"+dataset_name+"/"+str(threshold_interpretability)+"/"
-            if graph: experimental_informations.store_experiments_information(max_instance_to_explain, nb_model, 'recall_gs_gf.csv', filename_all=filename_all)
+            if graph: experimental_informations.store_experiments_information('recall_gs_gf.csv', filename_all=filename_all)

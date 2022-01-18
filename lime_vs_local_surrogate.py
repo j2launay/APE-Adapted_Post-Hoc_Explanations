@@ -142,7 +142,7 @@ if __name__ == "__main__":
             filename = "./results/"+dataset_name+"/"+model_name+"/"+str(threshold_interpretability)+"/"
             if graph: experimental_informations.initialize_per_models(filename)
             models_name.append(model_name)
-            # Split the dataset inside train and test set (50% each set)
+            # Split the dataset inside train and test set (70% training and 30% test)
             dataset, black_box, x_train, x_test, y_train, y_test = preparing_dataset(x, y, dataset_name, model)
             print("###", model_name, "training on", dataset_name, "dataset.")
             if 'Sequential' in model_name:

@@ -615,6 +615,59 @@ class LimeTabularExplainer(object):
             return ret_exp, self.base.used_features
         return ret_exp
 
+    def data_inverse(self,
+                       data_row,
+                       num_samples):
+        """Generates a neighborhood around a prediction.
+
+        For numerical features, perturb them by sampling from a Normal(0,1) and
+        doing the inverse operation of mean-centering and scaling, according to
+        the means and stds in the training data. For categorical features,
+        perturb by sampling according to the training distribution, and making
+        a binary feature that is 1 when the value is the same as the instance
+        being explained.
+
+        Args:
+            data_row: 1d numpy array, corresponding to a row
+            num_samples: size of the neighborhood to learn the linear model
+
+        Returns:
+            A tuple (data, inverse), where:
+                data: dense num_samples * K matrix, where categorical features
+                are encoded with either 0 (not equal to the corresponding value
+                in data_row) or 1. The first row is the original instance.
+                inverse: same as data, except the categorical features are not
+                binary, but categorical (as the original data)
+        """
+        data = np.zeros((num_samples, data_row.shape[0]))
+        categorical_features = range(data_row.shape[0])
+        if self.discretizer is None:
+            data = self.random_state.normal(
+                    0, 1, num_samples * data_row.shape[0]).reshape(
+                    num_samples, data_row.shape[0])
+            data = data * self.scaler.scale_ + self.scaler.mean_
+            categorical_features = self.categorical_features
+            first_row = data_row
+        else:
+            first_row = self.discretizer.discretize(data_row)
+        data[0] = data_row.copy()
+        inverse = data.copy()
+        for column in categorical_features:
+            values = self.feature_values[column]
+            freqs = self.feature_frequencies[column]
+            inverse_column = self.random_state.choice(values, size=num_samples,
+                                                      replace=True, p=freqs)
+            binary_column = np.array([1 if x == first_row[column]
+                                      else 0 for x in inverse_column])
+            binary_column[0] = 1
+            inverse_column[0] = data[0, column]
+            data[:, column] = binary_column
+            inverse[:, column] = inverse_column
+        if self.discretizer is not None:
+            inverse[1:] = self.discretizer.undiscretize(inverse[1:])
+        inverse[0] = data_row
+        return data, inverse
+
     def __data_inverse(self,
                        data_row,
                        num_samples):

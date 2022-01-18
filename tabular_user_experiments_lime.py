@@ -22,18 +22,15 @@ if __name__ == "__main__":
     # Filter the warning from matplotlib
     warnings.filterwarnings("ignore")
     # Dataset used for the experiments
-    dataset_names = ["generate_blobs", "compas", "generate_blobs", "adult", "diabete"]
+    dataset_names = ["generate_blobs", "compas", "mega_generate_blobs", "adult", "diabetes"]
     # Black box models for which we generate explanation
-    models = [tree.DecisionTreeClassifier(max_depth=4), tree.DecisionTreeClassifier(), LogisticRegression()]
-    models_name = ['DecisionTreeClassifier_depth4', 'DecisionTreeClassifier', 'LogisticRegression']
     models = [LogisticRegression(), tree.DecisionTreeClassifier()]
-    models_name = ['LogisticRegression', 'DecisionTreeClassifier']
     # Number of feature from the dataset that are modified (values are set to 0 to train the decision model)
     nb_feature_to_modify = 6
     # If set to True store the results inside a graph
     graph = True
     # Number of instance for which explanations are computed
-    max_instance_to_explain = 5
+    max_instance_to_explain = 50
     # If set to True print detailed information
     verbose = False
     # Precision threshold for explanation models and linear separability test 
@@ -48,10 +45,10 @@ if __name__ == "__main__":
         x, y, class_names, regression, multiclass, continuous_features, categorical_features, categorical_values, categorical_names, transformations = generate_dataset(dataset_name)
         for nb_model, model in enumerate(models):
             cnt = 0
-            model_name = models_name[nb_model]
+            model_name = type(model).__name__
             filename="./results/"+dataset_name+"/"+model_name+"/"+str(threshold_interpretability)+"/"
             if graph: experimental_informations.initialize_per_models(filename)
-            # Split the dataset in test and train set (50% each)
+            # Split the dataset inside train and test set (70% training and 30% test)
             dataset, black_box, x_train, x_test, y_train, y_test = preparing_dataset(x, y, dataset_name, model)
             print("###", model_name, "training on", dataset_name, "dataset.")
             # Modify the dataset to train the "black box" model only on a subset of features
@@ -102,10 +99,10 @@ if __name__ == "__main__":
                     cnt += 1
                 
                     if graph: #experimental_informations.store_user_experiments_information_instance([score_lime, score_random, score_local_surrogate], lime=True)
-                        experimental_informations.store_experiments_information_instance([score_lime, score_random, score_local_surrogate], 'recall_lime.csv')
+                        experimental_informations.store_experiments_information_instance([score_lime, score_random, score_local_surrogate], 'user_experiments_lime.csv')
                 
                 except Exception as inst:
                     print(inst)
                     
             filename_all="./results/"+dataset_name+"/"+str(threshold_interpretability)+"/"
-            if graph: experimental_informations.store_experiments_information(max_instance_to_explain, nb_model, 'recall_lime.csv', filename_all=filename_all)
+            if graph: experimental_informations.store_experiments_information('user_experiments_lime.csv', filename_all=filename_all)
