@@ -4,12 +4,12 @@ import numpy as np
 import pandas as pd
 from sklearn import tree
 from sklearn.cluster import KMeans
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, roc_auc_score
 from sklearn.model_selection import train_test_split
 from yellowbrick.cluster import KElbowVisualizer
 from anchors import anchor_tabular, limes
 from ape_experiments_functions import k_closest_experiments, compute_all_explanation_method_accuracy, \
-        model_stability_index, compute_local_surrogate_accuracy_coverage
+        model_stability_index, compute_local_surrogate_accuracy_coverage, compute_k_radius_local_surrogate_extending
 from growingspheres import counterfactuals as cf
 from growingspheres.utils.gs_utils import generate_inside_ball, generate_inside_field, generate_categoric_inside_ball, \
         distances
@@ -33,7 +33,12 @@ class ApeTabularExplainer(object):
                 categorical_names=None, linear_separability_index=0.99,
                 transformations=None):
         # We first split the training set into 60% train and 40% test in order to compute accuracy and coverage over test data
+        self.feature_names = feature_names
+        self.max_mahalanobis = None
         self.train_data, self.test_data = train_test_split(train_data, test_size=0.4, random_state=42)
+        test_mahanalobis = distances(self.train_data, self.train_data, self, metrics="mahalanobis")
+        self.max_mahalanobis = max(test_mahanalobis['mahalanobis'])
+
         self.class_names = class_names
         self.black_box_predict = lambda x: black_box_predict(x)
         # black box predict proba is used for lime explanation with probabilistic function
@@ -243,7 +248,9 @@ class ApeTabularExplainer(object):
             if cnt > 25 and len(artificial_instances_in_anchors) < 10:
                 print("anchor rule too specific", rules)
                 farthest_distance -= 0.05
-                farthest_distance = max(farthest_distance, 0.01)
+                if farthest_distance <= 0.01:
+                    return 0
+
         
         return artificial_instances_in_anchors[:nb_instances_in_field].to_numpy()
 
@@ -493,14 +500,22 @@ class ApeTabularExplainer(object):
                     generated_instances_inside_field_libfolding = np.append(generated_instances_inside_field_libfolding, generated_libfolding, axis=0)
                 except ValueError:
                     generated_instances_inside_field_libfolding = generated_libfolding
-            
+            else:
+                # In order to not create error with oversampling
+                generated_instances_inside_field_libfolding = instances_in_field
+
             # Compute the number of sampled instances with same and opponent class to the target instance in order to generate more instances 
             # if this is not enough balanced  
             labels_in_field = self.black_box_predict(instances_in_field)
-            for label_field in labels_in_field:
+            friends_in_field, ennemies_in_field, friends_in_field_libfolding, ennemies_in_field_libfolding = [], [], [], []
+            for label_field, instance_in_field, instance_in_field_libfolding in zip(labels_in_field, instances_in_field, generated_instances_inside_field_libfolding):
                 if label_field != self.target_class:
+                    ennemies_in_field.append(instance_in_field)
+                    ennemies_in_field_libfolding.append(instance_in_field_libfolding)
                     nb_different_outcome += 1
                 else:
+                    friends_in_field.append(instance_in_field)
+                    friends_in_field_libfolding.append(instance_in_field_libfolding)
                     nb_same_outcome += 1
             proportion_same_outcome, proportion_different_outcome = nb_same_outcome/min_instance_per_class, nb_different_outcome/min_instance_per_class
             if proportion_same_outcome < 1 or proportion_different_outcome < 1:
@@ -513,28 +528,77 @@ class ApeTabularExplainer(object):
             print("There are : ", nb_same_outcome, " instances classified as the target instance in the field.")
         if nb_different_outcome + nb_same_outcome > 10000 and lime_ls:
             return 0
+
+        while len(ennemies_in_field) > 2 * len(friends_in_field):
+            friends_in_field = friends_in_field + friends_in_field
+            friends_in_field_libfolding = friends_in_field_libfolding + friends_in_field_libfolding
+        while len(friends_in_field) > 2 * len(ennemies_in_field):
+            ennemies_in_field = ennemies_in_field + ennemies_in_field
+            ennemies_in_field_libfolding = ennemies_in_field_libfolding + ennemies_in_field_libfolding
+        instances_in_field = friends_in_field + ennemies_in_field
+        generated_instances_inside_field_libfolding = friends_in_field_libfolding + ennemies_in_field_libfolding
+        random.Random(4).shuffle(instances_in_field)
+        random.Random(4).shuffle(generated_instances_inside_field_libfolding)
+        instances_in_field = np.array(instances_in_field)
+        generated_instances_inside_field_libfolding = np.array(generated_instances_inside_field_libfolding)
+        random.shuffle(generated_instances_inside_field_libfolding)
+
+        labels_in_field = self.black_box_predict(instances_in_field)
         return instances_in_field, labels_in_field, generated_instances_inside_field_libfolding
 
-    def compute_linear_regression_accuracy(self, prediction_inside_field, labels_in_field):
+    def compute_linear_regression_accuracy(self, prediction_inside_field, labels_in_field, linear_intercept):
         """
         Function to compute the best threshold for linear regression model and return the accuracy of this model
         Args: prediction_inside_field: Values return by the linear regression explanation model
             labels_in_field: Labels compute by the black box model
         Return: Accuracy of the linear regression explanation model
         """
-        thresholds_regression = np.arange(0.1, 0.9, 0.1)
-        accuracys_regression = []
+        # TODO Regarder si il faut vraiment ajouter l'intercept (ordonné à l'origine)
+        thresholds_regression = [linear_intercept]#np.arange(0.1, 0.9, 0.1)
+        accuracys_regression, accuracys_regression_target, accuracys_regression_counterfactual, roc, roc_target, roc_counterfactual = [], [], [], [], [], []
         for threshold_regression in thresholds_regression:
-            prediction_inside_field_regression_test = []
+            prediction_inside_field_regression_test, prediction_inside_field_regression_test_target, prediction_inside_field_regression_test_opposite_target = [], [], []
+            roc_prediction, roc_target_prediction, roc_counterfactual_prediction = [], [], [] 
             for prediction_regression in prediction_inside_field:
                 if prediction_regression > threshold_regression:
                     prediction_inside_field_regression_test.append(1)
+                    prediction_inside_field_regression_test_target.append(self.target_class)
+                    prediction_inside_field_regression_test_opposite_target.append(1-self.target_class)
+                    roc_prediction.append(1)
+                    roc_target_prediction.append(self.target_class)
+                    roc_counterfactual_prediction.append(1-self.target_class)
                 else:
                     prediction_inside_field_regression_test.append(0)
-            accuracy_regression = accuracy_score(prediction_inside_field_regression_test, labels_in_field)
-            accuracys_regression.append(accuracy_regression)
-        lime_extending_accuracy = max(accuracys_regression)
-        return lime_extending_accuracy
+                    prediction_inside_field_regression_test_target.append(1-self.target_class)
+                    prediction_inside_field_regression_test_opposite_target.append(self.target_class)
+                    roc_prediction.append(0)
+                    roc_target_prediction.append(1-self.target_class)
+                    roc_counterfactual_prediction.append(self.target_class)
+            
+            accuracys_regression.append(accuracy_score(prediction_inside_field_regression_test, labels_in_field))
+            accuracys_regression_target.append(accuracy_score(prediction_inside_field_regression_test_target, labels_in_field))
+            accuracys_regression_counterfactual.append(accuracy_score(prediction_inside_field_regression_test_opposite_target, labels_in_field))
+
+            try:
+                roc.append(roc_auc_score(roc_prediction, labels_in_field))
+            except:
+                roc.append(0)
+            try:
+                roc_target.append(roc_auc_score(roc_target_prediction, labels_in_field))
+            except:
+                roc_target.append(0)
+            try:
+                roc_counterfactual.append(roc_auc_score(roc_counterfactual_prediction, labels_in_field))
+            except:
+                roc_counterfactual.append(0)
+
+        lime_accuracy = max(accuracys_regression)
+        lime_accuracy_target = max(accuracys_regression_target)
+        lime_accuracy_counterfactual = max(accuracys_regression_counterfactual)
+        lime_auc = max(roc)
+        lime_auc_target = max(roc_target)
+        lime_auc_counterfactual = max(roc_counterfactual)
+        return lime_accuracy, lime_accuracy_target, lime_accuracy_counterfactual, lime_auc, lime_auc_target, lime_auc_counterfactual
 
     def compute_labels_inside_field(self, nb_training_instance_in_field, position_instances_in_field, dataset):
         """ 
@@ -644,7 +708,7 @@ class ApeTabularExplainer(object):
 
     def compute_lime_extending_accuracy_coverage(self, train_instances_in_field, instance_at_center_of_field, 
                                                 labels_in_field, growing_field, nb_features_employed, farthest_distance, 
-                                                growing_method, position_training_instances_in_field):
+                                                growing_method, position_training_instances_in_field, linear_model):
         """ 
         Linear explanation and computation of accuracy inside the initial hyperfield
         Args: train_instances_in_field: Set of training and artificial instances that are present in the hyper field
@@ -665,30 +729,38 @@ class ApeTabularExplainer(object):
         
         # Generate a local surrogate explanation model (centered on the closest counterfactual instance)
         ls_raw_data = self.linear_explainer.explain_instance_training_dataset(instance_at_center_of_field, self.black_box_predict_proba, 
+                                                                    model_regressor=linear_model,
                                                                     num_features=nb_features_employed, 
                                                                     instances_in_sphere=train_instances_in_field, 
                                                                     ape=self)
         #print("ls explanation", ls_raw_data.as_list())
         prediction_inside_field = self.modify_instance_for_linear_model(ls_raw_data, test_instances_in_field)
+
         # Initialize the accuracy of Local Surrogate
-        accuracy_ls_raw_data = {'real':None}
+        accuracy_ls_raw_data = {'real':None, "real target":None, 'real counterfactual':None, 'real auc_target':None, 'real auc_counterfactual':None, 'real auc':None}
         if position_training_instances_in_field != []:
             real_prediction_inside_field = self.modify_instance_for_linear_model(ls_raw_data, self.train_data[position_training_instances_in_field])
             real_labels_in_field = self.black_box_predict(self.train_data[position_training_instances_in_field])
-            accuracy_ls_raw_data["real"] = self.compute_linear_regression_accuracy(real_prediction_inside_field, real_labels_in_field)
+            accuracy_ls_raw_data["real"], accuracy_ls_raw_data["real target"], accuracy_ls_raw_data["real counterfactual"], accuracy_ls_raw_data["real auc"], \
+                accuracy_ls_raw_data["real auc_target"], accuracy_ls_raw_data["real auc_counterfactual"] = self.compute_linear_regression_accuracy(real_prediction_inside_field, real_labels_in_field, \
+                    ls_raw_data.easy_model.intercept_)
 
-        accuracy_ls_raw_data["all"] = self.compute_linear_regression_accuracy(prediction_inside_field, test_labels_in_field)
+        accuracy_ls_raw_data["all"], accuracy_ls_raw_data["target"], accuracy_ls_raw_data["counterfactual"], accuracy_ls_raw_data["auc"], \
+                accuracy_ls_raw_data["auc_target"], accuracy_ls_raw_data["auc_counterfactual"]  = self.compute_linear_regression_accuracy(prediction_inside_field, test_labels_in_field, \
+                    ls_raw_data.easy_model.intercept_)
         radius = growing_field.radius
         
         last_radius = radius
         extending = False
-        nb_not_increasing = 0
-        while accuracy_ls_raw_data["all"] > self.threshold_precision and radius < 0.5:
+        nb_not_increasing, nb_extending = 0, 0
+        ini_acuracy_ls_raw_data = accuracy_ls_raw_data
+        while radius < 0.5 or nb_extending < 20 and accuracy_ls_raw_data["all"] > self.threshold_precision:
             extending = True
+            nb_extending += 1
             """ Extending the hyperfield radius until the accuracy inside the hyperfield is lower than the threshold 
             and the radius of the hyper field is not longer than the distances to the farthest instance from the dataset """
             # We first extend the size of the field in order to generate in a bigger space
-            radius += 0.05
+            radius = min(1, radius + 0.05)
             # We generate artificial instances in the field and test if they are new training instance in the field
             position_training_instances_in_field, nb_training_instance_in_field = self.instances_from_dataset_inside_field(instance_at_center_of_field, 
                                                                                                                 radius, self.train_data)
@@ -707,20 +779,24 @@ class ApeTabularExplainer(object):
             
             # Train a new Local Surrogate explanation model on a larger hyper field (with instances inside this hyper field)
             ls_raw_data = self.linear_explainer.explain_instance_training_dataset(instance_at_center_of_field, self.black_box_predict_proba, 
-                                                                    num_features=nb_features_employed, 
+                                                                    num_features=nb_features_employed,
+                                                                    model_regressor=linear_model,
                                                                     #self.black_box_predict, model_regressor=model_regressor, 
                                                                     instances_in_sphere=train_instances_in_field,
                                                                     ape=self)
             
             # Compute the accuracy of the new Local Surrogate and replace the accuracy score of the model if it is better than the old one
             prediction_inside_field = self.modify_instance_for_linear_model(ls_raw_data, test_instances_in_field)
-            temp_accuracy_ls_raw_data = {'real':None}
+            temp_accuracy_ls_raw_data = {'real':None, "real target":None, 'real counterfactual':None, 'real auc_target':None, 'real auc_counterfactual':None, 'real auc':None}
             if position_training_instances_in_field != []:
                 real_temp_prediction_inside_field = self.modify_instance_for_linear_model(ls_raw_data, self.train_data[position_training_instances_in_field])
                 real_temp_labels_in_field = self.black_box_predict(self.train_data[position_training_instances_in_field])
-                temp_accuracy_ls_raw_data["real"] = self.compute_linear_regression_accuracy(real_temp_prediction_inside_field, \
-                    real_temp_labels_in_field)
-            temp_accuracy_ls_raw_data["all"] = self.compute_linear_regression_accuracy(prediction_inside_field, test_labels_in_field)
+                temp_accuracy_ls_raw_data["real"], temp_accuracy_ls_raw_data["real target"], temp_accuracy_ls_raw_data["real counterfactual"], temp_accuracy_ls_raw_data["real auc"], \
+                temp_accuracy_ls_raw_data["real auc_target"], temp_accuracy_ls_raw_data["real auc_counterfactual"]  = self.compute_linear_regression_accuracy(real_temp_prediction_inside_field, \
+                    real_temp_labels_in_field, ls_raw_data.easy_model.intercept_)
+            temp_accuracy_ls_raw_data["all"], temp_accuracy_ls_raw_data["target"], temp_accuracy_ls_raw_data["counterfactual"], temp_accuracy_ls_raw_data["auc"], \
+                temp_accuracy_ls_raw_data["auc_target"], temp_accuracy_ls_raw_data["auc_counterfactual"]  = self.compute_linear_regression_accuracy(prediction_inside_field, test_labels_in_field,\
+                    ls_raw_data.easy_model.intercept_)
             if accuracy_ls_raw_data["all"] <= temp_accuracy_ls_raw_data["all"]: 
                 accuracy_ls_raw_data = temp_accuracy_ls_raw_data
                 #print("increasing accuracy")
@@ -744,7 +820,7 @@ class ApeTabularExplainer(object):
         test_data_target_label = self.test_data[np.where([x == self.target_class for x in self.black_box_predict(self.test_data)])]
         lime_extending_coverage = self.compute_coverage(test_data_target_label, instance_at_center_of_field, radius)
         f2_lime_extending = (2*accuracy_ls_raw_data['all'] + lime_extending_coverage)/3
-        return accuracy_ls_raw_data, lime_extending_coverage, f2_lime_extending, ls_raw_data.as_list(), radius
+        return accuracy_ls_raw_data, ini_acuracy_ls_raw_data, lime_extending_coverage,  f2_lime_extending, ls_raw_data.as_list(), radius
 
     def compute_decision_tree_accuracy_coverage(self, train_instances_in_field, labels_in_field, instance_at_center_of_field, radius, 
                                                 position_training_instance):
@@ -784,9 +860,10 @@ class ApeTabularExplainer(object):
         return accuracy_decision_tree, decision_tree_coverage, f2_decision_tree, decision_tree.tree_, radius
 
     def explain_instance(self, instance, opponent_class=None, growing_method='GF', n_instance_per_layer=2000, first_radius=0.01, 
-                        nb_features_employed=None, dicrease_radius=10, all_explanations_model=False, user_experiments=False, 
+                        nb_features_employed=None, dicrease_radius=10, linear_model=None, all_explanations_model=False, user_experiments=False, 
                         lime_vs_local_surrogate=False, local_surrogate_experiment=False, illustrative_results=False,
-                        lime_stability=False, k_closest=False, model_stability_index=False, nb_iteration=0, time_k_closest=False):
+                        lime_stability=False, k_closest=False, k_radius_local_surrogate=False, model_stability_index=False, 
+                        nb_iteration=0, time_k_closest=False, distance_metric="w_euclidian"):
         """
         Returns either an explanation from anchors or lime along with one or multiple counter factual explanation
         Args: instance: Target instance to explain
@@ -816,10 +893,10 @@ class ApeTabularExplainer(object):
         # Computes the distance to the farthest instance from the training dataset to bound generating instances 
         farthest_distance = 0
         for training_instance in self.train_data:
-            farthest_distance_now = distances(training_instance, instance, self)
+            farthest_distance_now = distances(training_instance, instance, self, metrics=distance_metric)
             if farthest_distance_now > farthest_distance:
                 farthest_distance = farthest_distance_now
-        
+
         # The growing method (GS or GF) is searching for the closest counterfactual
         growing_field = cf.CounterfactualExplanation(instance, self.black_box_predict, method=growing_method, target_class=opponent_class, 
                                                     continuous_features=self.continuous_features, 
@@ -837,7 +914,7 @@ class ApeTabularExplainer(object):
         # Computes the distance to the farthest instance from the training dataset to bound generating instances 
         farthest_distance_cf = 0
         for training_instance in self.train_data:
-            farthest_distance_cf_now = distances(self.closest_counterfactual, training_instance, self)
+            farthest_distance_cf_now = distances(self.closest_counterfactual, training_instance, self, metrics=distance_metric)
             if farthest_distance_cf_now > farthest_distance_cf:
                 farthest_distance_cf = farthest_distance_cf_now
         self.farthest_distance = farthest_distance_cf
@@ -845,7 +922,7 @@ class ApeTabularExplainer(object):
         # For experiments results we can either compute the average distance to the k closest experiments or indicate 
         # that the growing method discovered the closest counterfactual
         if k_closest is not False:
-            return k_closest_experiments(self, k_closest)
+            return k_closest_experiments(self, k_closest, distance_metric)
         elif time_k_closest is not False:
             return True
         
@@ -853,7 +930,6 @@ class ApeTabularExplainer(object):
         # Generates or store training instances in the area of the hyperfield and their corresponding labels
         position_training_instances_in_field, nb_training_instance_in_field = self.instances_from_dataset_inside_field(self.closest_counterfactual, 
                                                                                                     growing_field.radius, self.train_data)
-
         training_instances_in_field, train_labels_in_field, instances_in_field_libfolding = self.generate_instances_inside_field(growing_field.radius, 
                                                                                                     self.closest_counterfactual, self.train_data, farthest_distance_cf, 
                                                                                                     min_instance_per_class, position_training_instances_in_field, 
@@ -898,7 +974,7 @@ class ApeTabularExplainer(object):
                 print("nb times libfolding is not able to determine wheter datas are unimodal or multimodal:", nb)
                 print()
             nb += 1
-        
+
         """ Different cases for experiments """
         if model_stability_index or lime_stability:
             return model_stability_index(self, instance, growing_method, opponent_class, 
@@ -922,7 +998,12 @@ class ApeTabularExplainer(object):
             return compute_all_explanation_method_accuracy(self, instance, growing_field, nb_instance_test_data_label_as_target,
                                             position_training_instances_in_field, training_instances_in_field, train_labels_in_field,
                                             farthest_distance_cf, nb_features_employed,
-                                            growing_method)
+                                            growing_method, linear_model)
+        elif k_radius_local_surrogate is not False:
+            return compute_k_radius_local_surrogate_extending(self, instance, growing_field, nb_instance_test_data_label_as_target,
+                                            training_instances_in_field, train_labels_in_field,
+                                            farthest_distance_cf, nb_features_employed,
+                                            growing_method, linear_model, k_radius_local_surrogate)
 
         # If there is no experiments, we return either a linear or a rule based explanation
         if self.multimodal_results:
@@ -934,8 +1015,8 @@ class ApeTabularExplainer(object):
         
         else:
             # In case of unimodal data, we generate linear explanation and compute accuracy and coverage of this explanation model
-            ape_accuracy, ape_coverage, ape_f2, ape_explanation, self.extended_radius = self.compute_lime_extending_accuracy_coverage(training_instances_in_field, 
+            ape_accuracy, ape_accuracy_not_extending, ape_coverage, ape_f2, ape_explanation, self.extended_radius = self.compute_lime_extending_accuracy_coverage(training_instances_in_field, 
                                         self.closest_counterfactual, train_labels_in_field, growing_field, nb_features_employed,
-                                        farthest_distance_cf, growing_method, position_training_instances_in_field)
+                                        farthest_distance_cf, growing_method, position_training_instances_in_field, linear_model)
 
         return ape_coverage, ape_accuracy, ape_f2, ape_explanation, 1 if self.multimodal_results else 0

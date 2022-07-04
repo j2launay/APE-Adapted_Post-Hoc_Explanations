@@ -5,11 +5,37 @@ import numpy as np
 from scipy.stats import kendalltau
 from sklearn.metrics.pairwise import pairwise_distances
 from random import randrange, randint, choices, uniform, random
-from scipy.stats import multinomial
+from scipy.stats import multinomial, chi2
+import scipy as sp
+import pandas as pd
 import math
 
-def distances(x, y, ape, metrics='w_euclidian'):
+def distances(x, y, ape, metrics='w_euclidian', dataset=None):
     
+    if metrics == 'mahalanobis':
+        distance = 0
+        if ape.max_mahalanobis == None:
+            df_x = pd.DataFrame(x, columns=ape.feature_names)
+            df = pd.DataFrame(x, columns=ape.feature_names)
+            df_x['mahalanobis'] = mahalanobis(x=df_x, data=df[ape.feature_names], max_mahalanobis=ape.max_mahalanobis)
+            df_x['p'] = 1 - chi2.cdf(df_x['mahalanobis'], 3)
+            return df_x
+        else:
+            #df_x = pd.DataFrame([x, y], columns=ape.feature_names)
+            if dataset is not None:
+                df = pd.DataFrame(y, columns=ape.feature_names)
+            else:
+                df = pd.DataFrame(ape.test_data, columns=ape.feature_names)
+            df_x = pd.DataFrame([x], columns=ape.feature_names)
+            df_x['mahalanobis'] = mahalanobis(x=df_x, data=df[ape.feature_names], max_mahalanobis=ape.max_mahalanobis)
+            df_x['p'] = 1 - chi2.cdf(df_x['mahalanobis'], 3)
+            """df_y = pd.DataFrame([y], columns=ape.feature_names)
+            df_y['mahalanobis'] = mahalanobis(x=df_y, data=df[ape.feature_names], max_mahalanobis=ape.max_mahalanobis)
+            df_y['p'] = 1 - chi2.cdf(df_y['mahalanobis'], 3)
+            return abs(df_x['mahalanobis'].item()-df_y['mahalanobis'].item())"""
+            return df_x['mahalanobis'].item()
+        #calculate p-value for each mahalanobis distance 
+        
     continuous_features = [x for x in set(range(len(x))).difference(ape.categorical_features)]
     x_categorical, y_categorical = x[ape.categorical_features], y[ape.categorical_features]
     x_continuous, y_continuous = x[continuous_features], y[continuous_features]
@@ -44,8 +70,29 @@ def distances(x, y, ape, metrics='w_euclidian'):
         except TypeError:
             #On passe a une nouvelle instance et la distance max doit être mesurée de nouveau
             pass
+        except ZeroDivisionError:
+            #print("zero division error")
+            #print("farthest distance", ape.farthest_distance)
+            #print("distance", distance)
+            pass
     
     return distance
+
+def mahalanobis(x=None, data=None, cov=None, max_mahalanobis=None):
+    """Compute the Mahalanobis Distance between each row of x and the data  
+    x    : vector or matrix of data with, say, p columns.
+    data : ndarray of the distribution from which Mahalanobis distance of each observation of x is to be computed.
+    cov  : covariance matrix (p x p) of the distribution. If None, will be computed from data.
+    """
+    x_minus_mu = x - np.mean(data)
+    if not cov:
+        cov = np.cov(data.values.T)
+    inv_covmat = sp.linalg.inv(cov)
+    left_term = np.dot(x_minus_mu, inv_covmat)
+    mahal = np.dot(left_term, x_minus_mu.T)
+    if max_mahalanobis != None:
+        mahal /= max_mahalanobis
+    return mahal.diagonal()
 
 def get_distances(x1, x2, metrics=None, categorical_features=[]):
     """

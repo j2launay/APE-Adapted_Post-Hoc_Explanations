@@ -1,33 +1,14 @@
-from sklearn.datasets import make_circles, make_moons, make_blobs
+from sklearn.datasets import make_circles, make_moons, make_blobs, load_breast_cancer
 from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import CountVectorizer
 from anchors import utils
 import numpy as np
 
-def preparing_dataset(x, y, dataset_name, plot=False, text=False):
-    if plot:
-        # Convert data to 2 features in order to be printable
-        x = PCA(n_components=2).fit_transform(x)
-    #if not text:
-        # Store the dataset based on the function from anchors
-    #    dataset = utils.load_dataset(dataset_name, balance=False, discretize=False, dataset_folder="./dataset", X=x, y=y, plot=plot)
-        
-    if not text:
-        # Split the data inside a test and a train set (70% train and 30% test)
-        x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.3, random_state=10)
-        vectorizer = None
-        return x_train, x_test, y_train, y_test
-    else:
-        print("Preparing dataset for text data")
-        if "newsgroup" in dataset_name:x, _, y, _ = train_test_split(x, y, test_size=0.9, random_state=10)
-        x_train_vectorize, x_test_vectorize, y_train, y_test = train_test_split(x, y, test_size=0.5, random_state=10)
-        vectorizer = CountVectorizer(min_df=1)
-        # Si il y a un probleme avec le vectorizer c'est parce qu'il n'a pas les mots du jeu de test lorsqu'il fit
-        vectorizer.fit(x_train_vectorize)
-        x_train = vectorizer.transform(x_train_vectorize)
-        x_test = vectorizer.transform(x_test_vectorize)
-        return x_train, x_test, y_train, y_test, x_train_vectorize, x_test_vectorize, vectorizer
+def preparing_dataset(x, y, dataset_name):
+    # Split the data inside a test and a train set (70% train and 30% test)
+    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.3, random_state=10)
+    return x_train, x_test, y_train, y_test
 
 def generate_dataset(dataset_name, multiclass=False):
     # Function used to get dataset depending on the dataset name
@@ -70,9 +51,24 @@ def generate_dataset(dataset_name, multiclass=False):
         categorical_names = dataset.categorical_names
         transformations = dataset.transformations
     
+    elif "cancer" in dataset_name:
+        dataset = load_breast_cancer()
+        x_data, y_data = dataset.data, dataset.target
+        class_names = dataset.target_names
+
     elif "blood" in dataset_name:
-        dataset = utils.load_dataset("blood", balance=False, discretize=False, dataset_folder="./dataset/")
+        dataset = utils.load_dataset("blood", balance=True, discretize=False, dataset_folder="./dataset/")
         x_data, y_data = dataset.train, dataset.labels_train
+        
+        # Code to balance dataset
+        idxs = np.array([], dtype='int')
+        min_labels = np.min(np.bincount(y_data))
+        for label in np.unique(y_data):
+            idx = np.random.choice(np.where(y_data == label)[0], min_labels)
+            idxs = np.hstack((idxs, idx))
+        x_data = x_data[idxs]
+        y_data = y_data[idxs]
+        
         class_names = ['Donating', 'Not donating']
     
     elif "diabetes" in dataset_name:

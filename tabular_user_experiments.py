@@ -7,6 +7,7 @@ from generate_dataset import generate_dataset, preparing_dataset
 import ape_tabular
 import warnings
 import random
+import scipy.stats as stats
 from ape_tabular_experiments import modify_dataset, decision_tree_function
 
 def compute_score_interpretability_method(features_employed_by_explainer, features_employed_black_box):
@@ -27,26 +28,35 @@ if __name__ == "__main__":
     # Filter the warning from matplotlib
     warnings.filterwarnings("ignore")
     # The datasets employed for experiments
-    dataset_names = ["generate_blobs", "diabetes", "compas", "adult", "mega_generate_blobs"]
+    dataset_names = ["generate_blobs"]#compas"]#"adult"]#"mega_generate_blobs"]#"diabetes"]#"generate_blobs"]#"cancer"]#
     # Models employed for experiments
-    models = [RandomForestClassifier(n_estimators=20, random_state=1), tree.DecisionTreeClassifier(random_state=1), \
-            LogisticRegression(random_state=1), GradientBoostingClassifier(n_estimators=20, random_state=1)]# tree.DecisionTreeClassifier(max_depth=4)]
+    models = [#tree.DecisionTreeClassifier(random_state=1)]#, 
+            #RandomForestClassifier(n_estimators=20, random_state=1)]#, \
+            #LogisticRegression(random_state=1)]#, 
+            GradientBoostingClassifier(n_estimators=20, random_state=1)]
+    # Adult, Blobs, Cancer, Compas, Diabetes, Mega Blobs, cat blobs 
 
     # Number of instance for which explanations are computed
-    max_instance_to_explain = 60
+    max_instance_to_explain = 2
     # Number of feature from the dataset that are modified (values are set to 0 to train the decision model)
-    nb_feature_to_train = 4
+    nb_feature_to_train = 8
     # If set to True store the results inside a graph
     graph = True
     # If set to True print detailed information
     verbose = False
     # Precision threshold for explanation models and linear separability test 
     threshold_interpretability = 0.99
-    interpretability_name = ['LSe prec', 'Anc. prec', 'rand. prec', 'APE prec', 'LSe reca', 'Anc. reca', 
-                                    'rand. reca', 'APE reca']
+    interpretability_name = ['LS prec', 'LS pos prec', 'LIME prec', 'LIME pos prec', 'LSe prec', 'LSe pos prec', 'LSe2 prec', 'Anc. prec', 
+                                    'rand. prec', 'APE prec', 'LS reca', 'LS pos reca', 'LIME reca', 'LIME pos reca', 'LSe reca', 'LSe pos reca', 
+                                    'LSe2 reca', 'Anc. reca', 'rand. reca', 'APE reca', "Multimodal", "radius", "fr pvalue", "cf pvalue", 
+                                    "separability", "fr fold", "cf fold", "bb", "dataset"]
+    kendall_tau_name = ['LS', 'LS pos', 'LIME', 'LIME pos', 'LSe', 'LSe pos', 'LSe2', 'Anc.', 'rand.', 'APE',
+                                    'LS pvalue', 'LS pos pvalue', 'LIME pvalue', 'LIME pos pvalue', 'LSe pvalue', 'LSe pos pvalue', 'LSe2 pvalue', 
+                                    'Anc. pvalue', 'rand. pvalue', 'APE pvalue', "Multimodal", "radius", 
+                                    "fr pvalue", "cf pvalue", "separability", "fr fold", "cf fold", "bb", "dataset"]
     # Initialize variable to store the results for the graph representation
     for dataset_name in dataset_names:
-        if graph: experimental_informations = store_experimental_informations(len(models), len(interpretability_name), interpretability_name, len(models))
+        if graph: experimental_informations = store_experimental_informations(interpretability_name, kendall_tau_name)
         # Store dataset information such as class names and the list of categerical features as well as variables (x for input and y for labels)
         x, y, class_names, regression, multiclass, continuous_features, categorical_features, categorical_values, \
             categorical_names, feature_names, transformations = generate_dataset(dataset_name)
@@ -56,11 +66,11 @@ if __name__ == "__main__":
             filename = "./results/"+dataset_name+"/"+model_name+"/"+str(threshold_interpretability)+"/"
             if graph: experimental_informations.initialize_per_models(filename)
             # Split the dataset inside train and test set (70% training and 30% test)
-            x_train, x_test, y_train, y_test = preparing_dataset(x, y, dataset_name)
+            x_train, x_test, y_train, y_test = preparing_dataset(x, y)
             print("###", model_name, "training on", dataset_name, "dataset.")
             # Modify the dataset to train the "black box" model only on a subset of features
-            nb_feature_to_modify = len(x_train[0]) - nb_feature_to_train
-            print("nb feature to train", nb_feature_to_train)
+            nb_feature_to_modify = int(len(x_train[0]) / 2)# nb_feature_to_train
+            #print("nb feature to train", nb_feature_to_train)
             print("nb feature to modify", nb_feature_to_modify)
             x_train_bb, feature_kept = modify_dataset(x_train, nb_feature_to_modify)
             black_box = black_box.fit(x_train_bb, y_train)
@@ -93,28 +103,70 @@ if __name__ == "__main__":
                 if verbose: print("features employed by the black box", features_employed_black_box)
                 
                 try:
+                    #test += 2
+                #except NameError:
                     # Get the list of features employed by the 3 explanation models 
-                    features_employed_in_local_surrogate, features_employed_by_ape, features_employed_anchors = explainer.explain_instance(instance_to_explain,
+                    features_employed_in_local_surrogate, pos_feat_ls, feat_lime, pos_feat_lime, feat_lse, pos_feat_lse, feat_lse2, \
+                        features_employed_by_ape, features_employed_anchors,\
+                        multimodal_result, radius = explainer.explain_instance(instance_to_explain,
                                                                     user_experiments=True, 
                                                                     nb_features_employed=len(features_employed_black_box))
                     # Selects randomly as many features as the black box model is actually chosen among all the features
                     random_explainer = random.sample(range(len(instance_to_explain)), len(features_employed_black_box))
                     
-                    print("features employed by the black box", features_employed_black_box)
+                    """print("features employed by the black box", features_employed_black_box)
                     print("features employed by Local Surrogate", features_employed_in_local_surrogate)
+                    print("features employed by pos LS", pos_feat_ls)
+                    print("features employed by LIME", feat_lime)
+                    print("features employed by pos LIME", pos_feat_lime)
+                    print("features employed by LSE", feat_lse)
+                    print("features employed by LSe (2e version)", feat_lse2)
+                    print("features employed by pos LSe", pos_feat_lse)
                     print("features employed by APE", features_employed_by_ape)
                     print("features employed by anchors", features_employed_anchors)
-                    print("features employed randomly", random_explainer)
-                    precision_local_surrogate, recall_local_surrogate = compute_score_interpretability_method(features_employed_in_local_surrogate, 
-                                                        features_employed_black_box)
+                    print("features employed randomly", random_explainer)"""
+                    precision_local_surrogate, recall_local_surrogate = compute_score_interpretability_method(features_employed_in_local_surrogate, features_employed_black_box)
+                    kendall_ls, pvalue_ls = stats.kendalltau(features_employed_in_local_surrogate[:len(features_employed_black_box)], features_employed_black_box[:len(features_employed_in_local_surrogate)])
+                    precision_pos_ls, recall_pos_ls = compute_score_interpretability_method(pos_feat_ls, features_employed_black_box)
+                    kendall_pos_ls, pvalue_pos_ls = stats.kendalltau(pos_feat_ls[:len(features_employed_black_box)], features_employed_black_box[:len(pos_feat_ls)])
+                    precision_lime, recall_lime = compute_score_interpretability_method(feat_lime, features_employed_black_box)
+                    kendall_lime, pvalue_lime = stats.kendalltau(feat_lime[:len(features_employed_black_box)], features_employed_black_box[:len(feat_lime)])
+                    precision_pos_lime, recall_pos_lime = compute_score_interpretability_method(pos_feat_lime, features_employed_black_box)
+                    kendall_pos_lime, pvalue_pos_lime = stats.kendalltau(pos_feat_lime[:len(features_employed_black_box)], features_employed_black_box[:len(pos_feat_lime)])
+                    precision_lse, recall_lse = compute_score_interpretability_method(feat_lse, features_employed_black_box)
+                    kendall_lse, pvalue_lse = stats.kendalltau(feat_lse[:len(features_employed_black_box)], features_employed_black_box[:len(feat_lse)])
+                    precision_pos_lse, recall_pos_lse = compute_score_interpretability_method(pos_feat_lse, features_employed_black_box)
+                    kendall_pos_lse, pvalue_pos_lse = stats.kendalltau(pos_feat_lse[:len(features_employed_black_box)], features_employed_black_box[:len(pos_feat_lse)])
+                    precision_lse2, recall_lse2 = compute_score_interpretability_method(feat_lse2, features_employed_black_box)
+                    kendall_lse2, pvalue_lse2 = stats.kendalltau(feat_lse2[:len(features_employed_black_box)], features_employed_black_box[:len(feat_lse2)])
                     precision_ape, recall_ape = compute_score_interpretability_method(features_employed_by_ape, features_employed_black_box)
+                    kendall_ape, pvalue_ape = stats.kendalltau(features_employed_by_ape[:len(features_employed_black_box)], features_employed_black_box[:len(features_employed_by_ape)])
                     precision_anchor, recall_anchor = compute_score_interpretability_method(features_employed_anchors, features_employed_black_box)
+                    kendall_anchor, pvalue_anchor = stats.kendalltau(features_employed_anchors[:len(features_employed_black_box)], features_employed_black_box[:len(features_employed_anchors)])
                     precision_random, recall_random = compute_score_interpretability_method(random_explainer, features_employed_black_box)
+                    kendall_random, pvalue_random = stats.kendalltau(random_explainer[:len(features_employed_black_box)], features_employed_black_box[:len(random_explainer)])
                     cnt += 1
+                    """print("LS, LIME, LSE, Anc, Rand, APE")
+                    print("precision", [precision_local_surrogate, precision_lime, precision_lse, precision_anchor, precision_random, precision_ape])
+                    print("recall", [recall_local_surrogate, recall_lime, recall_lse, recall_anchor, recall_random, recall_ape])"""
 
-                    if graph: experimental_informations.store_experiments_information_instance([precision_local_surrogate,
-                                    precision_anchor, precision_random, precision_ape, recall_local_surrogate, recall_anchor, 
-                                    recall_random, recall_ape], 'user_experiments.csv')
+                    if graph: 
+                        experimental_informations.store_experiments_information_instance([precision_local_surrogate, precision_pos_ls, precision_lime, 
+                            precision_pos_lime, precision_lse, precision_pos_lse, precision_lse2, precision_anchor, precision_random, precision_ape, 
+                                recall_local_surrogate, recall_pos_ls, recall_lime, recall_pos_lime, recall_lse, recall_pos_lse, recall_lse2, 
+                                    recall_anchor, recall_random, recall_ape, multimodal_result, radius, explainer.friends_pvalue, 
+                                        explainer.counterfactual_pvalue, explainer.separability_index, explainer.friends_folding_statistics,
+                                            explainer.counterfactual_folding_statistics, model_name, dataset_name], 'user_experiments.csv',
+                            [kendall_ls, kendall_pos_ls, kendall_lime, kendall_pos_lime, kendall_lse, kendall_pos_lse, kendall_lse2, 
+                                kendall_anchor, kendall_random, kendall_ape, pvalue_ls, pvalue_pos_ls, pvalue_lime, pvalue_pos_lime, 
+                                    pvalue_lse, pvalue_pos_lse, pvalue_lse2, pvalue_anchor, pvalue_random, pvalue_ape, 
+                                         multimodal_result, radius, explainer.friends_pvalue, 
+                                            explainer.counterfactual_pvalue, explainer.separability_index, explainer.friends_folding_statistics,
+                                                explainer.counterfactual_folding_statistics, model_name, dataset_name], 'user_experiments_kendall.csv')
+                    if cnt %5 == 0:
+                        print()
+                        print("### Instance number:", cnt , "over", max_instance_to_explain, 'with', model_name, 'on', dataset_name)
+
                 except Exception as inst:
                     print(inst)
                     

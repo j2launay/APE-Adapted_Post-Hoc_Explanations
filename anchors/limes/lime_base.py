@@ -3,7 +3,7 @@ Contains abstract functionality for learning locally linear sparse model.
 """
 from __future__ import print_function
 import numpy as np
-from sklearn.linear_model import Ridge, lars_path
+from sklearn.linear_model import Ridge, lars_path, LogisticRegression
 from sklearn.utils import check_random_state
 from collections import Counter
 import random
@@ -156,7 +156,7 @@ class LimeBase(object):
             by decreasing absolute value of y.
             score is the R^2 value of the returned explanation
         """
-        weights = self.kernel_fn(distances)
+        weights = np.ones(len(distances))#self.kernel_fn(distances)
         #logistic = False
         if model_regressor is not None and neighborhood_labels.ndim == 1:
             #logistic = True
@@ -170,6 +170,7 @@ class LimeBase(object):
                     labels_column.append(1-label)
         else:
             labels_column = neighborhood_labels[:, label]
+
         used_features = self.feature_selection(neighborhood_data,
                                                labels_column,
                                                weights,
@@ -179,53 +180,20 @@ class LimeBase(object):
 
         self.used_features = used_features
         if model_regressor is None:
-            model_regressor = Ridge(alpha=1, fit_intercept=True,
+            model_regressor = Ridge(alpha=0, fit_intercept=True,
                                     random_state=self.random_state)
-        if ape is not None:
-            if ape.categorical_features != []:
-                #print("neighborod data", neighborhood_data[0])
-                #print("categorical features from ape in lime base", ape.categorical_features)
-                #c = Counter(neighborhood_labels)
-                neighborhood_data_index_minorities_class = np.where([x == label for x in neighborhood_labels])[0]
-                #print("test", neighborhood_data_index_minorities_class)
-                index_class_counterfactual = list(set(list(range(0, len(neighborhood_labels)))) - set(neighborhood_data_index_minorities_class))
-                #print("PLUS", index_class_counterfactual)
-                if len(neighborhood_data_index_minorities_class) != 0:
-                    if len(neighborhood_labels) > 2 * len(neighborhood_data_index_minorities_class):
-                        test = neighborhood_data[neighborhood_data_index_minorities_class]
-                        how_many = len(neighborhood_labels) - len(neighborhood_data_index_minorities_class)
-                        idx = np.random.randint(len(neighborhood_data_index_minorities_class), size=how_many)
-                        labels_test = neighborhood_labels[index_class_counterfactual]
-                        add_index_for_oversampling = labels_test[idx]
-                        #add_index_for_oversampling = labels_test[idx,:]
-                        weights_values_for_oversampling = weights[neighborhood_data_index_minorities_class]
-                    else:
-                        index_class_counterfactual = list(set(list(range(0, len(neighborhood_labels)))) - set(neighborhood_data_index_minorities_class))
-                        test = neighborhood_data[index_class_counterfactual]
-                        how_many =  len(neighborhood_data_index_minorities_class) - (len(neighborhood_labels) - len(neighborhood_data_index_minorities_class))
-                        idx = np.random.randint(len(index_class_counterfactual), size=how_many)
-                        labels_test = neighborhood_labels[index_class_counterfactual]
-                        add_index_for_oversampling = labels_test[idx]
-                        #add_index_for_oversampling = labels_test[idx,:]
-                        weights_values_for_oversampling = weights[index_class_counterfactual]
-                    add_instance_for_oversampling = test[idx,:]
-                    add_sample_weight = weights_values_for_oversampling[idx]
-                    weights = np.concatenate((weights, add_sample_weight))
-                    neighborhood_data = np.concatenate((neighborhood_data, add_instance_for_oversampling))
-                    labels_column = np.concatenate((neighborhood_labels, add_index_for_oversampling))
-                #print("neighborhood labels after", neighborhood_labels)
-                codes = ape.enc.transform(neighborhood_data[:,ape.categorical_features]).toarray()
-                neighborhood_data = np.append(np.asarray(codes), 
-                                    neighborhood_data[:,ape.continuous_features], axis=1)
-                #print("neighborhood data after", neighborhood_data[0])
-                used_features = []
-                for i in range(len(neighborhood_data[0])):
-                    used_features.append(i)
-                #print("used feature after", used_features)
+            #model_regressor = LogisticRegression(random_state=self.random_state)
+
         easy_model = model_regressor
-        easy_model.fit(neighborhood_data[:, used_features],
+        try:
+            easy_model.fit(neighborhood_data[:, used_features],
                         labels_column, sample_weight=weights)
-        
+        except ValueError as inst:
+            temp_labels_column = [1 if x > 0.5 else 0 for x in labels_column]
+            labels_column = temp_labels_column
+            easy_model.fit(neighborhood_data[:, used_features],
+                        labels_column, sample_weight=weights)
+
         prediction_score = easy_model.score(
                         neighborhood_data[:, used_features],
                         labels_column, sample_weight=weights)
@@ -234,15 +202,7 @@ class LimeBase(object):
             coef = easy_model.coef_[0]
         else:
             coef = easy_model.coef_
-        """if len(easy_model.coef_) > 1 and logistic:
-            # Case for multi class
-            coef = easy_model.coef_[local_pred]
-        else:
-            coef = easy_model.coef_"""
-        #print("coef for easy model", coef)
-        #print("label to use", used_features)        
-        #inverse_features = ape.enc.inverse_transform(np.asarray(used_features).reshape(1, -1))
-        #print("TEST", inverse_features)
+
         if stability:
             # For Lime stability computation
             try:

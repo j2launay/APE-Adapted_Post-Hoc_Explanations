@@ -12,19 +12,18 @@ if __name__ == "__main__":
     # Filter the warning from matplotlib
     warnings.filterwarnings("ignore")
     # Datasets used for the experiments
-    dataset_names = ["generate_moons"]#"blood"]#"generate_blobs"]#"generate_circles"]#"diabetes"]#"cancer"]#"generate_blob"]#"generate_moons"]#
+    dataset_names = ["generate_moons"]#"mega_generate_blobs"]#"diabetes"]#"generate_blob"]#"generate_circles"]#"generate_moons"]#"generate_blobs"]#"cancer"]#
+    # blob, circles, moons, blobs, cancer, diabetes, blood, mega blobs 
     # array of the models used for the experiments
-    # mega blobs, Blobs, diabetes, cancer, blob, moons, circles, blood 
     models = [GaussianNB()]#,
-                #RandomForestClassifier(n_estimators=20, random_state=1)]#,
+                #RandomForestClassifier(n_estimators=20, random_state=1), 
                 #GradientBoostingClassifier(n_estimators=20, learning_rate=1.0, random_state=1)]#,
-                #RidgeClassifier(random_state=1),
-                #VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('rc', RidgeClassifier())], voting="hard")]#,
+                #VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB())], voting="soft"),
                 #MLPClassifier(random_state=1, activation='logistic')]
     # Mega Blobs, Blood, Blob, Moons, Circles, Cancer, Diabetes, blobs
     # Number of instances explained by each model on each dataset
     max_instance_to_explain = 2
-    k_closest = 1
+    k_radius_local_surrogate = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
     """ All the variable necessaries for generating the graph results """
     # Store results inside csv files if set to True
     graph = True
@@ -33,10 +32,22 @@ if __name__ == "__main__":
     growing_method = "GS" if growing_sphere else "GF"
     # Threshold for explanation method precision
     threshold_interpretability = 0.95
-    interpretability_name = ['Growing Spheres Mahalanobis Test', 'Growing Spheres Mahalanobis CF', 'Growing Spheres Mahalanobis TG', 
-                            'Growing Spheres Mahnattan', 'Growing Spheres Euclidean',
-                            'Growing Fields Mahalanobis Test', 'Growing Fields Mahalanobis CF', 'Growing Fields Mahalanobis TG', 
-                            'Growing Fields Mahnattan', 'Growing Fields Euclidean']
+    linear_metric, temp_interpretability_name = ["", "cf", "auc", "auc cf"], k_radius_local_surrogate*4
+    print(temp_interpretability_name)
+    interpretability_name = []
+    for compteur, x in enumerate(temp_interpretability_name):
+        if compteur < 10:
+            print(str(x) + " " + linear_metric[0])
+            interpretability_name += [str(x) + " " + linear_metric[0]]
+        elif compteur < 20: 
+            interpretability_name += [str(x) + " " + linear_metric[1]]
+        elif compteur < 30:
+            interpretability_name += [str(x) + " " + linear_metric[2]]
+        else: 
+            interpretability_name += [str(x) + " " + linear_metric[3]]
+    interpretability_name += ["radius", "fr pvalue", "cf pvalue", "separability", "fr fold",
+                                    "cf fold", "bb", "dataset"]
+    print(interpretability_name)
     # Initialize all the variable needed to store the result in graph
 
     for dataset_name in dataset_names:
@@ -60,9 +71,8 @@ if __name__ == "__main__":
             print("###", model_name, "training on", dataset_name, "dataset.")
             black_box = black_box.fit(x_train, y_train)
             print('### Accuracy:', black_box.score(x_test, y_test))
-            print(black_box.predict(x_test))
             cnt = 0
-            explainer = ape_tabular.ApeTabularExplainer(x_train, class_names, black_box.predict,
+            explainer = ape_tabular.ApeTabularExplainer(x_train, class_names, black_box.predict, black_box.predict_proba,
                                                             continuous_features=continuous_features,
                                                             categorical_features=categorical_features, categorical_values=categorical_values, 
                                                             feature_names=feature_names, categorical_names=categorical_names,
@@ -78,35 +88,24 @@ if __name__ == "__main__":
                 try:
                     #test += 2
                 #except NameError:
-                    average_distance_gf, all_average_distance_gf = explainer.explain_instance(instance_to_explain, 
-                                                            growing_method="GF", k_closest=k_closest)
-
-                    print("GF done")
-                    average_distance_gs, all_average_distance_gs = explainer.explain_instance(instance_to_explain, 
-                                                            growing_method="GS", k_closest=k_closest)
+                    k_accuracys_local_surrogate, growing_field_radius = explainer.explain_instance(instance_to_explain, 
+                                                            growing_method="GF", k_radius_local_surrogate=k_radius_local_surrogate)
 
                     
-                    print("average distance for GF", average_distance_gf)
-                    print("average distance for GS", average_distance_gs)
-                    print("model", model_name)
-                    print("dataset", dataset_name)
-                    print("nb voisin", k_closest)
-                    try:
-                        if average_distance_gf[0] != average_distance_gs[0]:
-                            print("With Mahalanobis, GF is", "better" if average_distance_gf[0] < average_distance_gs[0] else "worse", "than GS")
-                        if graph:
-                            experimental_informations.store_experiments_information_instance([average_distance_gs[0], average_distance_gs[1],\
-                                average_distance_gs[2], average_distance_gs[3], average_distance_gs[4],\
-                                    average_distance_gf[0], average_distance_gf[1], average_distance_gf[2], \
-                                        average_distance_gf[3], average_distance_gf[4]],
-                                'average_distance_' + str(k_closest) + '.csv')
-                        cnt += 1
-                    except Exception as inst:
-                        print(inst)
+                    k_accuracys_local_surrogate += [growing_field_radius, explainer.friends_pvalue, explainer.counterfactual_pvalue,
+                                                            explainer.separability_index, explainer.friends_folding_statistics,
+                                                            explainer.counterfactual_folding_statistics, model_name, dataset_name]
+                    
+                    if graph:
+                            experimental_informations.store_experiments_information_instance(k_accuracys_local_surrogate, \
+                                'k_radius_local_surrogate_extended.csv')
+                    cnt += 1
                     if cnt %5 == 0:
                         print()
                         print("### Instance number:", cnt , "over", str(max_instance_to_explain), 'with', model_name, 'on', dataset_name)
 
-                except Exception as inst:
-                    print(inst)
-            if graph: experimental_informations.store_experiments_information('average_distance_' + str(k_closest) + '.csv', filename_all=filename_all)
+                #except Exception as inst:
+                    #print(inst)
+                except TypeError:
+                    print()
+            if graph: experimental_informations.store_experiments_information('k_radius_local_surrogate_extended.csv', filename_all=filename_all)
