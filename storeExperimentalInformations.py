@@ -5,14 +5,10 @@ class store_experimental_informations(object):
     """
     Class to store the experimental results of accuracy, coverage and F1 score for graph representation
     """
-    def __init__(self, len_models, len_interpretability_name, columns_name_file1, nb_models, 
-                columns_name_file2=None, columns_name_file3=None, columns_multimodal=None):
+    def __init__(self, columns_name_file1, columns_name_file2=None, columns_name_file3=None, columns_multimodal=None):
         """
         Initialize all the variable that will be used to store experimental results
-        Args: len_models: Number of black box models that we are explaining during experiments
-              len_interpretability_name: Number of explanation methods used to explain each model
-              columns_name_file1: List of the name of the explanation methods used to explain each model
-              nb_models: Number of black box models on which experiments are computed
+        Args: columns_name_file1: List of the name of the explanation methods used to explain each model
               columns_name_file2 and columns_name_file3 are the columns name used in case there are multiple files with different columns name.
               columns_multimodal: Corresponds to the columns name of the complex file containing supplementary informations such as the result of the separability test 
         """
@@ -20,16 +16,16 @@ class store_experimental_informations(object):
         columns_name_file3 = columns_name_file1 if columns_name_file3 is None else columns_name_file3
         columns_name_file4 = columns_name_file1
 
-        self.multimodal_columns = ["LS", "LSe", "Anchors", "DT", 'APE', "Multimodal",
-                                    "radius", "fr pvalue", "cf pvalue", "separability", "fr fold",
-                                    "cf fold", "bb"] if columns_multimodal == None else columns_multimodal
+        self.multimodal_columns = ["LS", 'LS tg', 'LS cf', 'LS roc', 'LS roc tg', 'LS roc cf', 'LSE ini', 'LSe ini tg', 'LSe ini cf', \
+                                    'LSe ini auc', 'LSe ini auc tg', 'LSe ini auc cf', 'LSe', 'LSe tg', 'LSe cf', 'LSe auc', 'LSe auc tg', 
+                                    'LSe auc cf', 'LIME', 'LIME tg', 'LIME cf', 'LIME roc', 'LIME roc tg', 'LIME roc cf', 'Anchors', 'DT', 
+                                    'APEa', 'APEt', "Multimodal", "radius", "fr pvalue", "cf pvalue", "separability", "fr fold",
+                                    "cf fold", "bb", "dataset"] if columns_multimodal == None else columns_multimodal
         self.columns_name_file1 = columns_name_file1
         self.columns_name_file2 = columns_name_file2
         self.columns_name_file3 = columns_name_file3
         self.columns_name_file4 = columns_name_file4
-        self.len_interpretability_name, self.len_models, = len_interpretability_name, len_models
 
-        self.nb_models = nb_models - 1
         self.pd_all_models_results1 = pd.DataFrame(columns=columns_name_file1)
         self.pd_all_models_results2 = pd.DataFrame(columns=columns_name_file2)
         self.pd_all_models_results3 = pd.DataFrame(columns=columns_name_file3)
@@ -57,7 +53,7 @@ class store_experimental_informations(object):
         
         self.pd_results1 = self.pd_results1.append(pd.DataFrame([results1], columns=self.columns_name_file1))
         self.pd_results1.to_csv(self.filename + filename1, index=False)
-        
+
         if results2 is not None:
             self.pd_results2 = self.pd_results2.append(pd.DataFrame([results2], columns=self.columns_name_file2))
             self.pd_results2.to_csv(self.filename + filename2, index=False)
@@ -106,5 +102,4 @@ class store_experimental_informations(object):
             self.pd_all_models_multimodal = self.pd_all_models_multimodal.append(self.pd_multimodal)
             self.pd_multimodal.to_csv(self.filename + multimodal_filename, index=False)
             self.pd_all_models_multimodal.to_csv(filename_all + multimodal_filename, index=False)
-        
         
