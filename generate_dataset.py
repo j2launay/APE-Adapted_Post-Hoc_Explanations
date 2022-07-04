@@ -5,7 +5,7 @@ from sklearn.feature_extraction.text import CountVectorizer
 from anchors import utils
 import numpy as np
 
-def preparing_dataset(x, y, dataset_name):
+def preparing_dataset(x, y):
     # Split the data inside a test and a train set (70% train and 30% test)
     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.3, random_state=10)
     return x_train, x_test, y_train, y_test
