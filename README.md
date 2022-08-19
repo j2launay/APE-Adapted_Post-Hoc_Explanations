@@ -125,35 +125,35 @@ Regarding the classifiers, 6 black-box models from scikit-learn have been used. 
     </tr>
     <tr>
         <td>GB</td>
-        <td>GradientBoostingClassifier(n_estimators=20, learning_rate=1.0,random_state=1)</td>
+        <td>GradientBoostingClassifier(n_estimators=20, learning_rate=1.0, random_state=1)</td>
     </tr>
     <tr>
         <td>MLP</td>
-        <td>MLPClassifier(random_state=1)</td>
+        <td>MLPClassifier(random_state=1, activation='logistic')</td>
     </tr>
     <tr>
         <td>RF</td>
         <td>RandomForestClassifier(n_estimators=20, random_state=1)</td>
     </tr>
     <tr>
-        <td>VOT</td>
-        <td>VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('svm', svm.SVC(probability=True))], voting="soft")</td>
-    </tr>
-    <tr>
-        <td>RC</td>
-        <td>RidgeClassifier(random\_state=1)</td>
+        <td>VC</td>
+        <td>VotingClassifier(estimators=[('lr', LogisticRegression()), ('gnb', GaussianNB()), ('svm', svm.SVC(probability=True))], voting='soft')</td>
     </tr>
     <tr>
         <td>SVM</td>
-        <td>SVC(probability=True, random\_state=1)</td>
+        <td>SVC(probability=True, random_state=1, class_weight="balanced")</td>
+    </tr>
+    <tr>
+        <td>NB</td>
+        <td>GaussianNB()</td>
     </tr>
 </table>
-
+Table 3: Parameters to set the classifiers.  <br/><br/>
 
 ## Time comparison
 * Code to compare the runtime of Growing Spheres and Growing Fields is computed in time_closest.py
 
-The following Table 3 presents runtime performances for the closest counterfactual search of both algorithms: Growing Spheres and Growing Fields:
+The following Table 4 presents runtime performances for the closest counterfactual search of both algorithms: Growing Spheres and Growing Fields:
 
 <table>
     <tr>
@@ -269,6 +269,6 @@ The following Table 3 presents runtime performances for the closest counterfactu
         <td><strong>1.56</strong></td>
     </tr>
 </table>
-Table 3: Average time (second) over 100 instances per black box and dataset to find the closest counterfactual by Growing Spheres (GS) and Growing Fields (GF).<br/><br/>
+Table 4: Average time (second) over 100 instances per black box and dataset to find the closest counterfactual by Growing Spheres (GS) and Growing Fields (GF).<br/><br/>
 
 As mentioned in Section 4.5 of the paper, Growing Fields algorithm relies on the dataset distribution to sample artificial instances and generate the closest artificial counterfactual. Thus, we prove in this Table with numerical results that employing the mean and standard deviation of each feature to samples instances allows Growing Fields to increase the values of specific features with potentially high values to rise with a different speed -- i.e: salary compared to age.-- We notice that on average over 100 instances on 7 datasets and 5 black boxes, Growing Fields discover with a mean increase of 2 orders of magnitude the closest counterfactual faster than Growing Spheres. We also remark that generating a counterfactual with Growing Fields takes between 0.08 and 3.03 seconds, thus with few runtime variation while for Growing Sphere it varies between 1.53 and 725 seconds. Hence, Growing Fields allows to obtain faster more reliable counterfactual explanations than Growing Spheres.
